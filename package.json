@@ -1,14 +1,17 @@
 {
-    "name": "@entitixts/backend",
-    "version": "0.0.1",
+    "name": "entifix-ts-backend",
+    "version": "0.0.7",
     "author": "Herber Colop <herber16ext@gmail.com> (https://github.com/Herber230)",
     "repository": {
         "type": "git",
-        "url": "https://github.com/Herber230/entitixts-backend.git"
+        "url": "https://github.com/Herber230/entifix-ts-backend.git"
     },
-    "main": "index.js", 
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
     "license": "MIT",
-    "scripts": { },
+    "scripts": {
+        "compile": "tsc"
+    },
     "dependencies": {
         "body-parser": "^1.18.2",
         "cors": "^2.8.4",
