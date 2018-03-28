@@ -11,6 +11,8 @@ import { EMSession, EMSessionError } from './hc-core/express-mongoose/emSession/
 import { EMQueryWrapper } from './hc-core/express-mongoose/emUtilities/emUtilities';
 import { EMResponseWrapper } from './hc-core/express-mongoose/emWrapper/emWrapper';
 
+import { ResourceDetail, IResourceDetail, IResourceDetailModel } from './hc-core/base-entities/resource-detail';
+
 export {
     Entity,
     EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType,
@@ -21,5 +23,6 @@ export {
     EMRouterManager,
     EMSession, EMSessionError,
     EMQueryWrapper,
-    EMResponseWrapper
+    EMResponseWrapper,
+    ResourceDetail, IResourceDetail, IResourceDetailModel
 }

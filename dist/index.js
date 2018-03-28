@@ -29,4 +29,6 @@ const emUtilities_1 = require("./hc-core/express-mongoose/emUtilities/emUtilitie
 exports.EMQueryWrapper = emUtilities_1.EMQueryWrapper;
 const emWrapper_1 = require("./hc-core/express-mongoose/emWrapper/emWrapper");
 exports.EMResponseWrapper = emWrapper_1.EMResponseWrapper;
+const resource_detail_1 = require("./hc-core/base-entities/resource-detail");
+exports.ResourceDetail = resource_detail_1.ResourceDetail;
 //# sourceMappingURL=index.js.map

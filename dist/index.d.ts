@@ -8,4 +8,5 @@ import { EMRouterManager } from './hc-core/express-mongoose/emRouterManager/emRo
 import { EMSession, EMSessionError } from './hc-core/express-mongoose/emSession/emSession';
 import { EMQueryWrapper } from './hc-core/express-mongoose/emUtilities/emUtilities';
 import { EMResponseWrapper } from './hc-core/express-mongoose/emWrapper/emWrapper';
-export { Entity, EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, HcSession, Wrapper, WrappedError, WrappedCollection, WrappedObject, EMEntity, IBaseEntity, EntityDocument, EMEntityController, EMRouterManager, EMSession, EMSessionError, EMQueryWrapper, EMResponseWrapper };
+import { ResourceDetail, IResourceDetail, IResourceDetailModel } from './hc-core/base-entities/resource-detail';
+export { Entity, EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, HcSession, Wrapper, WrappedError, WrappedCollection, WrappedObject, EMEntity, IBaseEntity, EntityDocument, EMEntityController, EMRouterManager, EMSession, EMSessionError, EMQueryWrapper, EMResponseWrapper, ResourceDetail, IResourceDetail, IResourceDetailModel };
