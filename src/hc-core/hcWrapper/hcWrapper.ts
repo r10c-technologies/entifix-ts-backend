@@ -11,9 +11,11 @@ class Wrapper
 
     }
     
-    static wrapObject<T>(isLogicError: boolean, message : string, object : T) : WrappedObject<T>
+    static wrapObject<T>(isLogicError: boolean, message : string, object : T) : WrappedObject<T>;
+    static wrapObject<T>(isLogicError: boolean, message : string, object : T, isEntity : boolean ) : WrappedObject<T>;
+    static wrapObject<T>(isLogicError: boolean, message : string, object : T, isEntity? : boolean) : WrappedObject<T>
     {
-        return new WrappedObject(isLogicError, message, object);
+        return new WrappedObject(isLogicError, message, object, isEntity);
     }
 
     static wrapCollection<T>( isLogicError: boolean, message : string, objectCollection : Array<T>) : WrappedCollection<T>;
@@ -47,6 +49,8 @@ abstract class WrappedResponse
     private _isLogicError : boolean;
     private _message : string;
 
+    protected _dataType : string;
+
     //#endregion
 
     //#region Methods
@@ -61,7 +65,8 @@ abstract class WrappedResponse
     {
         return {
             isLogicError: this.isLogicError,
-            message: this.message
+            message: this.message,
+            info: { type: this._dataType }
         };
     };
 
@@ -93,11 +98,17 @@ class WrappedObject<T> extends WrappedResponse
 
     //#region Methods
 
-    constructor ( isLogicError : boolean, message : string, data : T )
+    constructor ( isLogicError : boolean, message : string, data : T );
+    constructor ( isLogicError : boolean, message : string, data : T , isEntity : boolean);
+    constructor ( isLogicError : boolean, message : string, data : T , isEntity? : boolean)
     {
         super(isLogicError, message);
-
         this._data = data;
+        
+        if (isEntity == true)
+            this._dataType = 'Entity';
+        else
+            this._dataType = 'Object';
     }
     
     serializeSimpleObject () : any
@@ -141,18 +152,21 @@ class WrappedCollection<T> extends WrappedResponse
         this._count = count;
         this._page = page;
         this._total = total;
+
+        this._dataType = 'Collection';
     }
     
     serializeSimpleObject () : any
     {
         var simpleObject = super.serializeSimpleObject();
         simpleObject.data = this.data;
-        simpleObject.total = this.total;
-        simpleObject.page = this.page;
-        simpleObject.count = this.count;
-
+        simpleObject.info.total = this.total;
+        simpleObject.info.page = this.page;
+        simpleObject.info.count = this.count;
+        
         return simpleObject
     }
+
     //#endregion
 
     //#region Accessors

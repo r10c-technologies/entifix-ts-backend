@@ -6,8 +6,8 @@ class Wrapper {
     //#region Methods
     constructor() {
     }
-    static wrapObject(isLogicError, message, object) {
-        return new WrappedObject(isLogicError, message, object);
+    static wrapObject(isLogicError, message, object, isEntity) {
+        return new WrappedObject(isLogicError, message, object, isEntity);
     }
     static wrapCollection(isLogicError, message, objectCollection, total, count, page) {
         objectCollection = objectCollection || [];
@@ -31,7 +31,8 @@ class WrappedResponse {
     serializeSimpleObject() {
         return {
             isLogicError: this.isLogicError,
-            message: this.message
+            message: this.message,
+            info: { type: this._dataType }
         };
     }
     ;
@@ -44,11 +45,13 @@ class WrappedResponse {
 }
 exports.WrappedResponse = WrappedResponse;
 class WrappedObject extends WrappedResponse {
-    //#endregion
-    //#region Methods
-    constructor(isLogicError, message, data) {
+    constructor(isLogicError, message, data, isEntity) {
         super(isLogicError, message);
         this._data = data;
+        if (isEntity == true)
+            this._dataType = 'Entity';
+        else
+            this._dataType = 'Object';
     }
     serializeSimpleObject() {
         var simpleObject = super.serializeSimpleObject();
@@ -70,13 +73,14 @@ class WrappedCollection extends WrappedResponse {
         this._count = count;
         this._page = page;
         this._total = total;
+        this._dataType = 'Collection';
     }
     serializeSimpleObject() {
         var simpleObject = super.serializeSimpleObject();
         simpleObject.data = this.data;
-        simpleObject.total = this.total;
-        simpleObject.page = this.page;
-        simpleObject.count = this.count;
+        simpleObject.info.total = this.total;
+        simpleObject.info.page = this.page;
+        simpleObject.info.count = this.count;
         return simpleObject;
     }
     //#endregion

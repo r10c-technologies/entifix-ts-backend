@@ -9,11 +9,11 @@ class EMResponseWrapper {
     }
     document(response, document, status) {
         response.statusCode = status || 200;
-        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, document).serializeSimpleObject());
+        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, document, true).serializeSimpleObject());
     }
     entity(response, entity, status) {
         response.statusCode = status || 200;
-        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, entity.serializeExposedAccessors()).serializeSimpleObject());
+        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, entity.serializeExposedAccessors(), true).serializeSimpleObject());
     }
     documentCollection(response, documents, status) {
         response.statusCode = status || 200;

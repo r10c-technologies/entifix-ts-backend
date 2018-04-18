@@ -25,7 +25,7 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
     document( response : express.Response, document : TDocument, status? : number)
     {
         response.statusCode = status || 200;
-        response.send( Wrapper.wrapObject(false, null, document).serializeSimpleObject() );
+        response.send( Wrapper.wrapObject(false, null, document, true).serializeSimpleObject() );
     }
 
     entity( response : express.Response, entity : TEntity);
@@ -33,7 +33,7 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
     entity( response : express.Response, entity : TEntity, status? : number)
     {
         response.statusCode = status || 200;
-        response.send( Wrapper.wrapObject(false, null, entity.serializeExposedAccessors() ).serializeSimpleObject() );
+        response.send( Wrapper.wrapObject(false, null, entity.serializeExposedAccessors(), true ).serializeSimpleObject() );
     }
 
     documentCollection( response : express.Response, documents : Array<TDocument>);
