@@ -16,7 +16,11 @@ declare class EMSession extends HcSession {
     createDocument<T extends EntityDocument>(entityName: string, document: T): Promise<T>;
     updateDocument<T extends EntityDocument>(entityName: string, document: T): Promise<T>;
     listDocuments<T extends EntityDocument>(entityName: string): Promise<Array<T>>;
-    listDocuments<T extends EntityDocument>(entityName: string, filters: any): Promise<Array<T>>;
+    listDocuments<T extends EntityDocument>(entityName: string, options: {
+        filters?: Array<EMSessionFilter>;
+        skip?: number;
+        take?: number;
+    }): Promise<Array<T>>;
     findDocument<T extends EntityDocument>(entityName: string, id: string): Promise<T>;
     deleteDocument<T extends EntityDocument>(entityName: string, document: T): Promise<void>;
     activateEntityInstance<TEntity extends EMEntity, TModel extends EntityDocument>(name: string, document: TModel): TEntity;
@@ -37,4 +41,9 @@ declare class EMSessionError {
     message: string;
     constructor(error: any, message: string);
 }
-export { EMSession, EMSessionError };
+interface EMSessionFilter {
+    property: string;
+    operator: string;
+    value: string;
+}
+export { EMSession, EMSessionError, EMSessionFilter };

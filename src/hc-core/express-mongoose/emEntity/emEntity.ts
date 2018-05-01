@@ -49,6 +49,7 @@ class EMEntity extends Entity
                 this._session.updateDocument(this.entityInfo.name, this._document).then(
                     documentUpdated => {
                         this._document = documentUpdated;
+                        this.onSaved();
                         resolve();
                     },
                     error => {
@@ -62,6 +63,7 @@ class EMEntity extends Entity
                 this._session.createDocument(this.entityInfo.name, this._document).then(
                     documentCreated => {
                         this._document = documentCreated;
+                        this.onSaved();
                         resolve();
                     },
                     error  =>{
@@ -80,7 +82,7 @@ class EMEntity extends Entity
             this.onDeleting();
 
             this.session.deleteDocument(this.entityInfo.name, this._document).then( 
-                ()=> resolve(),
+                ()=> { this.onDeleted; resolve(); },
                 error => reject(error)
             );
         });
@@ -94,6 +96,16 @@ class EMEntity extends Entity
     onDeleting() : void
     {
         
+    }
+
+    onSaved() : void
+    {
+
+    }
+
+    onDeleted() : void
+    {
+
     }
 
     static getSchema() : any

@@ -16,6 +16,8 @@ declare class EMEntity extends Entity {
     delete(): Promise<void>;
     onSaving(): void;
     onDeleting(): void;
+    onSaved(): void;
+    onDeleted(): void;
     static getSchema(): any;
     getDocument(): EntityDocument;
     readonly session: EMSession;

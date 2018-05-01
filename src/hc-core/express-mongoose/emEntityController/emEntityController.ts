@@ -1,5 +1,5 @@
 import mongoose = require('mongoose');
-import { EMSession } from '../emSession/emSession';
+import { EMSession, EMSessionFilter } from '../emSession/emSession';
 import { EMEntity, EntityDocument  } from '../emEntity/emEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import HttpStatus = require('http-status-codes');
@@ -34,15 +34,30 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     retrieve ( request : express.Request, response : express.Response) : void
     {
-        this._session.listDocuments<TDocument>(this._entityName).then(
-            results => {                
-                if (this._useEntities)
-                    this._responseWrapper.entityCollection(response, results.map( e => this._session.activateEntityInstance<TEntity, TDocument>(this._entityName, e) ));
-                else
-                    this._responseWrapper.documentCollection(response, results);
-            },
-            error => this._responseWrapper.sessionError(response, error)
-        );
+        //Manage query options. The method 'getQueryParams' has restrictions for allowed query params
+        let queryParams : Array<QueryParam>;
+        queryParams = this.getQueryParams(request);
+
+        let filterParam = queryParams.filter( qp => qp.paramName == 'filter');
+        let filters = filterParam.length > 0 ? filterParam.map( qp => <Filter>qp) : null; 
+        
+        let skipParam = queryParams.find( qp => qp.paramName == 'skip');
+        let skip = skipParam != null ? parseInt(skipParam.paramValue) : null;
+
+        let takeParam = queryParams.find( qp => qp.paramName == 'take');
+        let take = takeParam != null ? parseInt(takeParam.paramValue) : 100;
+
+        //Call the execution of mongo query in EMSession
+        this._session.listDocuments<TDocument>(this._entityName, { filters: filters, skip: skip, take: take } )
+                        .then(
+                                results => {                
+                                    if (this._useEntities)
+                                        this._responseWrapper.entityCollection(response, results.map( e => this._session.activateEntityInstance<TEntity, TDocument>(this._entityName, e) ));
+                                    else
+                                        this._responseWrapper.documentCollection(response, results);
+                                },
+                                error => this._responseWrapper.sessionError(response, error)
+                            );
     }
 
     retrieveById ( request : express.Request, response : express.Response ) : void
@@ -139,6 +154,47 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         this._router.delete( this._resourceName + '/:_id',(request, response, next) => this.delete(request, response ));
     }
 
+    private getQueryParams( request : express.Request ) : Array<QueryParam>
+    {
+        let queryParams = new Array<QueryParam>();
+
+        if (request.query != null)
+            for ( var qp in request.query)
+            {
+                switch (qp) 
+                {
+                    case 'filter':
+                        
+                        let addFilter = fv => queryParams.push( new Filter (fv) );
+                        let filterValue = request.query[qp];
+                        
+                        if (filterValue instanceof Array)
+                            filterValue.forEach( addFilter );
+                        else
+                            addFilter(request.query[qp]);
+
+                        break;
+
+                    //To implmente more query params
+                    //case <nameparam>:
+                    //...
+                    //...
+                    //  break;
+
+                    default:
+                    
+                        let allowedParams = [ 'skip', 'take' ] ; // Restriction to query params
+
+                        if (allowedParams.find( ap => ap == qp ) != null)
+                            queryParams.push( new QueryParam(qp, request.query[qp] ) );
+
+                        break;
+                }
+            }
+      
+        return queryParams;
+    }
+
     
 
     //#endregion
@@ -166,5 +222,91 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     //#endregion
 }
+
+class QueryParam 
+{
+    //#region Properties
+
+    protected _paramName : string;
+    protected _paramValue : string;
+
+    //#endregion
+
+    //#region Methods
+
+    constructor(paramName : string, paramValue : string )
+    {        
+        this._paramName = paramName;
+        this._paramValue = paramValue;
+    }
+
+    //#endregion
+
+    //#region Accessors
+
+    get paramName ()
+    { return this._paramName; }
+    set paramName (value)
+    { this._paramName = value; }
+    
+    get paramValue ()
+    { return this._paramValue; }
+    set paramValue (value)
+    { this._paramValue = value; }
+    
+
+    //#endregion
+}
+
+ 
+class Filter extends QueryParam implements EMSessionFilter
+{
+    //#region Properties
+
+    private _property : string;
+    private _operator : string;
+    private _value : string;
+
+    //#endregion
+
+    //#region Methods
+
+    constructor( paramValue : string)
+    {
+        super( 'filter', paramValue);
+        this.manageValue();
+    }
+
+    private manageValue() : void
+    {
+        let splitted = this._paramValue.split('|');
+
+        this._property = splitted[0];
+        this._operator = splitted[1];
+        this._value = splitted[2];
+    }
+
+    //#endregion
+
+    //#region Accessors
+
+    get property ()
+    { return this._property; }
+    set property (value)
+    { this._property = value; }
+    
+    get operator ()
+    { return this._operator; }
+    set operator (value)
+    { this._operator = value; }
+    
+    get value ()
+    { return this._value; }
+    set value (v)
+    { this._value = v; }
+    
+    //#endregion
+}
+
 
 export { EMEntityController }

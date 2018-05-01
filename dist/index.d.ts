@@ -5,8 +5,8 @@ import { Wrapper, WrappedError, WrappedCollection, WrappedObject } from './hc-co
 import { EMEntity, IBaseEntity, EntityDocument } from './hc-core/express-mongoose/emEntity/emEntity';
 import { EMEntityController } from './hc-core/express-mongoose/emEntityController/emEntityController';
 import { EMRouterManager } from './hc-core/express-mongoose/emRouterManager/emRouterManager';
-import { EMSession, EMSessionError } from './hc-core/express-mongoose/emSession/emSession';
+import { EMSession, EMSessionError, EMSessionFilter } from './hc-core/express-mongoose/emSession/emSession';
 import { EMQueryWrapper } from './hc-core/express-mongoose/emUtilities/emUtilities';
 import { EMResponseWrapper } from './hc-core/express-mongoose/emWrapper/emWrapper';
 import { ResourceDetail, IResourceDetail, IResourceDetailModel } from './hc-core/base-entities/resource-detail';
-export { Entity, EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, HcSession, Wrapper, WrappedError, WrappedCollection, WrappedObject, EMEntity, IBaseEntity, EntityDocument, EMEntityController, EMRouterManager, EMSession, EMSessionError, EMQueryWrapper, EMResponseWrapper, ResourceDetail, IResourceDetail, IResourceDetailModel };
+export { Entity, EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, HcSession, Wrapper, WrappedError, WrappedCollection, WrappedObject, EMEntity, IBaseEntity, EntityDocument, EMEntityController, EMRouterManager, EMSession, EMSessionError, EMSessionFilter, EMQueryWrapper, EMResponseWrapper, ResourceDetail, IResourceDetail, IResourceDetailModel };

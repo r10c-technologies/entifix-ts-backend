@@ -98,8 +98,8 @@ class EMSession extends HcSession
 
 
     listDocuments<T extends EntityDocument>(entityName: string) : Promise<Array<T>>;
-    listDocuments<T extends EntityDocument>(entityName: string, filters : any) : Promise<Array<T>>;
-    listDocuments<T extends EntityDocument>(entityName: string, filters? : any) : Promise<Array<T>>
+    listDocuments<T extends EntityDocument>(entityName: string, options : { filters? : Array<EMSessionFilter>, skip? : number, take? : number } ) : Promise<Array<T>>;
+    listDocuments<T extends EntityDocument>(entityName: string, options? : { filters? : Array<EMSessionFilter>, skip? : number, take? : number }) : Promise<Array<T>>
     {        
         return new Promise<Array<T>>((resolve, reject)=>{
 
@@ -110,12 +110,49 @@ class EMSession extends HcSession
                      reject( this.createError(error, 'Session: Error in retrive docments') );                
             };
 
-            if (!filters)
-                this.getModel<T>(entityName).where("deferredDeletion").ne(true).find(manageResult);
-            else
-                this.getModel<T>(entityName).where("deferredDeletion").ne(true).find(filters, manageResult);
+            //Prepare query
+            
+            let mongoFilters = { deferredDeletion: { $ne: true } };
+            let skip = options != null && options.skip != null ? options.skip : 0;
+            let take = options != null && options.take != null ? options.take : null;
 
-        });
+            if (options != null && options.filters != null)
+                options.filters.forEach( f => {
+                    switch (f.operator)
+                    {
+                        case '=':
+                        case 'eq':
+                            mongoFilters[f.property] = f.value;
+                            break;
+                        case '>=':
+                        case 'gte':
+                            mongoFilters[f.property] = { $gte: parseInt(f.value) };
+                            break;
+                        case '<=':
+                        case 'lte':
+                            mongoFilters[f.property] = { $lte: parseInt(f.value) };
+                            break;
+                        case '>':
+                        case 'gt':
+                            mongoFilters[f.property] = { $gt: parseInt(f.value) };
+                            break;
+                        case '<':
+                        case 'lt':
+                            mongoFilters[f.property] = { $lt: parseInt(f.value) };        
+                            break;
+                    }
+                })
+
+            let query = this.getModel<T>(entityName).find( mongoFilters );
+            
+            if (skip > 0)
+                query = query.skip(skip);
+            if (take != null)
+                query = query.limit(take);
+            
+            //EXECUTE QUERY
+            query.exec(manageResult);
+        }); 
     }
 
     findDocument<T extends EntityDocument>(entityName : string, id: string ) : Promise<T>
@@ -215,4 +252,11 @@ class EMSessionError
     { }
 }
 
-export { EMSession, EMSessionError }
+interface EMSessionFilter
+{
+    property: string,
+    operator: string,
+    value: string
+}
+
+export { EMSession, EMSessionError, EMSessionFilter }

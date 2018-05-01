@@ -25,6 +25,7 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
             if (this._document._id) {
                 this._session.updateDocument(this.entityInfo.name, this._document).then(documentUpdated => {
                     this._document = documentUpdated;
+                    this.onSaved();
                     resolve();
                 }, error => {
                     console.error('Erron on update a document insde an entity');
@@ -34,6 +35,7 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
             else {
                 this._session.createDocument(this.entityInfo.name, this._document).then(documentCreated => {
                     this._document = documentCreated;
+                    this.onSaved();
                     resolve();
                 }, error => {
                     console.error('Error on create a document inside an entity');
@@ -45,12 +47,16 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
     delete() {
         return new Promise((resolve, reject) => {
             this.onDeleting();
-            this.session.deleteDocument(this.entityInfo.name, this._document).then(() => resolve(), error => reject(error));
+            this.session.deleteDocument(this.entityInfo.name, this._document).then(() => { this.onDeleted; resolve(); }, error => reject(error));
         });
     }
     onSaving() {
     }
     onDeleting() {
+    }
+    onSaved() {
+    }
+    onDeleted() {
     }
     static getSchema() {
         return this.prototype.entityInfo.getCompleteSchema();

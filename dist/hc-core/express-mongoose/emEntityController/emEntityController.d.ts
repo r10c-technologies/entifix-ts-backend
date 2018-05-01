@@ -20,6 +20,7 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     private save(request, response);
     private constructRouter();
     protected defineRoutes(): void;
+    private getQueryParams(request);
     readonly entityName: string;
     readonly session: EMSession;
     useEntities: boolean;
