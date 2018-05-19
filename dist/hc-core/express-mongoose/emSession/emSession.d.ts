@@ -35,6 +35,8 @@ declare class EMSession extends HcSession {
     private manageDocumentCreation<TDocument>(document);
     private manageDocumentUpdate<TDocument>(document);
     private manageDocumentDeletion<TDocument>(document);
+    private getMongoFilters(filters?);
+    private parseMongoFilter(f);
 }
 declare class EMSessionError {
     error: any;
@@ -45,5 +47,10 @@ interface EMSessionFilter {
     property: string;
     operator: string;
     value: string;
+    filterType: FilterType;
 }
-export { EMSession, EMSessionError, EMSessionFilter };
+declare enum FilterType {
+    Fixed = 1,
+    Optional = 2,
+}
+export { EMSession, EMSessionError, EMSessionFilter, FilterType };

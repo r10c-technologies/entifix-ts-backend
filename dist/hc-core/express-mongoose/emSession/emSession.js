@@ -67,41 +67,19 @@ class EMSession extends hcSession_1.HcSession {
                 else
                     reject(this.createError(error, 'Session: Error in retrive docments'));
             };
-            //Prepare query
-            let mongoFilters = { deferredDeletion: { $ne: true } };
+            //PREPARE QUERY =====>>>>>           
             let skip = options != null && options.skip != null ? options.skip : 0;
             let take = options != null && options.take != null ? options.take : null;
-            if (options != null && options.filters != null)
-                options.filters.forEach(f => {
-                    switch (f.operator) {
-                        case '=':
-                        case 'eq':
-                            mongoFilters[f.property] = f.value;
-                            break;
-                        case '>=':
-                        case 'gte':
-                            mongoFilters[f.property] = { $gte: parseInt(f.value) };
-                            break;
-                        case '<=':
-                        case 'lte':
-                            mongoFilters[f.property] = { $lte: parseInt(f.value) };
-                            break;
-                        case '>':
-                        case 'gt':
-                            mongoFilters[f.property] = { $gt: parseInt(f.value) };
-                            break;
-                        case '<':
-                        case 'lt':
-                            mongoFilters[f.property] = { $lt: parseInt(f.value) };
-                            break;
-                    }
-                });
+            //Construct Mongo Filters
+            let mongoFilters = this.getMongoFilters(options != null && options.filters != null ? options.filters : null);
+            //Create Query
             let query = this.getModel(entityName).find(mongoFilters);
+            //Limit Query
             if (skip > 0)
                 query = query.skip(skip);
             if (take != null)
                 query = query.limit(take);
-            //EXECUTE QUERY
+            //EXECUTE QUERY =====>>>>>
             query.exec(manageResult);
         });
     }
@@ -160,6 +138,44 @@ class EMSession extends hcSession_1.HcSession {
         document.deleted = new Date();
         document.deferredDeletion = true;
     }
+    getMongoFilters(filters) {
+        let mongoFilters = { $and: [{ deferredDeletion: { $ne: true } }] };
+        if (filters != null && filters.length > 0) {
+            let fixedFilters = filters.filter(f => f.filterType == FilterType.Fixed);
+            if (fixedFilters.length > 0)
+                fixedFilters.forEach(f => mongoFilters.$and.push(this.parseMongoFilter(f)));
+            let optionalFilters = filters.filter(f => f.filterType == FilterType.Optional);
+            if (optionalFilters.length > 0)
+                mongoFilters.$and.push({ $or: optionalFilters.map(f => this.parseMongoFilter(f)) });
+        }
+        return mongoFilters;
+    }
+    parseMongoFilter(f) {
+        let singleMongoFilter = {};
+        switch (f.operator) {
+            case '=':
+            case 'eq':
+                singleMongoFilter[f.property] = f.value;
+                break;
+            case '>=':
+            case 'gte':
+                singleMongoFilter[f.property] = { $gte: parseInt(f.value) };
+                break;
+            case '<=':
+            case 'lte':
+                singleMongoFilter[f.property] = { $lte: parseInt(f.value) };
+                break;
+            case '>':
+            case 'gt':
+                singleMongoFilter[f.property] = { $gt: parseInt(f.value) };
+                break;
+            case '<':
+            case 'lt':
+                singleMongoFilter[f.property] = { $lt: parseInt(f.value) };
+                break;
+        }
+        return singleMongoFilter;
+    }
 }
 exports.EMSession = EMSession;
 class EMSessionError {
@@ -169,4 +185,10 @@ class EMSessionError {
     }
 }
 exports.EMSessionError = EMSessionError;
+var FilterType;
+(function (FilterType) {
+    FilterType[FilterType["Fixed"] = 1] = "Fixed";
+    FilterType[FilterType["Optional"] = 2] = "Optional";
+})(FilterType || (FilterType = {}));
+exports.FilterType = FilterType;
 //# sourceMappingURL=emSession.js.map

@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const emSession_1 = require("../emSession/emSession");
 const emWrapper_1 = require("../emWrapper/emWrapper");
 const HttpStatus = require("http-status-codes");
 const express = require("express");
@@ -92,13 +93,21 @@ class EMEntityController {
         if (request.query != null)
             for (var qp in request.query) {
                 switch (qp) {
-                    case 'filter':
-                        let addFilter = fv => queryParams.push(new Filter(fv));
-                        let filterValue = request.query[qp];
-                        if (filterValue instanceof Array)
-                            filterValue.forEach(addFilter);
+                    case 'fixed_filter':
+                        let addFixedFilter = fv => queryParams.push(new Filter(fv, emSession_1.FilterType.Fixed));
+                        let fixedFilterValue = request.query[qp];
+                        if (fixedFilterValue instanceof Array)
+                            fixedFilterValue.forEach(addFixedFilter);
                         else
-                            addFilter(request.query[qp]);
+                            addFixedFilter(request.query[qp]);
+                        break;
+                    case 'optional_filter':
+                        let addOptionalFilter = fv => queryParams.push(new Filter(fv, emSession_1.FilterType.Optional));
+                        let optionalFilterValue = request.query[qp];
+                        if (optionalFilterValue instanceof Array)
+                            optionalFilterValue.forEach(addOptionalFilter);
+                        else
+                            addOptionalFilter(request.query[qp]);
                         break;
                     //To implmente more query params
                     //case <nameparam>:
@@ -143,8 +152,9 @@ class QueryParam {
 class Filter extends QueryParam {
     //#endregion
     //#region Methods
-    constructor(paramValue) {
+    constructor(paramValue, filterType) {
         super('filter', paramValue);
+        this._filterType = filterType;
         this.manageValue();
     }
     manageValue() {
@@ -161,5 +171,7 @@ class Filter extends QueryParam {
     set operator(value) { this._operator = value; }
     get value() { return this._value; }
     set value(v) { this._value = v; }
+    get filterType() { return this._filterType; }
+    set filterType(value) { this._filterType = value; }
 }
 //# sourceMappingURL=emEntityController.js.map

@@ -1,5 +1,5 @@
 import mongoose = require('mongoose');
-import { EMSession, EMSessionFilter } from '../emSession/emSession';
+import { EMSession, EMSessionFilter, FilterType } from '../emSession/emSession';
 import { EMEntity, EntityDocument  } from '../emEntity/emEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import HttpStatus = require('http-status-codes');
@@ -163,15 +163,27 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             {
                 switch (qp) 
                 {
-                    case 'filter':
+                    case 'fixed_filter':
                         
-                        let addFilter = fv => queryParams.push( new Filter (fv) );
-                        let filterValue = request.query[qp];
+                        let addFixedFilter = fv => queryParams.push( new Filter (fv, FilterType.Fixed) );
+                        let fixedFilterValue = request.query[qp];
                         
-                        if (filterValue instanceof Array)
-                            filterValue.forEach( addFilter );
+                        if (fixedFilterValue instanceof Array)
+                            fixedFilterValue.forEach( addFixedFilter );
                         else
-                            addFilter(request.query[qp]);
+                            addFixedFilter(request.query[qp]);
+
+                        break;
+
+                    case 'optional_filter':
+
+                        let addOptionalFilter = fv => queryParams.push( new Filter (fv, FilterType.Optional) );
+                        let optionalFilterValue = request.query[qp];
+                        
+                        if (optionalFilterValue instanceof Array)
+                            optionalFilterValue.forEach( addOptionalFilter );
+                        else
+                            addOptionalFilter(request.query[qp]);
 
                         break;
 
@@ -266,14 +278,15 @@ class Filter extends QueryParam implements EMSessionFilter
     private _property : string;
     private _operator : string;
     private _value : string;
-
+    private _filterType: FilterType;
     //#endregion
 
     //#region Methods
 
-    constructor( paramValue : string)
+    constructor( paramValue : string, filterType: FilterType)
     {
         super( 'filter', paramValue);
+        this._filterType = filterType;
         this.manageValue();
     }
 
@@ -304,6 +317,11 @@ class Filter extends QueryParam implements EMSessionFilter
     { return this._value; }
     set value (v)
     { this._value = v; }
+    
+    get filterType ()
+    { return this._filterType; }
+    set filterType (value)
+    { this._filterType = value; }
     
     //#endregion
 }

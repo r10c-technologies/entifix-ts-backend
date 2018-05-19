@@ -110,47 +110,24 @@ class EMSession extends HcSession
                      reject( this.createError(error, 'Session: Error in retrive docments') );                
             };
 
-            //Prepare query
-            
-            let mongoFilters = { deferredDeletion: { $ne: true } };
+            //PREPARE QUERY =====>>>>>           
             let skip = options != null && options.skip != null ? options.skip : 0;
             let take = options != null && options.take != null ? options.take : null;
 
-            if (options != null && options.filters != null)
-                options.filters.forEach( f => {
-                    switch (f.operator)
-                    {
-                        case '=':
-                        case 'eq':
-                            mongoFilters[f.property] = f.value;
-                            break;
-                        case '>=':
-                        case 'gte':
-                            mongoFilters[f.property] = { $gte: parseInt(f.value) };
-                            break;
-                        case '<=':
-                        case 'lte':
-                            mongoFilters[f.property] = { $lte: parseInt(f.value) };
-                            break;
-                        case '>':
-                        case 'gt':
-                            mongoFilters[f.property] = { $gt: parseInt(f.value) };
-                            break;
-                        case '<':
-                        case 'lt':
-                            mongoFilters[f.property] = { $lt: parseInt(f.value) };        
-                            break;
-                    }
-                })
+            //Construct Mongo Filters
+            let mongoFilters = this.getMongoFilters(options != null && options.filters != null ? options.filters : null);
 
+            //Create Query
             let query = this.getModel<T>(entityName).find( mongoFilters );
             
+            //Limit Query
             if (skip > 0)
                 query = query.skip(skip);
             if (take != null)
                 query = query.limit(take);
             
-            //EXECUTE QUERY
+
+            //EXECUTE QUERY =====>>>>>
             query.exec(manageResult);
         }); 
     }
@@ -235,6 +212,56 @@ class EMSession extends HcSession
         document.deleted = new Date();
         document.deferredDeletion = true;
     }
+
+    private getMongoFilters(filters? : Array<EMSessionFilter>) : any
+    {
+        let mongoFilters : any = { $and: [ { deferredDeletion: { $ne: true } } ] };
+            
+        if (filters != null && filters.length > 0)
+        {
+            let fixedFilters = filters.filter( f => f.filterType == FilterType.Fixed );
+            if (fixedFilters.length > 0)
+                fixedFilters.forEach( f => mongoFilters.$and.push( this.parseMongoFilter(f) ) );
+            
+            let optionalFilters = filters.filter( f => f.filterType == FilterType.Optional );
+            if (optionalFilters.length > 0)
+                 mongoFilters.$and.push( { $or: optionalFilters.map( f => this.parseMongoFilter(f) ) }); 
+        }
+
+        return mongoFilters;
+    }
+
+    private parseMongoFilter( f : EMSessionFilter ) : any
+    {
+        let singleMongoFilter = {};
+
+        switch (f.operator)
+        {
+            case '=':
+            case 'eq':
+                singleMongoFilter[f.property] = f.value;
+                break;
+            case '>=':
+            case 'gte':
+                singleMongoFilter[f.property] = { $gte: parseInt(f.value) };
+                break;
+            case '<=':
+            case 'lte':
+                singleMongoFilter[f.property] = { $lte: parseInt(f.value) };
+                break;
+            case '>':
+            case 'gt':
+                singleMongoFilter[f.property] = { $gt: parseInt(f.value) };
+                break;
+            case '<':
+            case 'lt':
+                singleMongoFilter[f.property] = { $lt: parseInt(f.value) };        
+                break;
+        }
+
+        return singleMongoFilter;
+    }
+
     //#endregion
 
 
@@ -242,8 +269,6 @@ class EMSession extends HcSession
     //#region Accessors (Properties)
 
     //#endregion
-
-
 }
 
 class EMSessionError
@@ -256,7 +281,14 @@ interface EMSessionFilter
 {
     property: string,
     operator: string,
-    value: string
+    value: string,
+    filterType: FilterType
 }
 
-export { EMSession, EMSessionError, EMSessionFilter }
+enum FilterType
+{
+    Fixed = 1,
+    Optional = 2
+}
+
+export { EMSession, EMSessionError, EMSessionFilter, FilterType }
