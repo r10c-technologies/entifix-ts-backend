@@ -1,9 +1,10 @@
 import mongoose = require('mongoose');
-import { EMSession, EMSessionFilter, FilterType } from '../emSession/emSession';
+import { EMSession, EMSessionFilter, FilterType, SortType, EMSessionSort } from '../emSession/emSession';
 import { EMEntity, EntityDocument  } from '../emEntity/emEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import HttpStatus = require('http-status-codes');
 import express = require('express')
+import { REFUSED } from 'dns';
 
 class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEntity>
 {
@@ -34,13 +35,20 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     retrieve ( request : express.Request, response : express.Response) : void
     {
-        //Manage query options. The method 'getQueryParams' has restrictions for allowed query params
-        let queryParams : Array<QueryParam>;
-        queryParams = this.getQueryParams(request);
+        //Manage query params options
+        let queryParamsConversion = this.getQueryParams(request);
 
+        if(queryParamsConversion.error)
+            this.responseWrapper.error( response, queryParamsConversion.message, 400 );
+        
+        let queryParams = queryParamsConversion.queryParams;
+        
         let filterParam = queryParams.filter( qp => qp.paramName == 'filter');
         let filters = filterParam.length > 0 ? filterParam.map( qp => <Filter>qp) : null; 
         
+        let sortParam = queryParams.filter( qp => qp.paramName == 'sort');
+        let sorting = sortParam.length > 0 ? sortParam.map( qp => qp as Sort ) : null;
+
         let skipParam = queryParams.find( qp => qp.paramName == 'skip');
         let skip = skipParam != null ? parseInt(skipParam.paramValue) : null;
 
@@ -48,7 +56,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         let take = takeParam != null ? parseInt(takeParam.paramValue) : 100;
 
         //Call the execution of mongo query in EMSession
-        this._session.listDocuments<TDocument>(this._entityName, { filters: filters, skip: skip, take: take } )
+        this._session.listDocuments<TDocument>(this._entityName, { filters, skip, take, sorting } )
                         .then(
                                 results => {                
                                     if (this._useEntities)
@@ -154,7 +162,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         this._router.delete( this._resourceName + '/:_id',(request, response, next) => this.delete(request, response ));
     }
 
-    private getQueryParams( request : express.Request ) : Array<QueryParam>
+    private getQueryParams( request : express.Request ) : { error: boolean, queryParams?: Array<QueryParam>, message? : string }
     {
         let queryParams = new Array<QueryParam>();
 
@@ -164,27 +172,41 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                 switch (qp) 
                 {
                     case 'fixed_filter':
-                        
                         let addFixedFilter = fv => queryParams.push( new Filter (fv, FilterType.Fixed) );
                         let fixedFilterValue = request.query[qp];
                         
                         if (fixedFilterValue instanceof Array)
                             fixedFilterValue.forEach( addFixedFilter );
                         else
-                            addFixedFilter(request.query[qp]);
+                            addFixedFilter(fixedFilterValue);
 
                         break;
 
                     case 'optional_filter':
-
                         let addOptionalFilter = fv => queryParams.push( new Filter (fv, FilterType.Optional) );
                         let optionalFilterValue = request.query[qp];
                         
                         if (optionalFilterValue instanceof Array)
                             optionalFilterValue.forEach( addOptionalFilter );
                         else
-                            addOptionalFilter(request.query[qp]);
+                            addOptionalFilter(optionalFilterValue);
 
+                        break;
+
+                    case 'order_by':
+                        let addSorting = sv => queryParams.push( new Sort(sv) );
+                        let sortValue = request.query[qp];
+
+                        if (sortValue instanceof Array)
+                            sortValue.forEach( addSorting );
+                        else
+                            addSorting(sortValue);
+
+                        break;
+
+                    case 'skip':
+                    case 'take':
+                        queryParams.push( new QueryParam(qp, request.query[qp] ) );
                         break;
 
                     //To implmente more query params
@@ -194,17 +216,11 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                     //  break;
 
                     default:
-                    
-                        let allowedParams = [ 'skip', 'take' ] ; // Restriction to query params
-
-                        if (allowedParams.find( ap => ap == qp ) != null)
-                            queryParams.push( new QueryParam(qp, request.query[qp] ) );
-
-                        break;
+                        return { error: true, message: `Query param not allowed "${qp}"` };
                 }
             }
       
-        return queryParams;
+        return { error: false, queryParams }; 
     }
 
     
@@ -270,6 +286,51 @@ class QueryParam
     //#endregion
 }
 
+class Sort extends QueryParam implements EMSessionSort
+{
+    //#region Properties
+
+    private _property : string;
+    private _sortType: SortType;
+
+    //#endregion
+
+    //#region Methods
+
+    constructor( paramValue : string )
+    {
+        super( 'sort', paramValue);
+        this.manageValue();
+    }
+
+    private manageValue() : void
+    {
+        let splitted = this._paramValue.split('|');
+
+        this._property = splitted[0];
+        this._sortType = SortType.ascending; // Default value
+
+        if (splitted[1] == 'desc')
+            this._sortType = SortType.descending;
+    }
+
+    //#endregion
+
+    //#region Accessors
+
+    get property ()
+    { return this._property; }
+    set property (value)
+    { this._property = value; }
+    
+    get sortType ()
+    { return this._sortType; }
+    set sortType (value)
+    { this._sortType = value; }
+    
+    //#endregion
+
+}
  
 class Filter extends QueryParam implements EMSessionFilter
 {

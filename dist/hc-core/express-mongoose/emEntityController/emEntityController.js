@@ -15,17 +15,21 @@ class EMEntityController {
         this.constructRouter();
     }
     retrieve(request, response) {
-        //Manage query options. The method 'getQueryParams' has restrictions for allowed query params
-        let queryParams;
-        queryParams = this.getQueryParams(request);
+        //Manage query params options
+        let queryParamsConversion = this.getQueryParams(request);
+        if (queryParamsConversion.error)
+            this.responseWrapper.error(response, queryParamsConversion.message, 400);
+        let queryParams = queryParamsConversion.queryParams;
         let filterParam = queryParams.filter(qp => qp.paramName == 'filter');
         let filters = filterParam.length > 0 ? filterParam.map(qp => qp) : null;
+        let sortParam = queryParams.filter(qp => qp.paramName == 'sort');
+        let sorting = sortParam.length > 0 ? sortParam.map(qp => qp) : null;
         let skipParam = queryParams.find(qp => qp.paramName == 'skip');
         let skip = skipParam != null ? parseInt(skipParam.paramValue) : null;
         let takeParam = queryParams.find(qp => qp.paramName == 'take');
         let take = takeParam != null ? parseInt(takeParam.paramValue) : 100;
         //Call the execution of mongo query in EMSession
-        this._session.listDocuments(this._entityName, { filters: filters, skip: skip, take: take })
+        this._session.listDocuments(this._entityName, { filters, skip, take, sorting })
             .then(results => {
             if (this._useEntities)
                 this._responseWrapper.entityCollection(response, results.map(e => this._session.activateEntityInstance(this._entityName, e)));
@@ -99,7 +103,7 @@ class EMEntityController {
                         if (fixedFilterValue instanceof Array)
                             fixedFilterValue.forEach(addFixedFilter);
                         else
-                            addFixedFilter(request.query[qp]);
+                            addFixedFilter(fixedFilterValue);
                         break;
                     case 'optional_filter':
                         let addOptionalFilter = fv => queryParams.push(new Filter(fv, emSession_1.FilterType.Optional));
@@ -107,7 +111,19 @@ class EMEntityController {
                         if (optionalFilterValue instanceof Array)
                             optionalFilterValue.forEach(addOptionalFilter);
                         else
-                            addOptionalFilter(request.query[qp]);
+                            addOptionalFilter(optionalFilterValue);
+                        break;
+                    case 'order_by':
+                        let addSorting = sv => queryParams.push(new Sort(sv));
+                        let sortValue = request.query[qp];
+                        if (sortValue instanceof Array)
+                            sortValue.forEach(addSorting);
+                        else
+                            addSorting(sortValue);
+                        break;
+                    case 'skip':
+                    case 'take':
+                        queryParams.push(new QueryParam(qp, request.query[qp]));
                         break;
                     //To implmente more query params
                     //case <nameparam>:
@@ -115,13 +131,10 @@ class EMEntityController {
                     //...
                     //  break;
                     default:
-                        let allowedParams = ['skip', 'take']; // Restriction to query params
-                        if (allowedParams.find(ap => ap == qp) != null)
-                            queryParams.push(new QueryParam(qp, request.query[qp]));
-                        break;
+                        return { error: true, message: `Query param not allowed "${qp}"` };
                 }
             }
-        return queryParams;
+        return { error: false, queryParams };
     }
     //#endregion
     //#region Accessors (Properties)
@@ -148,6 +161,27 @@ class QueryParam {
     set paramName(value) { this._paramName = value; }
     get paramValue() { return this._paramValue; }
     set paramValue(value) { this._paramValue = value; }
+}
+class Sort extends QueryParam {
+    //#endregion
+    //#region Methods
+    constructor(paramValue) {
+        super('sort', paramValue);
+        this.manageValue();
+    }
+    manageValue() {
+        let splitted = this._paramValue.split('|');
+        this._property = splitted[0];
+        this._sortType = emSession_1.SortType.ascending; // Default value
+        if (splitted[1] == 'desc')
+            this._sortType = emSession_1.SortType.descending;
+    }
+    //#endregion
+    //#region Accessors
+    get property() { return this._property; }
+    set property(value) { this._property = value; }
+    get sortType() { return this._sortType; }
+    set sortType(value) { this._sortType = value; }
 }
 class Filter extends QueryParam {
     //#endregion

@@ -20,6 +20,7 @@ declare class EMSession extends HcSession {
         filters?: Array<EMSessionFilter>;
         skip?: number;
         take?: number;
+        sorting?: Array<EMSessionSort>;
     }): Promise<Array<T>>;
     findDocument<T extends EntityDocument>(entityName: string, id: string): Promise<T>;
     deleteDocument<T extends EntityDocument>(entityName: string, document: T): Promise<void>;
@@ -35,8 +36,9 @@ declare class EMSession extends HcSession {
     private manageDocumentCreation<TDocument>(document);
     private manageDocumentUpdate<TDocument>(document);
     private manageDocumentDeletion<TDocument>(document);
-    private getMongoFilters(filters?);
-    private parseMongoFilter(f);
+    private resolveToMongoFilters(entityName, filters?);
+    private parseMongoFilter(f, propertyType);
+    private resolveToMongoSorting(entityName, sorting?);
 }
 declare class EMSessionError {
     error: any;
@@ -49,8 +51,16 @@ interface EMSessionFilter {
     value: string;
     filterType: FilterType;
 }
+interface EMSessionSort {
+    property: string;
+    sortType: SortType;
+}
 declare enum FilterType {
     Fixed = 1,
     Optional = 2,
 }
-export { EMSession, EMSessionError, EMSessionFilter, FilterType };
+declare enum SortType {
+    ascending = 1,
+    descending = 2,
+}
+export { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort };

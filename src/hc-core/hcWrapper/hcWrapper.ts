@@ -219,6 +219,7 @@ class WrappedError
             errorObject: this.errorObject
         };
     }
+    
     //#endregion
 
     //#region Accessors

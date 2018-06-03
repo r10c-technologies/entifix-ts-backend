@@ -52,6 +52,11 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
         response.send( Wrapper.wrapCollection(false, null, entities.map(a => a.serializeExposedAccessors()) ).serializeSimpleObject() );
     }
 
+    error( response: express.Response, message: string, code: number )
+    {
+        response.statusCode = code;
+        response.send( Wrapper.wrapError(message, null).serializeSimpleObject() );
+    } 
 
     sessionError( response: express.Response, error : any)
     {
@@ -59,10 +64,17 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
         if (error instanceof EMSessionError)
         {
             let e = <EMSessionError>error;
-            response.send( Wrapper.wrapError(e.message, e.error).serializeSimpleObject() );   
+            let errorMessage : string;
+            
+            if (e.error)
+                errorMessage = e.error.name + ' - ' + e.error.message;
+            else
+                errorMessage = e.message;
+
+            response.send( Wrapper.wrapError(errorMessage, e.error).serializeSimpleObject() );   
         }
         else
-            response.send('INTERNAL UNHANDLED ERROR');
+            response.send( 'INTERNAL UNHANDLED ERROR');
     }
 
     logicError ( response: express.Response, message: string);

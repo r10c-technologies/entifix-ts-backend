@@ -14,6 +14,7 @@ declare class EMResponseWrapper<TDocument extends mongoose.Document, TEntity ext
     documentCollection(response: express.Response, documents: Array<TDocument>, status: number): any;
     entityCollection(response: express.Response, entities: Array<TEntity>): any;
     entityCollection(response: express.Response, entities: Array<TEntity>, status: number): any;
+    error(response: express.Response, message: string, code: number): void;
     sessionError(response: express.Response, error: any): void;
     logicError(response: express.Response, message: string): any;
     logicError(response: express.Response, message: string, errorDetails: any): any;

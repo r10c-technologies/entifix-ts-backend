@@ -4,7 +4,8 @@ import { EMQueryWrapper } from '../emUtilities/emUtilities';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { MongooseDocument } from 'mongoose';
 import { Entity } from '../../hcEntity/hcEntity';
-import { IMetaDataInfo, EntityInfo, PersistenceType} from '../../hcMetaData/hcMetaData';
+import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo} from '../../hcMetaData/hcMetaData';
+import { type } from 'os';
  
 class EMSession extends HcSession
 {
@@ -98,27 +99,31 @@ class EMSession extends HcSession
 
 
     listDocuments<T extends EntityDocument>(entityName: string) : Promise<Array<T>>;
-    listDocuments<T extends EntityDocument>(entityName: string, options : { filters? : Array<EMSessionFilter>, skip? : number, take? : number } ) : Promise<Array<T>>;
-    listDocuments<T extends EntityDocument>(entityName: string, options? : { filters? : Array<EMSessionFilter>, skip? : number, take? : number }) : Promise<Array<T>>
+    listDocuments<T extends EntityDocument>(entityName: string, options : { filters? : Array<EMSessionFilter>, skip? : number, take? : number, sorting? : Array<EMSessionSort> } ) : Promise<Array<T>>;
+    listDocuments<T extends EntityDocument>(entityName: string, options? : { filters? : Array<EMSessionFilter>, skip? : number, take? : number, sorting? : Array<EMSessionSort> } ) : Promise<Array<T>>
     {        
         return new Promise<Array<T>>((resolve, reject)=>{
-
-            let manageResult = ( error, result ) => {
-                if (!error)
-                    resolve(result);   
-                else
-                     reject( this.createError(error, 'Session: Error in retrive docments') );                
-            };
 
             //PREPARE QUERY =====>>>>>           
             let skip = options != null && options.skip != null ? options.skip : 0;
             let take = options != null && options.take != null ? options.take : null;
 
-            //Construct Mongo Filters
-            let mongoFilters = this.getMongoFilters(options != null && options.filters != null ? options.filters : null);
+            //Construct Mongo parameters
+            let mongoFilters = this.resolveToMongoFilters(entityName, options != null && options.filters != null ? options.filters : null);
+            if (mongoFilters.error)
+                reject( this.createError( null, mongoFilters.message ));
+            
+            let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
+            if ( mongoSorting != null && mongoSorting.error)
+                reject( this.createError( null, mongoSorting.message ));
+            
 
             //Create Query
-            let query = this.getModel<T>(entityName).find( mongoFilters );
+            let query = this.getModel<T>(entityName).find( mongoFilters.filters );
+
+            //Order Query
+            if (mongoSorting != null && mongoSorting.sorting != null)
+                query = query.sort( mongoSorting.sorting );
             
             //Limit Query
             if (skip > 0)
@@ -126,9 +131,13 @@ class EMSession extends HcSession
             if (take != null)
                 query = query.limit(take);
             
-
             //EXECUTE QUERY =====>>>>>
-            query.exec(manageResult);
+            query.exec(( error, result ) => {
+                if (!error)
+                    resolve(result);   
+                else
+                     reject( this.createError(error, 'Session: Error in retrive docments') );                
+            });
         }); 
     }
 
@@ -213,53 +222,159 @@ class EMSession extends HcSession
         document.deferredDeletion = true;
     }
 
-    private getMongoFilters(filters? : Array<EMSessionFilter>) : any
-    {
-        let mongoFilters : any = { $and: [ { deferredDeletion: { $ne: true } } ] };
+    private resolveToMongoFilters(entityName : string, filters? : Array<EMSessionFilter>) : { error : boolean, filters?: any, message? : string }
+    {        
+        let info : EntityInfo = this.entitiesInfo.find( f => f.name == entityName).info;
+        let persistentMembers = info.getAllMembers().filter( m => (m instanceof AccessorInfo) && m.schema != null ).map( m => { return  { property: m.name, type: m.type } } );
+
+        //Filter for defferred deletion.
+        let mongoFilters : any;
             
+        // Convert all the fixed and optional filters in Mongoose Filetrs
         if (filters != null && filters.length > 0)
         {
-            let fixedFilters = filters.filter( f => f.filterType == FilterType.Fixed );
-            if (fixedFilters.length > 0)
-                fixedFilters.forEach( f => mongoFilters.$and.push( this.parseMongoFilter(f) ) );
-            
-            let optionalFilters = filters.filter( f => f.filterType == FilterType.Optional );
-            if (optionalFilters.length > 0)
-                 mongoFilters.$and.push( { $or: optionalFilters.map( f => this.parseMongoFilter(f) ) }); 
-        }
+            //mongoFilters = { $and : [ { deferredDeletion: { $in: [null, false] } } ] };  
+            mongoFilters = { $and : [ { deferredDeletion: false } ] };
+            let opFilters = [];
+            let errFilters : string;
 
-        return mongoFilters;
+            //get all filters
+            for (let filter of filters)
+            {
+                let pMember = persistentMembers.find( pm => pm.property == filter.property);
+                if (pMember == null)
+                {
+                    errFilters = 'Attempt to filter by a non persistent member';
+                    break;
+                }
+                
+                //Single mongo filter
+                let mongoFilterConversion = this.parseMongoFilter( filter, pMember.type );
+                if ( mongoFilterConversion.err)
+                {   
+                    errFilters = mongoFilterConversion.message;
+                    break;
+                }
+
+                if (filter.filterType == FilterType.Fixed)
+                    mongoFilters.$and.push( mongoFilterConversion.value );   
+                
+                if (filter.filterType == FilterType.Optional)
+                    opFilters.push( mongoFilterConversion.value );
+            }
+
+            if( opFilters.length > 0)
+            {
+                if (opFilters.length > 1)
+                    mongoFilters.$and.push( { $or: opFilters });
+                else
+                    mongoFilters.$and.push( opFilters[0] );
+            }
+                
+            if (errFilters != null)
+                return { error: true, message: errFilters }; 
+        }
+        else
+        {
+            //mongoFilters = { deferredDeletion: { $in: [null, false] }  };
+            mongoFilters = { deferredDeletion: false };
+        }
+               
+        
+        return { error: false, filters: mongoFilters };
     }
 
-    private parseMongoFilter( f : EMSessionFilter ) : any
-    {
-        let singleMongoFilter = {};
-
-        switch (f.operator)
+    private parseMongoFilter( f : EMSessionFilter, propertyType : string ) : { err : boolean, value?: any, message? : string }
+    {           
+        //Check and convert the filter value 
+        let valueFilter : any; //value to mongo query
+        switch(propertyType)
         {
-            case '=':
-            case 'eq':
-                singleMongoFilter[f.property] = f.value;
+            case 'Number':
+                if ( isNaN(f.value as any) )
+                    return { err: true, message: `The value for a filter in the property "${f.property}" must be a number` };
+                else
+                    valueFilter = parseInt(f.value);
                 break;
-            case '>=':
-            case 'gte':
-                singleMongoFilter[f.property] = { $gte: parseInt(f.value) };
-                break;
-            case '<=':
-            case 'lte':
-                singleMongoFilter[f.property] = { $lte: parseInt(f.value) };
-                break;
-            case '>':
-            case 'gt':
-                singleMongoFilter[f.property] = { $gt: parseInt(f.value) };
-                break;
-            case '<':
-            case 'lt':
-                singleMongoFilter[f.property] = { $lt: parseInt(f.value) };        
-                break;
-        }
 
-        return singleMongoFilter;
+            default:
+                valueFilter = f.value;
+        };
+
+        //Set the table of conversions for filters and mongo filters 
+        let configConvesions : Array<{ operators : Array<string>, mongoOperator?: string, filterTypes?: Array<string>, valueModifier? : (v) => any }> =
+        [
+            { operators: ['=', 'eq'] },
+            { operators: ['<>', 'ne'], mongoOperator: '$ne' },
+            { operators: ['>=', 'gte'], mongoOperator: '$gte', filterTypes: ['Number', 'Date'],  },
+            { operators: ['<=', 'lte'], mongoOperator: '$lte', filterTypes: ['Number', 'Date'] },
+            { operators: ['>', 'gt'], mongoOperator: '$gt', filterTypes: ['Number', 'Date'] },
+            { operators: ['<', 'lt'], mongoOperator: '$lt', filterTypes: ['Number', 'Date'] },
+            { operators: ['lk'], mongoOperator: '$regex', filterTypes: ['String'], valueModifier: (v) => { return  '.*' + v + '.*'} }
+        ];
+
+        //Make the conversion 
+        let confIndex = -1;
+        
+        let conf = configConvesions.find( cc => cc.operators.find( o  => o == f.operator) != null);
+        if (conf != null)
+        {
+            valueFilter = conf.valueModifier != null ? conf.valueModifier(valueFilter) : valueFilter;
+
+            if ( conf.filterTypes == null || ( conf.filterTypes != null && conf.filterTypes.find( at => at == propertyType ) != null) ) 
+            {
+                let value : any;
+
+                if (conf.mongoOperator)
+                    value = { [f.property] : { [conf.mongoOperator ] : valueFilter} };
+                else
+                    value = { [f.property] : valueFilter };
+                    
+                return { err: false, value };
+            }                
+            else
+                return { err: true, message: `It is not possible to apply the the operator "${f.operator}" to the property "${f.property}" because it is of type "${propertyType}"` };
+        }
+        else
+            return { err: true, message: `Not valid operator ${f.operator} for filtering`};
+    }
+
+    private resolveToMongoSorting (entityName : string, sorting? : Array<EMSessionSort>) : { error : boolean, sorting?: any, message? : string }
+    {        
+        if (sorting != null && sorting.length > 0)
+        {
+            let info : EntityInfo = this.entitiesInfo.find( f => f.name == entityName).info;
+            let persistentMembers = info.getAllMembers().filter( m => (m instanceof AccessorInfo) && m.schema != null ).map( m => { return  { property: m.name, type: m.type } } );
+
+            let errSorting : string;
+            let mongoSorting : any = {};
+
+            for (let sort of sorting)
+            {
+                let pMember = persistentMembers.find( pm => pm.property == sort.property);
+                if (pMember == null)
+                {
+                    errSorting = 'Attempt to sort by a non persistent member';
+                    break;
+                }
+                
+                let mst : string;
+                if (sort.sortType == SortType.ascending)
+                    mst = 'asc';
+                if (sort.sortType == SortType.descending)
+                    mst = 'desc'
+
+                mongoSorting[sort.property] = mst; 
+            }
+
+            if (errSorting != null)
+                return { error: true, message: errSorting };
+                
+            return { error: false, sorting: mongoSorting };
+        }
+        else
+            return null;
+        
     }
 
     //#endregion
@@ -285,10 +400,22 @@ interface EMSessionFilter
     filterType: FilterType
 }
 
+interface EMSessionSort
+{
+    property: string,
+    sortType : SortType
+}
+
 enum FilterType
 {
     Fixed = 1,
     Optional = 2
 }
 
-export { EMSession, EMSessionError, EMSessionFilter, FilterType }
+enum SortType
+{
+    ascending = 1,
+    descending = 2
+}
+
+export { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort }

@@ -23,11 +23,20 @@ class EMResponseWrapper {
         response.statusCode = status || 200;
         response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, entities.map(a => a.serializeExposedAccessors())).serializeSimpleObject());
     }
+    error(response, message, code) {
+        response.statusCode = code;
+        response.send(hcWrapper_1.Wrapper.wrapError(message, null).serializeSimpleObject());
+    }
     sessionError(response, error) {
         response.statusCode = 500;
         if (error instanceof emSession_1.EMSessionError) {
             let e = error;
-            response.send(hcWrapper_1.Wrapper.wrapError(e.message, e.error).serializeSimpleObject());
+            let errorMessage;
+            if (e.error)
+                errorMessage = e.error.name + ' - ' + e.error.message;
+            else
+                errorMessage = e.message;
+            response.send(hcWrapper_1.Wrapper.wrapError(errorMessage, e.error).serializeSimpleObject());
         }
         else
             response.send('INTERNAL UNHANDLED ERROR');
