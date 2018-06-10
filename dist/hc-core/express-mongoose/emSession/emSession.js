@@ -258,6 +258,19 @@ class EMSession extends hcSession_1.HcSession {
         else
             return null;
     }
+    throwException(message) {
+        if (this._devMode)
+            console.error('DEV-MODE: ' + message);
+        else
+            throw new Error(message);
+    }
+    throwInfo(message, warnDevMode) {
+        warnDevMode = warnDevMode != null ? warnDevMode : true;
+        if (warnDevMode && this._devMode)
+            console.warn('DEV-MODE: ' + message);
+        else
+            console.info(message);
+    }
 }
 exports.EMSession = EMSession;
 class EMSessionError {

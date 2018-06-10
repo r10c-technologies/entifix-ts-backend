@@ -39,6 +39,9 @@ declare class EMSession extends HcSession {
     private resolveToMongoFilters(entityName, filters?);
     private parseMongoFilter(f, propertyType);
     private resolveToMongoSorting(entityName, sorting?);
+    throwException(message: string): void;
+    throwInfo(message: string): void;
+    throwInfo(message: string, warnDevMode: boolean): void;
 }
 declare class EMSessionError {
     error: any;

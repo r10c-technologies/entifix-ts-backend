@@ -18,6 +18,8 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
         this._session = session;
         if (document)
             this._document = document;
+        else
+            this._document = {};
     }
     save() {
         return new Promise((resolve, reject) => {

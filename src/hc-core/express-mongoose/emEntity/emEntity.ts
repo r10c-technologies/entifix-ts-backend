@@ -36,6 +36,8 @@ class EMEntity extends Entity
         
         if ( document )
             this._document = document;    
+        else
+            this._document = {} as any;
     }
 
     save() : Promise<void>

@@ -377,6 +377,27 @@ class EMSession extends HcSession
         
     }
 
+    
+    throwException (message : string) : void
+    {
+        if (this._devMode)
+            console.error('DEV-MODE: ' + message);
+        else
+            throw new Error(message);
+    }
+    
+    throwInfo(message : string) : void;
+    throwInfo(message : string, warnDevMode : boolean) : void;
+    throwInfo(message : string, warnDevMode? : boolean) : void
+    {
+        warnDevMode = warnDevMode != null ? warnDevMode : true;
+
+        if (warnDevMode && this._devMode)
+            console.warn('DEV-MODE: ' + message);
+        else
+            console.info(message);
+    }
+
     //#endregion
 
 
