@@ -1,10 +1,10 @@
 import mongoose = require('mongoose');
 import { EMSession, EMSessionFilter, FilterType, SortType, EMSessionSort } from '../emSession/emSession';
 import { EMEntity, EntityDocument  } from '../emEntity/emEntity';
+import { EntityMovementFlow } from '../../hcEntity/hcEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import HttpStatus = require('http-status-codes');
 import express = require('express')
-import { REFUSED } from 'dns';
 
 class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEntity>
 {
@@ -122,7 +122,14 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                 if (this._useEntities)
                 {
                     let entity = this._session.activateEntityInstance<TEntity, TDocument>(this._entityName, result);
-                    entity.delete().then( responseOk, responseError);
+                    entity.delete().then( 
+                        movFlow => { 
+                            if (movFlow.continue)
+                                responseOk();
+                            else
+                                this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
+                        }
+                        , responseError);
                 }
                 else
                     this._session.deleteDocument(this.entityName, result).then( responseOk, responseError );        
@@ -138,7 +145,12 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         let entity = this._session.activateEntityInstance<TEntity,TDocument>(this._entityName, <TDocument>request.body);
 
         entity.save().then(
-            result => this._responseWrapper.entity (response, entity),
+            movFlow => {
+                if (movFlow.continue)
+                    this._responseWrapper.entity(response, entity);
+                else
+                    this._responseWrapper.logicError(response, movFlow.message, movFlow.details);         
+            },
             error => this._responseWrapper.sessionError(response, error)
         );
     }

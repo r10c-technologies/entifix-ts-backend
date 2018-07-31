@@ -1,5 +1,5 @@
 
-import { Entity } from './hc-core/hcEntity/hcEntity';
+import { Entity, EntityMovementFlow } from './hc-core/hcEntity/hcEntity';
 import { EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType } from './hc-core/hcMetaData/hcMetaData';
 import { HcSession } from './hc-core/hcSession/hcSession';
 import { Wrapper, WrappedError, WrappedCollection, WrappedObject } from './hc-core/hcWrapper/hcWrapper';
@@ -14,7 +14,7 @@ import { EMResponseWrapper } from './hc-core/express-mongoose/emWrapper/emWrappe
 import { ResourceDetail, IResourceDetail, IResourceDetailModel } from './hc-core/base-entities/resource-detail';
 
 export {
-    Entity,
+    Entity,EntityMovementFlow,
     EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType,
     HcSession,
     Wrapper, WrappedError, WrappedCollection, WrappedObject,

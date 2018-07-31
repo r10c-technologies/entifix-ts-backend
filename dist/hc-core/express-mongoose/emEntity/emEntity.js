@@ -23,38 +23,56 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
     }
     save() {
         return new Promise((resolve, reject) => {
-            this.onSaving();
-            if (this._document._id) {
-                this._session.updateDocument(this.entityInfo.name, this._document).then(documentUpdated => {
-                    this._document = documentUpdated;
-                    this.onSaved();
-                    resolve();
-                }, error => {
-                    console.error('Erron on update a document insde an entity');
-                    reject(error);
-                });
-            }
-            else {
-                this._session.createDocument(this.entityInfo.name, this._document).then(documentCreated => {
-                    this._document = documentCreated;
-                    this.onSaved();
-                    resolve();
-                }, error => {
-                    console.error('Error on create a document inside an entity');
-                    reject(error);
-                });
-            }
+            this.onSaving().then(movFlow => {
+                if (movFlow.continue) {
+                    if (this._document._id) {
+                        this._session.updateDocument(this.entityInfo.name, this._document).then(documentUpdated => {
+                            this._document = documentUpdated;
+                            this.onSaved();
+                            resolve({ continue: true });
+                        }, error => {
+                            console.error('Erron on update a document insde an entity');
+                            reject(error);
+                        });
+                    }
+                    else {
+                        this._session.createDocument(this.entityInfo.name, this._document).then(documentCreated => {
+                            this._document = documentCreated;
+                            this.onSaved();
+                            resolve({ continue: true });
+                        }, error => {
+                            console.error('Error on create a document inside an entity');
+                            reject(error);
+                        });
+                    }
+                }
+                else
+                    resolve(movFlow);
+            }, reject // Reject passed
+            );
         });
     }
     delete() {
         return new Promise((resolve, reject) => {
-            this.onDeleting();
-            this.session.deleteDocument(this.entityInfo.name, this._document).then(() => { this.onDeleted; resolve(); }, error => reject(error));
+            this.onDeleting().then(movFlow => {
+                if (movFlow.continue) {
+                    this.session.deleteDocument(this.entityInfo.name, this._document).then(() => { this.onDeleted(); resolve({ continue: true }); }, error => reject(error));
+                }
+                else
+                    resolve(movFlow);
+            }, reject // Reject passed
+            );
         });
     }
     onSaving() {
+        return new Promise((resolve, reject) => {
+            resolve({ continue: true });
+        });
     }
     onDeleting() {
+        return new Promise((resolve, reject) => {
+            resolve({ continue: true });
+        });
     }
     onSaved() {
     }
@@ -76,8 +94,8 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
     set modified(value) { this._document.modified = value; }
     get deleted() { return this._document.deleted; }
     set deleted(value) { this._document.deleted = value; }
-    get _id() { return this._document._id; }
-    get __v() { return this._document.__v; }
+    get id() { return this._document._id; }
+    get v() { return this._document.__v; }
     get deferredDeletion() { return this._document.deferredDeletion; }
     set deferredDeletion(value) { this.deferredDeletion = value; }
 };
@@ -100,12 +118,12 @@ __decorate([
     hcMetaData_1.DefinedAccessor({ exposed: true, persistenceType: hcMetaData_1.PersistenceType.Auto }),
     __metadata("design:type", Object),
     __metadata("design:paramtypes", [])
-], EMEntity.prototype, "_id", null);
+], EMEntity.prototype, "id", null);
 __decorate([
     hcMetaData_1.DefinedAccessor({ exposed: true, persistenceType: hcMetaData_1.PersistenceType.Auto }),
     __metadata("design:type", Number),
     __metadata("design:paramtypes", [])
-], EMEntity.prototype, "__v", null);
+], EMEntity.prototype, "v", null);
 __decorate([
     hcMetaData_1.DefinedAccessor({ exposed: false, schema: { type: Boolean, require: true } }),
     __metadata("design:type", Boolean),

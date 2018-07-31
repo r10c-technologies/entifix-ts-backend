@@ -1,4 +1,4 @@
-import { Entity } from './hc-core/hcEntity/hcEntity';
+import { Entity, EntityMovementFlow } from './hc-core/hcEntity/hcEntity';
 import { EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType } from './hc-core/hcMetaData/hcMetaData';
 import { HcSession } from './hc-core/hcSession/hcSession';
 import { Wrapper, WrappedError, WrappedCollection, WrappedObject } from './hc-core/hcWrapper/hcWrapper';
@@ -8,4 +8,4 @@ import { EMRouterManager } from './hc-core/express-mongoose/emRouterManager/emRo
 import { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort } from './hc-core/express-mongoose/emSession/emSession';
 import { EMResponseWrapper } from './hc-core/express-mongoose/emWrapper/emWrapper';
 import { ResourceDetail, IResourceDetail, IResourceDetailModel } from './hc-core/base-entities/resource-detail';
-export { Entity, EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, HcSession, Wrapper, WrappedError, WrappedCollection, WrappedObject, EMEntity, IBaseEntity, EntityDocument, EMEntityController, EMRouterManager, EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort, EMResponseWrapper, ResourceDetail, IResourceDetail, IResourceDetailModel };
+export { Entity, EntityMovementFlow, EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, HcSession, Wrapper, WrappedError, WrappedCollection, WrappedObject, EMEntity, IBaseEntity, EntityDocument, EMEntityController, EMRouterManager, EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort, EMResponseWrapper, ResourceDetail, IResourceDetail, IResourceDetailModel };

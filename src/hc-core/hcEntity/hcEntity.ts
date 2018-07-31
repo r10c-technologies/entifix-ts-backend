@@ -18,8 +18,12 @@ abstract class Entity implements IMetaDataInfo
         
     }
 
-    abstract onSaving() : void;
-    abstract onDeleting() : void;
+    abstract save() : Promise<EntityMovementFlow>;
+    abstract delete() : Promise<EntityMovementFlow>;
+    protected abstract onSaving() : Promise<EntityMovementFlow>;
+    protected abstract onDeleting() : Promise<EntityMovementFlow>;
+    protected abstract onDeleted() : void;
+    protected abstract onSaved() : void;
 
     serializeExposedAccessors () : any
     {
@@ -46,4 +50,10 @@ abstract class Entity implements IMetaDataInfo
     //#endregion
 } 
 
-export { Entity }
+interface EntityMovementFlow {
+    continue: boolean; 
+    message? : string; 
+    details? : any;
+}
+
+export { EntityMovementFlow, Entity }

@@ -68,7 +68,12 @@ class EMEntityController {
             let responseError = error => this._responseWrapper.sessionError(response, responseError);
             if (this._useEntities) {
                 let entity = this._session.activateEntityInstance(this._entityName, result);
-                entity.delete().then(responseOk, responseError);
+                entity.delete().then(movFlow => {
+                    if (movFlow.continue)
+                        responseOk();
+                    else
+                        this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
+                }, responseError);
             }
             else
                 this._session.deleteDocument(this.entityName, result).then(responseOk, responseError);
@@ -76,7 +81,12 @@ class EMEntityController {
     }
     save(request, response) {
         let entity = this._session.activateEntityInstance(this._entityName, request.body);
-        entity.save().then(result => this._responseWrapper.entity(response, entity), error => this._responseWrapper.sessionError(response, error));
+        entity.save().then(movFlow => {
+            if (movFlow.continue)
+                this._responseWrapper.entity(response, entity);
+            else
+                this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
+        }, error => this._responseWrapper.sessionError(response, error));
     }
     constructRouter() {
         this._resourceName = '/' + this._entityName.toLowerCase();

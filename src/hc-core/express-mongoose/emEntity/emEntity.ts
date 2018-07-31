@@ -1,9 +1,9 @@
-import { Entity } from '../../hcEntity/hcEntity';
+import { Entity, EntityMovementFlow } from '../../hcEntity/hcEntity';
 
 import mongoose = require('mongoose');
 import { EMSession } from '../emSession/emSession';
 import { DefinedAccessor, DefinedEntity, PersistenceType } from '../../hcMetaData/hcMetaData';
-import { error } from 'util';
+
 interface EntityDocument extends mongoose.Document
 {
     created : Date,
@@ -40,72 +40,96 @@ class EMEntity extends Entity
             this._document = {} as any;
     }
 
-    save() : Promise<void>
+    save() : Promise<EntityMovementFlow>
     {
-        return new Promise<void>( (resolve, reject) => {
-
-            this.onSaving();
-
-            if (this._document._id)
-            {
-                this._session.updateDocument(this.entityInfo.name, this._document).then(
-                    documentUpdated => {
-                        this._document = documentUpdated;
-                        this.onSaved();
-                        resolve();
-                    },
-                    error => {
-                        console.error('Erron on update a document insde an entity');
-                        reject(error);
+        return new Promise<EntityMovementFlow>( (resolve, reject) => 
+        {
+            this.onSaving().then( 
+                movFlow => 
+                {
+                    if (movFlow.continue)
+                    {
+                        if (this._document._id)
+                        {
+                            this._session.updateDocument(this.entityInfo.name, this._document).then(
+                                documentUpdated => {
+                                    this._document = documentUpdated;
+                                    this.onSaved();
+                                    resolve({ continue: true });
+                                },
+                                error => {
+                                    console.error('Erron on update a document insde an entity');
+                                    reject(error);
+                                }
+                            );
+                        }
+                        else
+                        {
+                            this._session.createDocument(this.entityInfo.name, this._document).then(
+                                documentCreated => {
+                                    this._document = documentCreated;
+                                    this.onSaved();
+                                    resolve({ continue: true});
+                                },
+                                error  =>{
+                                    console.error('Error on create a document inside an entity');
+                                    reject(error);
+                                }
+                            );
+                        }
                     }
-                );
-            }
-            else
-            {
-                this._session.createDocument(this.entityInfo.name, this._document).then(
-                    documentCreated => {
-                        this._document = documentCreated;
-                        this.onSaved();
-                        resolve();
-                    },
-                    error  =>{
-                        console.error('Error on create a document inside an entity');
-                        reject(error);
-                    }
-                );
-            }   
+                    else
+                        resolve(movFlow);
+                },
+                reject // Reject passed
+            );               
         });
     }
 
-    delete () : Promise<void>
+    delete () : Promise<EntityMovementFlow>
     {
-        return new Promise<void>( (resolve, reject) => {
+        return new Promise<EntityMovementFlow>( (resolve, reject) => {
 
-            this.onDeleting();
-
-            this.session.deleteDocument(this.entityInfo.name, this._document).then( 
-                ()=> { this.onDeleted; resolve(); },
-                error => reject(error)
+            this.onDeleting().then(
+                movFlow => 
+                {
+                    if (movFlow.continue)
+                    {
+                        this.session.deleteDocument(this.entityInfo.name, this._document).then( 
+                            ()=> { this.onDeleted(); resolve({continue:true}); },
+                            error => reject(error)
+                        );
+                    }
+                    else
+                        resolve(movFlow);
+                }, 
+                reject // Reject passed
             );
         });
     }
 
-    onSaving() : void
+    protected onSaving() : Promise<EntityMovementFlow>
     {
-        
+        return new Promise<EntityMovementFlow>( 
+            (resolve, reject )=> {
+                resolve( { continue : true } );               
+        });
     }
 
-    onDeleting() : void
+    protected onDeleting() : Promise<EntityMovementFlow>
     {
-        
+        return new Promise<EntityMovementFlow>( 
+            (resolve, reject )=> {
+                resolve( { continue : true });               
+        });
     }
 
-    onSaved() : void
+    protected onSaved() : void
     {
 
     }
 
-    onDeleted() : void
+    protected onDeleted() : void
     {
 
     }
@@ -147,11 +171,11 @@ class EMEntity extends Entity
     { this._document.deleted = value; }
 
     @DefinedAccessor({ exposed: true, persistenceType: PersistenceType.Auto })
-    get _id () : any
+    get id () : any
     { return this._document._id; }
 
     @DefinedAccessor({ exposed: true, persistenceType: PersistenceType.Auto })
-    get __v () : number
+    get v () : number
     { return this._document.__v; }
 
     @DefinedAccessor({ exposed: false, schema : { type: Boolean, require: true} })
