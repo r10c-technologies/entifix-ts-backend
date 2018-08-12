@@ -24,8 +24,8 @@ declare class EMEntity extends Entity {
     created: Date;
     modified: Date;
     deleted: Date;
-    readonly id: any;
-    readonly v: number;
+    readonly _id: any;
+    readonly __v: number;
     deferredDeletion: Boolean;
 }
 interface IBaseEntity {

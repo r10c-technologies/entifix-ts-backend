@@ -3,6 +3,7 @@ import { Entity, EntityMovementFlow } from '../../hcEntity/hcEntity';
 import mongoose = require('mongoose');
 import { EMSession } from '../emSession/emSession';
 import { DefinedAccessor, DefinedEntity, PersistenceType } from '../../hcMetaData/hcMetaData';
+import { emitKeypressEvents } from 'readline';
 
 interface EntityDocument extends mongoose.Document
 {
@@ -35,10 +36,13 @@ class EMEntity extends Entity
         this._session = session;
         
         if ( document )
-            this._document = document;    
+            this._document = document;
         else
             this._document = {} as any;
     }
+
+    
+
 
     save() : Promise<EntityMovementFlow>
     {
@@ -58,7 +62,7 @@ class EMEntity extends Entity
                                     resolve({ continue: true });
                                 },
                                 error => {
-                                    console.error('Erron on update a document insde an entity');
+                                    console.error('Error on update a document insde an entity');
                                     reject(error);
                                 }
                             );
@@ -170,12 +174,12 @@ class EMEntity extends Entity
     set deleted (value : Date)
     { this._document.deleted = value; }
 
-    @DefinedAccessor({ exposed: true, persistenceType: PersistenceType.Auto })
-    get id () : any
+    @DefinedAccessor({ exposed: true, persistenceType: PersistenceType.Auto, persistentAlias: 'id' })
+    get _id () : any
     { return this._document._id; }
 
-    @DefinedAccessor({ exposed: true, persistenceType: PersistenceType.Auto })
-    get v () : number
+    @DefinedAccessor({ exposed: true, persistenceType: PersistenceType.Auto, persistentAlias: 'v' })
+    get __v () : number
     { return this._document.__v; }
 
     @DefinedAccessor({ exposed: false, schema : { type: Boolean, require: true} })

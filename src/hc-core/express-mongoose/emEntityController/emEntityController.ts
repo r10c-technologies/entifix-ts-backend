@@ -5,6 +5,7 @@ import { EntityMovementFlow } from '../../hcEntity/hcEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import HttpStatus = require('http-status-codes');
 import express = require('express')
+import { EntityInfo } from '../../hcMetaData/hcMetaData';
 
 class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEntity>
 {
@@ -142,7 +143,9 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     private save( request : express.Request, response : express.Response) : void
     {
-        let entity = this._session.activateEntityInstance<TEntity,TDocument>(this._entityName, <TDocument>request.body);
+        let info = this._session.getInfo(this._entityName);
+        let document = EMEntity.deserializePersistentAccessors(info, request.body) as TDocument;
+        let entity = this._session.activateEntityInstance<TEntity,TDocument>(this._entityName, document);
 
         entity.save().then(
             movFlow => {

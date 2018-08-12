@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const emSession_1 = require("../emSession/emSession");
+const emEntity_1 = require("../emEntity/emEntity");
 const emWrapper_1 = require("../emWrapper/emWrapper");
 const HttpStatus = require("http-status-codes");
 const express = require("express");
@@ -80,7 +81,9 @@ class EMEntityController {
         }, error => this._responseWrapper.sessionError(response, error));
     }
     save(request, response) {
-        let entity = this._session.activateEntityInstance(this._entityName, request.body);
+        let info = this._session.getInfo(this._entityName);
+        let document = emEntity_1.EMEntity.deserializePersistentAccessors(info, request.body);
+        let entity = this._session.activateEntityInstance(this._entityName, document);
         entity.save().then(movFlow => {
             if (movFlow.continue)
                 this._responseWrapper.entity(response, entity);

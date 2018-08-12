@@ -8,6 +8,8 @@ declare function DefinedAccessor(params?: {
     exposed?: boolean;
     schema?: any;
     persistenceType?: PersistenceType;
+    persistentAlias?: string;
+    readOnly?: boolean;
 }): (target: any, key: string, descriptor: PropertyDescriptor) => void;
 declare function DefinedMethod(): (target: any, key: string, descriptor: PropertyDescriptor) => void;
 declare function Defined(...args: any[]): any;
@@ -54,10 +56,14 @@ declare class AccessorInfo extends MemberInfo {
     private _exposed;
     private _schema;
     private _persistenceType;
+    private _persistentAlias;
+    private _readOnly;
     constructor();
     exposed: boolean;
     schema: any;
     persistenceType: PersistenceType;
+    persistentAlias: string;
+    readOnly: boolean;
 }
 declare class MethodInfo extends MemberInfo {
     constructor();

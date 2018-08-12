@@ -18,9 +18,18 @@ let Entity = class Entity {
     serializeExposedAccessors() {
         var simpleObject = {};
         this.entityInfo.getExposedAccessors().forEach(accessor => {
-            simpleObject[accessor.name] = this[accessor.name];
+            let nameSerialized = accessor.persistentAlias || accessor.name;
+            simpleObject[nameSerialized] = this[accessor.name];
         });
         return simpleObject;
+    }
+    static deserializePersistentAccessors(info, simpleObject) {
+        var complexObject = {};
+        info.getExposedAccessors().filter(accesor => accesor.schema != null || accesor.persistenceType == hcMetaData_1.PersistenceType.Auto).forEach(accessor => {
+            let exposedName = accessor.persistentAlias || accessor.name;
+            complexObject[accessor.name] = simpleObject[exposedName];
+        });
+        return complexObject;
     }
     static getInfo() {
         return this.prototype.entityInfo;

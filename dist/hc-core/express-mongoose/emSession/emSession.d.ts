@@ -10,6 +10,7 @@ declare class EMSession extends HcSession {
     constructor();
     connect(url: string, success?: () => void, error?: (err) => void): void;
     getModel<T extends EntityDocument>(entityName: string): mongoose.Model<T>;
+    getInfo(entityName: string): EntityInfo;
     registerEntity<TDocument extends mongoose.Document, TEntity extends EMEntity>(type: {
         new (session: EMSession, document: EntityDocument): TEntity;
     }, entityInfo: EntityInfo): void;
@@ -37,7 +38,7 @@ declare class EMSession extends HcSession {
     private manageDocumentUpdate<TDocument>(document);
     private manageDocumentDeletion<TDocument>(document);
     private resolveToMongoFilters(entityName, filters?);
-    private parseMongoFilter(f, propertyType);
+    private parseMongoFilter(f, propertyType, persistentName);
     private resolveToMongoSorting(entityName, sorting?);
     throwException(message: string): void;
     throwInfo(message: string): void;

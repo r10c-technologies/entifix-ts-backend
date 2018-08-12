@@ -9,6 +9,7 @@ declare abstract class Entity implements IMetaDataInfo {
     protected abstract onDeleted(): void;
     protected abstract onSaved(): void;
     serializeExposedAccessors(): any;
+    static deserializePersistentAccessors(info: EntityInfo, simpleObject: any): any;
     static getInfo(): EntityInfo;
 }
 interface EntityMovementFlow {

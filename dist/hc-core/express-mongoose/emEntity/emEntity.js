@@ -31,7 +31,7 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
                             this.onSaved();
                             resolve({ continue: true });
                         }, error => {
-                            console.error('Erron on update a document insde an entity');
+                            console.error('Error on update a document insde an entity');
                             reject(error);
                         });
                     }
@@ -94,8 +94,8 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
     set modified(value) { this._document.modified = value; }
     get deleted() { return this._document.deleted; }
     set deleted(value) { this._document.deleted = value; }
-    get id() { return this._document._id; }
-    get v() { return this._document.__v; }
+    get _id() { return this._document._id; }
+    get __v() { return this._document.__v; }
     get deferredDeletion() { return this._document.deferredDeletion; }
     set deferredDeletion(value) { this.deferredDeletion = value; }
 };
@@ -115,15 +115,15 @@ __decorate([
     __metadata("design:paramtypes", [Date])
 ], EMEntity.prototype, "deleted", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, persistenceType: hcMetaData_1.PersistenceType.Auto }),
+    hcMetaData_1.DefinedAccessor({ exposed: true, persistenceType: hcMetaData_1.PersistenceType.Auto, persistentAlias: 'id' }),
     __metadata("design:type", Object),
     __metadata("design:paramtypes", [])
-], EMEntity.prototype, "id", null);
+], EMEntity.prototype, "_id", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, persistenceType: hcMetaData_1.PersistenceType.Auto }),
+    hcMetaData_1.DefinedAccessor({ exposed: true, persistenceType: hcMetaData_1.PersistenceType.Auto, persistentAlias: 'v' }),
     __metadata("design:type", Number),
     __metadata("design:paramtypes", [])
-], EMEntity.prototype, "v", null);
+], EMEntity.prototype, "__v", null);
 __decorate([
     hcMetaData_1.DefinedAccessor({ exposed: false, schema: { type: Boolean, require: true } }),
     __metadata("design:type", Boolean),

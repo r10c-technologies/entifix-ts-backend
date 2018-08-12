@@ -35,7 +35,7 @@ function DefinedEntity( params? : { packageName : string, abstract? : boolean } 
 
 // function DefinedAccessor();
 // function DefinedAccessor( params : { exposed? : boolean, schema? : any });
-function DefinedAccessor( params? : { exposed? : boolean, schema? : any, persistenceType? : PersistenceType })
+function DefinedAccessor( params? : { exposed? : boolean, schema? : any, persistenceType? : PersistenceType, persistentAlias? : string, readOnly? : boolean })
 {
     params = params || { };
     return function (target: any, key: string, descriptor : PropertyDescriptor)
@@ -50,12 +50,14 @@ function DefinedAccessor( params? : { exposed? : boolean, schema? : any, persist
         info.className = target.constructor.name;
         info.type = reflectInfo.name;
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
+        info.persistentAlias = params.persistentAlias;
+        info.readOnly = params.readOnly != null ?  params.readOnly : false;
 
         if (params.persistenceType && params.persistenceType == PersistenceType.Auto && params.schema)
-            console.warn("The Persistence type for ${key} is defined as Auto, so the defined Schema will be ignored");
+            console.warn(`The Persistence type for ${key} is defined as Auto, so the defined Schema will be ignored`);
 
         if (reflectInfo.name == 'Object')
-            console.warn('It seems the accessor ' + key + ' does not have an explicit type. Please make sure that the type name it is not necessary in the exposed metadata');
+            console.warn(`It seems the accessor ${key} does not have an explicit type. Please make sure that the type name it is not necessary in the exposed metadata`);
 
         entityInfo.addAccessorInfo(info);
     }
@@ -218,8 +220,6 @@ class EntityInfo
     implementBaseInfo(baseInfo : EntityInfo, isAbstract: boolean) : void;
     implementBaseInfo(baseInfo : EntityInfo, isAbstract?: boolean) : void
     {
-        //abstractInfo._definedMembers.filter( p => p.className == this._name ).forEach( p => this._definedMembers.push(p) );
-        
         if ( isAbstract != null)
             this._isAbstract = isAbstract;
 
@@ -338,9 +338,11 @@ class AccessorInfo extends MemberInfo
 {
     //#region Properties
 
-    private _exposed : boolean = false;
+    private _exposed : boolean;
     private _schema : any;
     private _persistenceType : PersistenceType;
+    private _persistentAlias : string;
+    private _readOnly : boolean;
 
     //#endregion
 
@@ -351,6 +353,8 @@ class AccessorInfo extends MemberInfo
         super();
 
         this._persistenceType = PersistenceType.Defined;
+        this._exposed = false;
+        this._readOnly = false;
     }
 
     //#endregion
@@ -372,6 +376,16 @@ class AccessorInfo extends MemberInfo
     set persistenceType (value)
     { this._persistenceType = value; }
 
+    get persistentAlias ( )
+    { return this._persistentAlias; }
+    set persistentAlias( value )
+    { this._persistentAlias = value; }
+
+    get readOnly( )
+    { return this._readOnly; }
+    set readOnly( value )
+    { this._readOnly = value; }
+    
     //#endregion
 }
 

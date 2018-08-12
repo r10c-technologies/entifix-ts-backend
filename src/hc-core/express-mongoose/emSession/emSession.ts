@@ -34,7 +34,14 @@ class EMSession extends HcSession
     getModel<T extends EntityDocument >(entityName : string) : mongoose.Model<T>
     {
         return <mongoose.Model<T>>(this.entitiesInfo.find( e => e.name == entityName ).model);
-    } 
+    }
+    
+    getInfo(entityName : string) : EntityInfo
+    {
+        return this.entitiesInfo.find( info => info.name == entityName ).info as EntityInfo;   
+    }
+
+
     //registerEntity<TDocument extends mongoose.Document, TEntity extends EMEntity>(entityName: string, structureSchema : Object, type: { new( session: EMSession, document : EntityDocument ) : TEntity} ) : void
     registerEntity<TDocument extends mongoose.Document, TEntity extends EMEntity>( type: { new( session: EMSession, document : EntityDocument ) : TEntity }, entityInfo : EntityInfo ) : void
     {
@@ -225,7 +232,16 @@ class EMSession extends HcSession
     private resolveToMongoFilters(entityName : string, filters? : Array<EMSessionFilter>) : { error : boolean, filters?: any, message? : string }
     {        
         let info : EntityInfo = this.entitiesInfo.find( f => f.name == entityName).info;
-        let persistentMembers = info.getAllMembers().filter( m => (m instanceof AccessorInfo) && m.schema != null ).map( m => { return  { property: m.name, type: m.type } } );
+        
+
+        //Cambio
+        let persistentMembers = 
+                info.getAllMembers()
+                    .filter( m => (m instanceof AccessorInfo) && ( m.schema != null || m.persistenceType == PersistenceType.Auto) )
+                    .map( m => { 
+                        return  { property: m.name, type: m.type, alias : (m as AccessorInfo).persistentAlias } 
+                    });
+
 
         //Filter for defferred deletion.
         let mongoFilters : any;
@@ -241,7 +257,7 @@ class EMSession extends HcSession
             //get all filters
             for (let filter of filters)
             {
-                let pMember = persistentMembers.find( pm => pm.property == filter.property);
+                let pMember = persistentMembers.find( pm => pm.property == filter.property || pm.alias == filter.property);
                 if (pMember == null)
                 {
                     errFilters = 'Attempt to filter by a non persistent member';
@@ -249,7 +265,7 @@ class EMSession extends HcSession
                 }
                 
                 //Single mongo filter
-                let mongoFilterConversion = this.parseMongoFilter( filter, pMember.type );
+                let mongoFilterConversion = this.parseMongoFilter( filter, pMember.type, pMember.property );
                 if ( mongoFilterConversion.err)
                 {   
                     errFilters = mongoFilterConversion.message;
@@ -284,7 +300,7 @@ class EMSession extends HcSession
         return { error: false, filters: mongoFilters };
     }
 
-    private parseMongoFilter( f : EMSessionFilter, propertyType : string ) : { err : boolean, value?: any, message? : string }
+    private parseMongoFilter( f : EMSessionFilter, propertyType : string, persistentName : string ) : { err : boolean, value?: any, message? : string }
     {           
         //Check and convert the filter value 
         let valueFilter : any; //value to mongo query
@@ -292,7 +308,7 @@ class EMSession extends HcSession
         {
             case 'Number':
                 if ( isNaN(f.value as any) )
-                    return { err: true, message: `The value for a filter in the property "${f.property}" must be a number` };
+                    return { err: true, message: `The value for a filter in the property "${persistentName}" must be a number` };
                 else
                     valueFilter = parseInt(f.value);
                 break;
@@ -326,14 +342,14 @@ class EMSession extends HcSession
                 let value : any;
 
                 if (conf.mongoOperator)
-                    value = { [f.property] : { [conf.mongoOperator ] : valueFilter} };
+                    value = { [persistentName] : { [conf.mongoOperator ] : valueFilter} };
                 else
-                    value = { [f.property] : valueFilter };
+                    value = { [persistentName] : valueFilter };
                     
                 return { err: false, value };
             }                
             else
-                return { err: true, message: `It is not possible to apply the the operator "${f.operator}" to the property "${f.property}" because it is of type "${propertyType}"` };
+                return { err: true, message: `It is not possible to apply the the operator "${f.operator}" to the property "${persistentName}" because it is of type "${propertyType}"` };
         }
         else
             return { err: true, message: `Not valid operator ${f.operator} for filtering`};
