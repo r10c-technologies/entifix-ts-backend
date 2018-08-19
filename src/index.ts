@@ -4,14 +4,16 @@ import { EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMe
 import { HcSession } from './hc-core/hcSession/hcSession';
 import { Wrapper, WrappedError, WrappedCollection, WrappedObject } from './hc-core/hcWrapper/hcWrapper';
 
-import { EMEntity, IBaseEntity, EntityDocument } from './hc-core/express-mongoose/emEntity/emEntity';
-import { EMEntityController } from './hc-core/express-mongoose/emEntityController/emEntityController';
-import { EMRouterManager } from './hc-core/express-mongoose/emRouterManager/emRouterManager';
-import { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort } from './hc-core/express-mongoose/emSession/emSession';
-import { EMQueryWrapper } from './hc-core/express-mongoose/emUtilities/emUtilities';
-import { EMResponseWrapper } from './hc-core/express-mongoose/emWrapper/emWrapper';
+import { EMEntity, IBaseEntity, EntityDocument } from './express-mongoose/emEntity/emEntity';
+import { EMEntityController } from './express-mongoose/emEntityController/emEntityController';
+import { EMRouterManager } from './express-mongoose/emRouterManager/emRouterManager';
+import { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort } from './express-mongoose/emSession/emSession';
+import { EMQueryWrapper } from './express-mongoose/emUtilities/emUtilities';
+import { EMResponseWrapper } from './express-mongoose/emWrapper/emWrapper';
 
-import { ResourceDetail, IResourceDetail, IResourceDetailModel } from './hc-core/base-entities/resource-detail';
+import { ResourceDetail, IResourceDetail, IResourceDetailModel } from './express-mongoose/base-entities/resource-detail';
+import { EntifixApplication, EntifixAppConfig } from './express-mongoose/base-entities/entifix-application';
+import { EntifixApplicationModule, EntifixResource, IEntifixApplicationModuleModel } from './express-mongoose/base-entities/entifix-application-module';
 
 export {
     Entity,EntityMovementFlow,
@@ -23,5 +25,6 @@ export {
     EMRouterManager,
     EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort,
     EMResponseWrapper,
-    ResourceDetail, IResourceDetail, IResourceDetailModel
+    ResourceDetail, IResourceDetail, IResourceDetailModel,
+    EntifixApplication, EntifixApplicationModule, EntifixResource, IEntifixApplicationModuleModel, EntifixAppConfig
 }

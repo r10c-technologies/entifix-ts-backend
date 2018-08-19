@@ -73,6 +73,6 @@ interface IMetaDataInfo {
 }
 declare enum PersistenceType {
     Defined = 1,
-    Auto = 2,
+    Auto = 2
 }
 export { EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo };

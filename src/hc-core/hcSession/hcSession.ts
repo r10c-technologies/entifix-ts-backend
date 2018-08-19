@@ -18,7 +18,7 @@ abstract class HcSession
         this._entitiesInfo = [];
     }
 
-    abstract connect( url : string, success? : () => void, error ? : (err) => void ) : void;
+    abstract connect( ) : Promise<void>;
     
     protected addEntityInfo(entityInfo : any) : void
     {

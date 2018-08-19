@@ -1,5 +1,5 @@
-import { EMEntity, EntityDocument, IBaseEntity } from '../express-mongoose/emEntity/emEntity';
-import { DefinedEntity, DefinedAccessor  } from '../hcMetaData/hcMetaData';
+import { EMEntity, EntityDocument, IBaseEntity } from '../emEntity/emEntity';
+import { DefinedEntity, DefinedAccessor  } from '../../hc-core/hcMetaData/hcMetaData';
 
 interface IResourceDetail extends IBaseEntity
 {

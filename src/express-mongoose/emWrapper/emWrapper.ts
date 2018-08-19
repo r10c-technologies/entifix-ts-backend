@@ -1,6 +1,7 @@
-import { Wrapper } from '../../hcWrapper/hcWrapper';
 import mongoose = require('mongoose');
 import express = require('express');
+
+import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
 import { EMSessionError } from '../emSession/emSession';
 import { EMEntity } from '../emEntity/emEntity';
 

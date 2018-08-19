@@ -7,6 +7,7 @@ import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 class IExpositionDetail
 {
     entityName : string;
+    basePath: string;
     controller: any; // Issues with set a type for multiple generic controllers 
 }
 
@@ -32,17 +33,25 @@ class EMRouterManager {
 
     
     exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity> ( entityName : string) : void;
-    exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity>( entityName: string, controller : EMEntityController<TDocument, TEntity>) : void;
-    exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity> ( entityName : string, controller? : EMEntityController<TDocument, TEntity> ) : void
+    exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity> ( entityName : string, options : { controller? : EMEntityController<TDocument, TEntity>, basePath? : string, resourceName? : string  } ) : void;
+    exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity> ( entityName : string, options? : { controller? : EMEntityController<TDocument, TEntity>, basePath? : string, resourceName? : string  } ) : void
     {
+        let basePath = options && options.basePath ? options.basePath : 'api';
+        let resourceName = options && options.resourceName ? options.resourceName : null; 
+
         let entityController : EMEntityController<TDocument, TEntity>;
-        if (controller == null)
-            entityController = new EMEntityController<TDocument, TEntity>( entityName, this._session );
-        else
-            entityController = controller;
-               
-        this._routers.push( { entityName : entityName, controller : entityController } );
-        this._appInstance.use('/api', entityController.router);
+        if (options && options.controller)
+            entityController = options.controller;
+        else            
+            entityController = new EMEntityController<TDocument, TEntity>( entityName, this._session , resourceName);   
+        
+        this._routers.push( { entityName : entityName, controller : entityController, basePath } );
+        this._appInstance.use('/' + basePath, entityController.router);
+    }
+
+    getExpositionDetails() : Array<{ entityName : string, resourceName : string, basePath : string }> 
+    {
+        return this._routers.map( r => { return { entityName: r.entityName, resourceName: r.controller.resourceName, basePath: r.basePath} } );
     }
 
     //#endregion

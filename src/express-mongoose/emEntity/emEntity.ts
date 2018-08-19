@@ -1,8 +1,8 @@
-import { Entity, EntityMovementFlow } from '../../hcEntity/hcEntity';
-
 import mongoose = require('mongoose');
+
+import { Entity, EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity';
 import { EMSession } from '../emSession/emSession';
-import { DefinedAccessor, DefinedEntity, PersistenceType } from '../../hcMetaData/hcMetaData';
+import { DefinedAccessor, DefinedEntity, PersistenceType } from '../../hc-core/hcMetaData/hcMetaData';
 import { emitKeypressEvents } from 'readline';
 
 interface EntityDocument extends mongoose.Document

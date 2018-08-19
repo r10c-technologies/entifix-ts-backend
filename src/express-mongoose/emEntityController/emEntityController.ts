@@ -1,11 +1,11 @@
 import mongoose = require('mongoose');
 import { EMSession, EMSessionFilter, FilterType, SortType, EMSessionSort } from '../emSession/emSession';
 import { EMEntity, EntityDocument  } from '../emEntity/emEntity';
-import { EntityMovementFlow } from '../../hcEntity/hcEntity';
+import { EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import HttpStatus = require('http-status-codes');
 import express = require('express')
-import { EntityInfo } from '../../hcMetaData/hcMetaData';
+import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 
 class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEntity>
 {
@@ -15,22 +15,25 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     private _session : EMSession;
     private _responseWrapper : EMResponseWrapper<TDocument, TEntity>;
     private _useEntities : boolean;
-    
+    private _resourceName : string;
+
     protected _router : express.Router;
-    protected _resourceName : string;
     
     //#endregion
 
 
     //#region Methods
 
-    constructor ( entityName : string, session : EMSession)
+    constructor ( entityName : string, session : EMSession);
+    constructor ( entityName : string, session : EMSession, resourceName : string);
+    constructor ( entityName : string, session : EMSession, resourceName? : string)
     {
         this._entityName = entityName;
         this._session = session;
         this._useEntities = true;
         this._responseWrapper = new EMResponseWrapper();
-      
+        this._resourceName = resourceName || entityName.toLowerCase();
+
         this.constructRouter();
     }
 
@@ -160,7 +163,6 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     private constructRouter() : void
     {
-        this._resourceName = '/' +  this._entityName.toLowerCase();
         this._router = express.Router();
         
         this.defineRoutes();
@@ -169,12 +171,12 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     protected defineRoutes() : void
     {
         // It is important to consider the order of the class methods setted for the HTTP Methods 
-        this._router.get( this._resourceName, ( request, response, next )=> this.retrieve(request, response) );
-        this._router.get( this._resourceName + '/metadata', (request, response, next) => this.retriveMetadata(request, response, next) ); 
-        this._router.get( this._resourceName + '/:_id', (request, response, next) => this.retrieveById( request, response ) );
-        this._router.post( this._resourceName, (request, response, next) => this.create(request, response) );
-        this._router.put( this._resourceName, (request, response, next) => this.update(request, response) );
-        this._router.delete( this._resourceName + '/:_id',(request, response, next) => this.delete(request, response ));
+        this._router.get('/' + this._resourceName, ( request, response, next )=> this.retrieve(request, response) );
+        this._router.get('/' + this._resourceName + '/metadata', (request, response, next) => this.retriveMetadata(request, response, next) ); 
+        this._router.get('/' + this._resourceName + '/:_id', (request, response, next) => this.retrieveById( request, response ) );
+        this._router.post('/' + this._resourceName, (request, response, next) => this.create(request, response) );
+        this._router.put('/' + this._resourceName, (request, response, next) => this.update(request, response) );
+        this._router.delete('/' + this._resourceName + '/:_id',(request, response, next) => this.delete(request, response ));
     }
 
     private getQueryParams( request : express.Request ) : { error: boolean, queryParams?: Array<QueryParam>, message? : string }
@@ -262,6 +264,9 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     {
         return this._responseWrapper;
     }
+
+    get resourceName ()
+    { return this._resourceName; }
 
     //#endregion
 }

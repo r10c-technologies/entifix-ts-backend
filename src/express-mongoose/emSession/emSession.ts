@@ -1,35 +1,93 @@
+//CORE DEPENDENCIES
 import mongoose = require('mongoose');
-import { HcSession } from '../../hcSession/hcSession';
+import amqp = require('amqplib/callback_api');
+import { MongooseDocument } from 'mongoose';
+
+//CORE FRAMEWORK
+import { HcSession } from '../../hc-core/hcSession/hcSession';
+import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo} from '../../hc-core/hcMetaData/hcMetaData';
+import { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription } from './amqpConnectionDynamic';
 import { EMQueryWrapper } from '../emUtilities/emUtilities';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
-import { MongooseDocument } from 'mongoose';
-import { Entity } from '../../hcEntity/hcEntity';
-import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo} from '../../hcMetaData/hcMetaData';
-import { type } from 'os';
+import { Entity } from '../../hc-core/hcEntity/hcEntity';
  
 class EMSession extends HcSession
 {
     //#region Properties (Fields)
 
+    //Connection instances
     private _mongooseInstance : any;
     private _mongooseConnection : mongoose.Connection;
+    private _brokerConnection : amqp.Connection;
+    private _brokerChannel : amqp.Channel;
+        
+    //Configuraion properties
+    private _urlMongoConnection : string;
+    private _urlAmqpConnection : string;
+    private _periodAmqpRetry;
+    private _limitAmqpRetry;
+    private _amqpExchangesDescription : Array<ExchangeDescription>;
+    private _amqpQueueBindsDescription : Array<QueueBindDescription>;
+    
+    // App Development
     private _devMode : boolean;
-
+    
     //#endregion
 
 
 
     //#region Methods
 
-    constructor ()
+    constructor (mongoService : string);
+    constructor (mongoService : string, amqpService : string);
+    constructor (mongoService : string, amqpService? : string)
     {
         super();
+
+        //Mongo Configuration
+        this._urlMongoConnection = 'mongodb://' + mongoService;
+
+        //AMQP Configuration
+        if (amqpService)
+        {
+            this._urlAmqpConnection = 'amqp://' + amqpService;
+        
+            //defaluts
+            this._limitAmqpRetry = 10;
+            this._periodAmqpRetry = 2000;
+        }
+    }
+
+
+    connect( ) : Promise<void>
+    {
+        return new Promise<void>( (resolve, reject) => {
+            
+            //Connect to MongoDB
+            this._mongooseConnection = mongoose.createConnection(this._urlMongoConnection); 
+            
+            //Connect to RabbitMQ/AMQP Broker if there is amqpService defined 
+            if (this._urlAmqpConnection)
+                this.atachToBroker().then( resolve, reject );
+            else
+                resolve();
+        });
     }
     
-    connect( url : string, success? : () => void, error ? : (err) => void ) : void
-    {
-        this._mongooseConnection = mongoose.createConnection("mongodb://" + url); 
+    private atachToBroker () : Promise<void>
+    {        
+        return AMQPConnectionDynamic.connect(this._urlAmqpConnection, { period: this._periodAmqpRetry, limit: this._limitAmqpRetry } ).then( 
+            conn => {
+                this._brokerConnection = conn; 
+                AMQPConnectionDynamic.createExchangeAndQueues(conn, this._amqpExchangesDescription, this._amqpQueueBindsDescription).then( channel => { 
+                    this._brokerChannel = channel;
+                },
+                err => this.throwException(err) );
+            }
+        );
     }
+
+    
 
     getModel<T extends EntityDocument >(entityName : string) : mongoose.Model<T>
     {
@@ -419,6 +477,36 @@ class EMSession extends HcSession
 
 
     //#region Accessors (Properties)
+
+    get periodAmqpRetry ()
+    { return this._periodAmqpRetry; }
+    set periodAmqpRetry (value)
+    { this._periodAmqpRetry = value; }
+
+    get limitAmqpRetry ()
+    { return this._limitAmqpRetry; }
+    set limitAmqpRetry (value)
+    { this._limitAmqpRetry = value; }
+
+    get mongooseConnection()
+    { return this._mongooseConnection; }
+
+    get brokerConnection()
+    { return this._brokerConnection; }
+
+    get brokerChannel()
+    { return this._brokerChannel; }
+
+    get amqpExchangesDescription ()
+    { return this._amqpExchangesDescription; }
+    set amqpExchangesDescription (value)
+    { this._amqpExchangesDescription = value; }
+
+    get amqpQueueBindsDescription ()
+    { return this._amqpQueueBindsDescription; }
+    set amqpQueueBindsDescription (value)
+    { this._amqpQueueBindsDescription = value; }
+
 
     //#endregion
 }
