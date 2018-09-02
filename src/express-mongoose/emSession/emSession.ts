@@ -61,30 +61,38 @@ class EMSession extends HcSession
 
     connect( ) : Promise<void>
     {
-        return new Promise<void>( (resolve, reject) => {
-            
-            //Connect to MongoDB
-            this._mongooseConnection = mongoose.createConnection(this._urlMongoConnection); 
-            
-            //Connect to RabbitMQ/AMQP Broker if there is amqpService defined 
-            if (this._urlAmqpConnection)
-                this.atachToBroker().then( resolve, reject );
-            else
+        let connectDb = () => { this._mongooseConnection = mongoose.createConnection(this._urlMongoConnection) };
+
+        if (this._urlAmqpConnection)
+        {
+            connectDb();
+            return this.atachToBroker();
+        }
+        else
+            return new Promise<void>( (resolve, reject) => {
+                connectDb();
                 resolve();
-        });
+            });
+            
     }
     
     private atachToBroker () : Promise<void>
     {        
-        return AMQPConnectionDynamic.connect(this._urlAmqpConnection, { period: this._periodAmqpRetry, limit: this._limitAmqpRetry } ).then( 
-            conn => {
-                this._brokerConnection = conn; 
-                AMQPConnectionDynamic.createExchangeAndQueues(conn, this._amqpExchangesDescription, this._amqpQueueBindsDescription).then( channel => { 
-                    this._brokerChannel = channel;
-                },
-                err => this.throwException(err) );
-            }
-        );
+        return new Promise<void>( (resolve, reject) => {
+            AMQPConnectionDynamic.connect(this._urlAmqpConnection, { period: this._periodAmqpRetry, limit: this._limitAmqpRetry}).then(
+                connection => {
+                    this._brokerConnection = connection;
+                    AMQPConnectionDynamic.createExchangeAndQueues( connection, this._amqpExchangesDescription, this._amqpQueueBindsDescription ).then(
+                        channel => {
+                            this._brokerChannel = channel;
+                            resolve();
+                        },
+                        error => reject(error)
+                    );
+                }, 
+                error => reject(error)
+            );
+        });
     }
 
     
@@ -472,6 +480,21 @@ class EMSession extends HcSession
             console.info(message);
     }
 
+    errorMessage( baseMessage : string, devData? : any ) : string
+    {
+        if (this._devMode)
+        {
+            let m = 'DEV-MODE: Error - ' + baseMessage;
+            if (devData)
+                m = m  + ' - ' + JSON.stringify(devData);
+            
+            return m;
+        }            
+        else
+            return baseMessage;
+    }
+
+
     //#endregion
 
 
@@ -506,7 +529,6 @@ class EMSession extends HcSession
     { return this._amqpQueueBindsDescription; }
     set amqpQueueBindsDescription (value)
     { this._amqpQueueBindsDescription = value; }
-
 
     //#endregion
 }

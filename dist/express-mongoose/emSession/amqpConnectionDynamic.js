@@ -27,22 +27,26 @@ class AMQPConnectionDynamic {
                 if (!err) {
                     let exchangesCount = 0;
                     exchangesDescription.forEach(exchDesc => {
-                        exchangesCount++;
-                        let queueCount = 0;
-                        let queuesByExchange = queueBindsDescription.filter(queueDesc => queueDesc.exchangeName == exchDesc.name);
                         channel.assertExchange(exchDesc.name, exchDesc.type, { durable: exchDesc.durable });
-                        queuesByExchange.forEach(queueDesc => {
-                            queueCount++;
-                            channel.assertQueue(queueDesc.name, { exclusive: queueDesc.exclusive }, (err, assertedQueue) => {
-                                if (!err) {
-                                    channel.bindQueue(assertedQueue.queue, exchDesc.name, queueDesc.routingKey);
-                                    if (exchangesCount == exchangesDescription.length && queueCount == queuesByExchange.length)
-                                        resolve(channel);
-                                }
-                                else
-                                    reject(err);
+                        exchangesCount++;
+                        let queuesByExchange = queueBindsDescription != null ? queueBindsDescription.filter(queueDesc => queueDesc.exchangeName == exchDesc.name) : [];
+                        if (queuesByExchange.length > 0) {
+                            let queueCount = 0;
+                            queuesByExchange.forEach(queueDesc => {
+                                queueCount++;
+                                channel.assertQueue(queueDesc.name, { exclusive: queueDesc.exclusive }, (err, assertedQueue) => {
+                                    if (!err) {
+                                        channel.bindQueue(assertedQueue.queue, exchDesc.name, queueDesc.routingKey);
+                                        if (exchangesCount == exchangesDescription.length && queueCount == queuesByExchange.length)
+                                            resolve(channel);
+                                    }
+                                    else
+                                        reject(err);
+                                });
                             });
-                        });
+                        }
+                        else if (exchangesCount == exchangesDescription.length)
+                            resolve(channel);
                     });
                 }
                 else

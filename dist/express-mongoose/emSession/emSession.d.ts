@@ -54,6 +54,7 @@ declare class EMSession extends HcSession {
     throwException(message: string): void;
     throwInfo(message: string): void;
     throwInfo(message: string, warnDevMode: boolean): void;
+    errorMessage(baseMessage: string, devData?: any): string;
     periodAmqpRetry: any;
     limitAmqpRetry: any;
     readonly mongooseConnection: mongoose.Connection;

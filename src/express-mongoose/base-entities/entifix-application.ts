@@ -3,6 +3,9 @@ import express = require('express');
 import bodyParser = require('body-parser');
 import cors = require('cors');
 import amqp = require('amqplib/callback_api');
+import redis = require('redis');
+import crypto = require ('crypto');
+ 
 
 //Core Framework
 import { EMSession } from '../emSession/emSession';
@@ -14,10 +17,13 @@ interface EntifixAppConfig
     serviceName: string,
     mongoService : string, 
     amqpService? : string, 
+    authCacheService? : string,
+    authCacheServicePort? : number,
+    authCacheDuration?: number,
     isMainService? : boolean,
     cors? : { enable: boolean, options?: cors.CorsOptions },
     devMode? : boolean,
-    protectRoutes? : { enable: boolean, header?: string, path ? : string },
+    protectRoutes? : { enable: boolean, header?: string, path ? : string }
 }
 
 
@@ -32,6 +38,7 @@ abstract class EntifixApplication
     private _authChannel : amqp.Channel;
     private _nameAuthQueue : string;
     private _assertAuthQueue : amqp.Replies.AssertQueue;
+    private _authCacheClient : redis.RedisClient;
 
     //#endregion
 
@@ -62,7 +69,7 @@ abstract class EntifixApplication
     protected abstract get serviceConfiguration () :  EntifixAppConfig;
     protected abstract registerEntities() : void;
     protected abstract exposeEntities() : void;
-    protected abstract validateToken(token : string) : Promise<{success : boolean, message : string}>;
+    protected abstract validateToken(token : string, request?: express.Request) : Promise<{success : boolean, message : string}>;
     
     private createExpressApp ( port: number) : void
     {
@@ -73,17 +80,8 @@ abstract class EntifixApplication
     private createEntifixSession( ) : void
     {
         this._session = new EMSession( this.serviceConfiguration.mongoService, this.serviceConfiguration.amqpService );
-
-        if (this.serviceConfiguration.amqpService)
-        {
-            this._session.amqpExchangesDescription = [ 
-                { name: 'main_events', type: 'topic', durable: false }
-            ];
-            
-            if (this.isMainService)
-                this._session.amqpQueueBindsDescription = [ { name: 'modules_to_atach', exchangeName: 'main_events', routingKey: 'auth.module_atach', exclusive: true  } ];
-        }
-
+        this.configSessionAMQPConneciton();
+        
         this._session.connect().then( ()=> this.onSessionCreated() );
     }
 
@@ -108,7 +106,7 @@ abstract class EntifixApplication
         //Health check
         this._expressApp.get('/', ( request:express.Request, response: express.Response )=> {            
             response.json({
-                message: "Server working correctly"
+                message: this.serviceConfiguration.serviceName + " is working correctly"
             });        
         });
 
@@ -123,13 +121,16 @@ abstract class EntifixApplication
 
     private protectRoutes() : void 
     {
+        //Default values
         let pathProtected = this.serviceConfiguration.protectRoutes && this.serviceConfiguration.protectRoutes.path ? this.serviceConfiguration.protectRoutes.path : 'api';
         let header = this.serviceConfiguration.protectRoutes && this.serviceConfiguration.protectRoutes.header ? this.serviceConfiguration.protectRoutes.header : 'Authorization';
 
+        //Register Function on express middleware
         this._expressApp.use('/'+ pathProtected, (request, response, next) => {
 
             let deniedAccess = (message?, errorCode?) => response.status(errorCode || 401).send( message ? { message: message } : null );
-                
+            
+            //TOKEN VALIDATION
             var token = request.get(header);
             if (!token)
             {
@@ -137,14 +138,14 @@ abstract class EntifixApplication
                 return;
             }
             
-            this.validateToken(token).then(
+            this.validateToken(token, request).then(
                 result => {
                     if (result.success)
                         next();
                     else
-                        deniedAccess( result.message );
+                        deniedAccess( result.message )
                 },
-                error => deniedAccess('Error on token validation', 500)
+                error => deniedAccess(this._session.errorMessage('Error on token validation', error), 500)                    
             );
             
         });
@@ -153,40 +154,62 @@ abstract class EntifixApplication
     protected onSessionCreated() : void
     {
         this.registerEntities();
+        
         this._routerManager = new EMRouterManager( this._session, this._expressApp ); 
         this.exposeEntities();
 
         if ( this.serviceConfiguration.amqpService)
         {
             if (this.isMainService)
-                this._session.brokerChannel.consume( 'modules_to_atach', message => this.saveModuleAtached(message), { noAck: true });
+                this._session.brokerChannel.consume( 'modules_to_atach', message => this.saveModuleAtached(message));
              else
                 this.atachModule( 'main_events', 'auth.module_atach' );
-
+                
             this.createRPCAuthorizationDynamic();        
-        }        
+        }
+        
+        if ( this.serviceConfiguration.authCacheService )
+        {
+            this._authCacheClient = redis.createClient({ host: this.serviceConfiguration.authCacheService, port : this.serviceConfiguration.authCacheServicePort });
+
+            this._authCacheClient.on( "error ", err => this._session.throwException(err));
+        }
+    }
+
+    protected configSessionAMQPConneciton () : void
+    {
+        if (this.serviceConfiguration.amqpService)
+        {
+            this._session.amqpExchangesDescription = [ 
+                { name: 'main_events', type: 'topic', durable: false }
+            ];
+            
+            if (this.isMainService)
+                this._session.amqpQueueBindsDescription = [ { name: 'modules_to_atach', exchangeName: 'main_events', routingKey: 'auth.module_atach', exclusive: true  } ];
+        }
     }
 
     protected saveModuleAtached(message : amqp.Message ) : void
     {
-        var moduleAtached : { moduleName: string, resources: Array<{ entityName : string, resourceName : string, basePath : string }> } = JSON.parse(message.content.toString());  
+        var moduleAtached : { serviceModuleName: string, resources: Array<{ entityName : string, resourceName : string, basePath : string }> } = JSON.parse(message.content.toString());  
                                         
-        this._session.getModel<IEntifixApplicationModuleModel>("EntifixApplicationModule").find( { name: moduleAtached.moduleName }, 
+        this._session.getModel<IEntifixApplicationModuleModel>("EntifixApplicationModule").find( { name: moduleAtached.serviceModuleName }, 
             ( err, res ) => {
                 if (!err && res)
                 {
                     if (res.length == 0)
                     {
                         let newModule = new EntifixApplicationModule(this._session);
-                        newModule.name = moduleAtached.moduleName;
+                        newModule.name = moduleAtached.serviceModuleName;
                         newModule.resources = moduleAtached.resources;
-                        newModule.save();
+                        newModule.save().then( () => this._session.brokerChannel.ack(message) );
                     }
                     else
                     {
                         let module = new EntifixApplicationModule(this._session, res[0]);
+                        module.name = moduleAtached.serviceModuleName;
                         module.resources = moduleAtached.resources;
-                        module.save();
+                        module.save().then( () => this._session.brokerChannel.ack(message) );
                     }
                 }
             }
@@ -208,6 +231,8 @@ abstract class EntifixApplication
         this._session.brokerConnection.createChannel( ( err, authChannel) => {
             if (!err)
             {
+                this._authChannel = authChannel;
+
                 if (this.isMainService) // Create RPC Worker
                 {                    
                     authChannel.assertQueue(this._nameAuthQueue, {durable : false});
@@ -248,13 +273,12 @@ abstract class EntifixApplication
         });
     }
 
-    protected requesTokenValidation(token : string) : Promise<{success : boolean, message: string}>  
+    protected requestTokenValidation(token : string) : Promise<{success : boolean, message: string}>  
     {
-        return new Promise<{success : boolean, message : string}>
-        ( 
-            (resolve, reject) => {
-
-                let idReq = this.generateRequestId();
+        return new Promise<{success : boolean, message : string}> ( 
+            (resolve, reject) => 
+            {
+                let idReq = this.generateRequestTokenId();
 
                 this._authChannel.sendToQueue(this._nameAuthQueue, new Buffer(JSON.stringify({ token })), { correlationId : idReq, replyTo: this._assertAuthQueue.queue });
 
@@ -269,9 +293,88 @@ abstract class EntifixApplication
         );
     }
 
-    protected generateRequestId () : string
+    protected requestTokenValidationWithCache(token : string, request : express.Request) : Promise<{success : boolean, message: string}> 
+    {
+        return new Promise<{success : boolean, message : string}> (
+            (resolve, reject) => 
+            {
+                this.getTokenValidationCache(token, request).then(
+                    result => {
+                        if (!result.exists)
+                        {
+                            this.requestTokenValidation(token).then(
+                                res => {
+                                    this.setTokenValidationCache(token, request, res).then(
+                                        () => resolve(res),
+                                        error => reject(error) 
+                                    );                
+                                },
+                                error => reject(error)                    
+                            );
+                        }
+                        else
+                            resolve(result.cacheResult);               
+                    },
+                    error => reject(error)
+                );
+            }
+        );
+    }
+
+    protected generateRequestTokenId () : string
     {
         return Math.random().toString() + Math.random().toString() + Math.random().toString();
+    }
+
+
+    protected getTokenValidationCache( token: string, request: express.Request ) : Promise<{exists: boolean, cacheResult? : { success:boolean, message:string }}>
+    { 
+        return new Promise<{exists: boolean, cacheResult? : { success:boolean, message:string }}> (
+            (resolve, reject) => 
+            {
+                let keyCache = this.createKeyCache(token, request);
+                this._authCacheClient.get(keyCache, ( error, value) => {
+                    if (!error)
+                    {
+                        if (value)
+                        {
+                            let cacheResult : { success: boolean, message: string } = JSON.parse(value);
+                            resolve( { exists: true, cacheResult });
+                        }
+                        else
+                            resolve( { exists: false } );
+                    }
+                    else
+                        reject(error);
+                                        
+                });                
+            }
+        )
+    }
+
+    protected setTokenValidationCache( token: string, request : express.Request, result : { success: boolean, message : string} ) : Promise<void>
+    {
+        return new Promise<void> (
+            (resolve, reject) =>
+            {
+                let keyCache = this.createKeyCache(token,request);
+                let resultString = JSON.stringify(result);
+                this._authCacheClient.set( keyCache, resultString, 'EX', this.cacheExpiration, error => {
+                    if (!error)
+                        resolve();
+                    else
+                        reject(error);
+                });
+            }
+        );
+    }
+
+    protected createKeyCache(token : string, request: express.Request) : string
+    {
+        // let keyCacheToProcess = token + '-' + request.method + '-' + request.originalUrl;
+        // return crypto.createHash('sha256').update(keyCacheToProcess).digest().toString();
+
+        return token + '-' + request.method + '-' + request.originalUrl;
     }
 
     //#endregion
@@ -291,6 +394,11 @@ abstract class EntifixApplication
 
     protected get routerManager()
     { return this._routerManager }
+
+    private get cacheExpiration()
+    {
+        return this.serviceConfiguration.authCacheDuration || (60 * 5);
+    }
 
     //#endregion
 }
