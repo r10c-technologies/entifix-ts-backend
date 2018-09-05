@@ -33,10 +33,14 @@ function DefinedEntity( params? : { packageName : string, abstract? : boolean } 
     }
 }
 
-// function DefinedAccessor();
-// function DefinedAccessor( params : { exposed? : boolean, schema? : any });
-function DefinedAccessor( params? : { exposed? : boolean, schema? : any, persistenceType? : PersistenceType, persistentAlias? : string, readOnly? : boolean })
+function DefinedAccessor( params? : {   exposed? : boolean, 
+                                        schema? : any, 
+                                        persistenceType? : PersistenceType, 
+                                        serializeAlias? : string, 
+                                        readOnly? : boolean ,
+                                        bindInfo? : EntityInfo } ) 
 {
+
     params = params || { };
     return function (target: any, key: string, descriptor : PropertyDescriptor)
     {        
@@ -50,8 +54,9 @@ function DefinedAccessor( params? : { exposed? : boolean, schema? : any, persist
         info.className = target.constructor.name;
         info.type = reflectInfo.name;
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
-        info.persistentAlias = params.persistentAlias;
+        info.serializeAlias = params.serializeAlias;
         info.readOnly = params.readOnly != null ?  params.readOnly : false;
+        info.bindInfo = params.bindInfo;
 
         if (params.persistenceType && params.persistenceType == PersistenceType.Auto && params.schema)
             console.warn(`The Persistence type for ${key} is defined as Auto, so the defined Schema will be ignored`);
@@ -341,8 +346,9 @@ class AccessorInfo extends MemberInfo
     private _exposed : boolean;
     private _schema : any;
     private _persistenceType : PersistenceType;
-    private _persistentAlias : string;
+    private _serializetAlias : string;
     private _readOnly : boolean;
+    private _bindInfo : EntityInfo;
 
     //#endregion
 
@@ -376,15 +382,20 @@ class AccessorInfo extends MemberInfo
     set persistenceType (value)
     { this._persistenceType = value; }
 
-    get persistentAlias ( )
-    { return this._persistentAlias; }
-    set persistentAlias( value )
-    { this._persistentAlias = value; }
+    get serializeAlias ( )
+    { return this._serializetAlias; }
+    set serializeAlias( value )
+    { this._serializetAlias = value; }
 
     get readOnly( )
     { return this._readOnly; }
     set readOnly( value )
     { this._readOnly = value; }
+
+    get bindInfo( )
+    { return this._bindInfo; }
+    set bindInfo( value )
+    { this._bindInfo = value; }
     
     //#endregion
 }

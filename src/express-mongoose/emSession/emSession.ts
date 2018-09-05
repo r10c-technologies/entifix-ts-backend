@@ -257,6 +257,41 @@ class EMSession extends HcSession
         });
     }
 
+    findEntity<TEntity extends EMEntity, TModel extends EntityDocument>( info: EntityInfo, id : string) : Promise<TEntity>
+    {
+        return new Promise<TEntity>( (resolve, reject) => {
+            
+            let model = this.getModel<TModel>(info.name);
+            
+
+            model.findById( id, (error, result) => { 
+                if (error)
+                    reject( this.createError( error, 'Session: Error in find document') );
+
+                info.get
+                
+                
+            });
+
+        }); 
+    }
+
+    listEntities<TEntity extends EMEntity, TModel extends EntityDocument>( name: string ) : Promise<Array<TEntity>>
+    {
+        return new Promise<Array<TEntity>>( (resolve, reject) => {
+            
+            let model = this.getModel<TModel>(name);
+
+            model.findById( id, (error, result) => { 
+                if (error)
+                    reject( this.createError( error, 'Session: Error in find document') );
+                
+                
+            });
+
+        }); 
+    }
+
     enableDevMode () : void
     {
         this._devMode = true;
