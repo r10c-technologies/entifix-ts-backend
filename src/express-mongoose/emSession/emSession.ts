@@ -240,10 +240,28 @@ class EMSession extends HcSession
         });
     }
 
-    activateEntityInstance<TEntity extends EMEntity, TModel extends EntityDocument>(name: string, document : TModel ) : TEntity
+    activateEntityInstance<TEntity extends EMEntity, TModel extends EntityDocument>(info: EntityInfo, document : TModel ) : Promise<TEntity>
     {        
-        return <TEntity>this.entitiesInfo.find(a => a.name == name).activateType(document);
+        return new Promise<TEntity>( (resolve, reject) => {
+
+            let baseInstace = <TEntity>this.entitiesInfo.find(a => a.name == name).activateType(document);
+
+            let entityAccessors = info.getAccessors().filter( a => a.activator != null );
+            if ( entityAccessors.length > 0)
+            {
+                let promises : Array<Promise<void>> = [];
+                entityAccessors.forEach( entityAccessor => promises.push(entityAccessor.activator.activateMember( baseInstace, this, entityAccessor.name)));
+
+                Promise.all(promises).then( 
+                    () => resolve(baseInstace),
+                    error => reject(this.createError(error, 'Session: Error in create instance of a member'))
+                );
+            }
+            else
+                resolve(baseInstace);
+        });
     }
+
 
     getMetadataToExpose(entityName : string) : Array<{ name : string, type : string, persistent : boolean}>
     {
@@ -259,20 +277,16 @@ class EMSession extends HcSession
 
     findEntity<TEntity extends EMEntity, TModel extends EntityDocument>( info: EntityInfo, id : string) : Promise<TEntity>
     {
-        return new Promise<TEntity>( (resolve, reject) => {
-            
-            let model = this.getModel<TModel>(info.name);
-            
+        return new Promise<TEntity>( (resolve, reject) => 
+        {
+            let model = this.getModel<TModel>(info.name);            
 
             model.findById( id, (error, result) => { 
-                if (error)
+                if (!error)
+                    this.activateEntityInstance<TEntity, TModel>(info, result).then( entityInstance => resolve(entityInstance));
+                else
                     reject( this.createError( error, 'Session: Error in find document') );
-
-                info.get
-                
-                
             });
-
         }); 
     }
 

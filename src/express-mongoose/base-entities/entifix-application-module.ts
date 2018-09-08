@@ -57,5 +57,5 @@ class EntifixApplicationModule extends EMEntity implements IEntifixApplicationMo
     //#endregion
 }
 
-export { EntifixApplicationModule, IEntifixApplicationModuleModel, EntifixResource }
+export { EntifixResource, IEntifixApplicationModule, IEntifixApplicationModuleModel, EntifixApplicationModule }
 

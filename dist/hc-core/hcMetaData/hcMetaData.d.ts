@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import { Entity } from '../hcEntity/hcEntity';
+import { HcSession } from '../hcSession/hcSession';
 declare function DefinedEntity(): any;
 declare function DefinedEntity(params: {
     packageName?: string;
@@ -8,8 +10,9 @@ declare function DefinedAccessor(params?: {
     exposed?: boolean;
     schema?: any;
     persistenceType?: PersistenceType;
-    persistentAlias?: string;
+    serializeAlias?: string;
     readOnly?: boolean;
+    activator?: MemberActivator;
 }): (target: any, key: string, descriptor: PropertyDescriptor) => void;
 declare function DefinedMethod(): (target: any, key: string, descriptor: PropertyDescriptor) => void;
 declare function Defined(...args: any[]): any;
@@ -24,7 +27,7 @@ declare class EntityInfo {
     addPropertyInfo(propertyInfo: PropertyInfo): void;
     addMethodInfo(methodInfo: MethodInfo): void;
     getAllMembers(): Array<MemberInfo>;
-    getExposedAccessors(): Array<AccessorInfo>;
+    getAccessors(): Array<AccessorInfo>;
     getAccessorSchemas(): Array<{
         accessorName: string;
         accessorSchema: any;
@@ -37,6 +40,12 @@ declare class EntityInfo {
     packageName: string;
     readonly base: EntityInfo;
     readonly isAbstract: boolean;
+}
+declare abstract class MemberActivator {
+    private _entityInfo;
+    constructor(info: EntityInfo);
+    abstract activateMember(entity: Entity, session: HcSession, memberName: string): Promise<void>;
+    protected readonly entityInfo: EntityInfo;
 }
 declare abstract class MemberInfo {
     private _name;
@@ -56,14 +65,16 @@ declare class AccessorInfo extends MemberInfo {
     private _exposed;
     private _schema;
     private _persistenceType;
-    private _persistentAlias;
+    private _serializetAlias;
     private _readOnly;
+    private _activator;
     constructor();
     exposed: boolean;
     schema: any;
     persistenceType: PersistenceType;
-    persistentAlias: string;
+    serializeAlias: string;
     readOnly: boolean;
+    activator: MemberActivator;
 }
 declare class MethodInfo extends MemberInfo {
     constructor();
@@ -75,4 +86,4 @@ declare enum PersistenceType {
     Defined = 1,
     Auto = 2
 }
-export { EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo };
+export { EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo, MemberActivator };

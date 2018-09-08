@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { error } from 'util';
 import { Entity } from '../hcEntity/hcEntity';
+import { HcSession } from '../hcSession/hcSession';
 
 function DefinedEntity( );
 function DefinedEntity( params : { packageName? : string, abstract? : boolean } );
@@ -38,7 +39,7 @@ function DefinedAccessor( params? : {   exposed? : boolean,
                                         persistenceType? : PersistenceType, 
                                         serializeAlias? : string, 
                                         readOnly? : boolean ,
-                                        bindInfo? : EntityInfo } ) 
+                                        activator? : MemberActivator } ) 
 {
 
     params = params || { };
@@ -56,7 +57,7 @@ function DefinedAccessor( params? : {   exposed? : boolean,
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
         info.serializeAlias = params.serializeAlias;
         info.readOnly = params.readOnly != null ?  params.readOnly : false;
-        info.bindInfo = params.bindInfo;
+        info.activator = params.activator;
 
         if (params.persistenceType && params.persistenceType == PersistenceType.Auto && params.schema)
             console.warn(`The Persistence type for ${key} is defined as Auto, so the defined Schema will be ignored`);
@@ -198,10 +199,11 @@ class EntityInfo
         return allMembers;
     }
 
-    getExposedAccessors() : Array<AccessorInfo>
+    getAccessors( ) : Array<AccessorInfo>
     {
-        return this.getAllMembers().filter( e => e instanceof AccessorInfo && (<AccessorInfo>e).exposed).map( e => <AccessorInfo>e );
+        return this.getAllMembers().filter( e => e instanceof AccessorInfo ).map( e => e as AccessorInfo);
     }
+
 
     getAccessorSchemas() : Array<{ accessorName : string, accessorSchema : any }>
     {        
@@ -272,6 +274,34 @@ class EntityInfo
     { return this._isAbstract; }
 
     //#endregion
+}
+
+abstract class MemberActivator
+{
+    //#region Properties
+
+    private _entityInfo : EntityInfo;
+    
+    //#endregion
+
+    //#region Methods
+        
+    constructor(info : EntityInfo)
+    {
+        this._entityInfo = info;
+    }
+
+    abstract activateMember( entity : Entity, session : HcSession, memberName : string ) : Promise<void>;
+    
+    //#endregion
+
+    //#region Accessors
+
+    protected get entityInfo
+    { return this._entityInfo; }
+
+    //#endregion
+
 }
 
 abstract class MemberInfo
@@ -348,7 +378,7 @@ class AccessorInfo extends MemberInfo
     private _persistenceType : PersistenceType;
     private _serializetAlias : string;
     private _readOnly : boolean;
-    private _bindInfo : EntityInfo;
+    private _activator : MemberActivator;
 
     //#endregion
 
@@ -392,10 +422,10 @@ class AccessorInfo extends MemberInfo
     set readOnly( value )
     { this._readOnly = value; }
 
-    get bindInfo( )
-    { return this._bindInfo; }
-    set bindInfo( value )
-    { this._bindInfo = value; }
+    get activator( )
+    { return this._activator; }
+    set activator( value )
+    { this._activator = value; }
     
     //#endregion
 }
@@ -442,5 +472,6 @@ export {
     AccessorInfo,
     MemberInfo,
     MethodInfo, 
-    PropertyInfo 
+    PropertyInfo,
+    MemberActivator
 }

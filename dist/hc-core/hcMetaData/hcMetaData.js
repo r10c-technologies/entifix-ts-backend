@@ -21,8 +21,6 @@ function DefinedEntity(params) {
     };
 }
 exports.DefinedEntity = DefinedEntity;
-// function DefinedAccessor();
-// function DefinedAccessor( params : { exposed? : boolean, schema? : any });
 function DefinedAccessor(params) {
     params = params || {};
     return function (target, key, descriptor) {
@@ -35,8 +33,9 @@ function DefinedAccessor(params) {
         info.className = target.constructor.name;
         info.type = reflectInfo.name;
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
-        info.persistentAlias = params.persistentAlias;
+        info.serializeAlias = params.serializeAlias;
         info.readOnly = params.readOnly != null ? params.readOnly : false;
+        info.activator = params.activator;
         if (params.persistenceType && params.persistenceType == PersistenceType.Auto && params.schema)
             console.warn(`The Persistence type for ${key} is defined as Auto, so the defined Schema will be ignored`);
         if (reflectInfo.name == 'Object')
@@ -128,8 +127,8 @@ class EntityInfo {
         }
         return allMembers;
     }
-    getExposedAccessors() {
-        return this.getAllMembers().filter(e => e instanceof AccessorInfo && e.exposed).map(e => e);
+    getAccessors() {
+        return this.getAllMembers().filter(e => e instanceof AccessorInfo).map(e => e);
     }
     getAccessorSchemas() {
         return this.getAllMembers().filter(e => e instanceof AccessorInfo && e.schema != null && e.persistenceType == PersistenceType.Defined).map(e => { return { accessorName: e.name, accessorSchema: e.schema }; });
@@ -171,6 +170,17 @@ class EntityInfo {
     get isAbstract() { return this._isAbstract; }
 }
 exports.EntityInfo = EntityInfo;
+class MemberActivator {
+    //#endregion
+    //#region Methods
+    constructor(info) {
+        this._entityInfo = info;
+    }
+    //#endregion
+    //#region Accessors
+    get entityInfo() { return this._entityInfo; }
+}
+exports.MemberActivator = MemberActivator;
 class MemberInfo {
     //#endregion
     //#region Methods
@@ -214,10 +224,12 @@ class AccessorInfo extends MemberInfo {
     set schema(value) { this._schema = value; }
     get persistenceType() { return this._persistenceType; }
     set persistenceType(value) { this._persistenceType = value; }
-    get persistentAlias() { return this._persistentAlias; }
-    set persistentAlias(value) { this._persistentAlias = value; }
+    get serializeAlias() { return this._serializetAlias; }
+    set serializeAlias(value) { this._serializetAlias = value; }
     get readOnly() { return this._readOnly; }
     set readOnly(value) { this._readOnly = value; }
+    get activator() { return this._activator; }
+    set activator(value) { this._activator = value; }
 }
 exports.AccessorInfo = AccessorInfo;
 class MethodInfo extends MemberInfo {

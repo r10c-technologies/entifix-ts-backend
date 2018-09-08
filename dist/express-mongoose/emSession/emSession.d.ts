@@ -36,12 +36,14 @@ declare class EMSession extends HcSession {
     }): Promise<Array<T>>;
     findDocument<T extends EntityDocument>(entityName: string, id: string): Promise<T>;
     deleteDocument<T extends EntityDocument>(entityName: string, document: T): Promise<void>;
-    activateEntityInstance<TEntity extends EMEntity, TModel extends EntityDocument>(name: string, document: TModel): TEntity;
+    activateEntityInstance<TEntity extends EMEntity, TModel extends EntityDocument>(info: EntityInfo, document: TModel): Promise<TEntity>;
     getMetadataToExpose(entityName: string): Array<{
         name: string;
         type: string;
         persistent: boolean;
     }>;
+    findEntity<TEntity extends EMEntity, TModel extends EntityDocument>(info: EntityInfo, id: string): Promise<TEntity>;
+    listEntities<TEntity extends EMEntity, TModel extends EntityDocument>(name: string): Promise<Array<TEntity>>;
     enableDevMode(): void;
     disableDevMode(): void;
     private createError;

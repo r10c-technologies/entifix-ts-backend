@@ -18,4 +18,4 @@ declare class EntifixApplicationModule extends EMEntity implements IEntifixAppli
     displayName: string;
     resources: Array<EntifixResource>;
 }
-export { EntifixApplicationModule, IEntifixApplicationModuleModel, EntifixResource };
+export { IEntifixApplicationModule, IEntifixApplicationModuleModel, EntifixResource, EntifixApplicationModule };

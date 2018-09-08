@@ -140,8 +140,18 @@ class EMSession extends hcSession_1.HcSession {
             });
         });
     }
-    activateEntityInstance(name, document) {
-        return this.entitiesInfo.find(a => a.name == name).activateType(document);
+    activateEntityInstance(info, document) {
+        return new Promise((resolve, reject) => {
+            let baseInstace = this.entitiesInfo.find(a => a.name == name).activateType(document);
+            let entityAccessors = info.getAccessors().filter(a => a.activator != null);
+            if (entityAccessors.length > 0) {
+                let promises = [];
+                entityAccessors.forEach(entityAccessor => promises.push(entityAccessor.activator.activateMember(baseInstace, this, entityAccessor.name)));
+                Promise.all(promises).then(() => resolve(baseInstace), error => reject(this.createError(error, 'Session: Error in create instance of a member')));
+            }
+            else
+                resolve(baseInstace);
+        });
     }
     getMetadataToExpose(entityName) {
         let info = (this.entitiesInfo.find(e => e.name == entityName).info);
@@ -151,6 +161,26 @@ class EMSession extends hcSession_1.HcSession {
                 type: accessor.type,
                 persistent: (accessor.schema != null || accessor.persistenceType == hcMetaData_1.PersistenceType.Auto)
             };
+        });
+    }
+    findEntity(info, id) {
+        return new Promise((resolve, reject) => {
+            let model = this.getModel(info.name);
+            model.findById(id, (error, result) => {
+                if (!error)
+                    this.activateEntityInstance(info, result).then(entityInstance => resolve(entityInstance));
+                else
+                    reject(this.createError(error, 'Session: Error in find document'));
+            });
+        });
+    }
+    listEntities(name) {
+        return new Promise((resolve, reject) => {
+            let model = this.getModel(name);
+            model.findById(id, (error, result) => {
+                if (error)
+                    reject(this.createError(error, 'Session: Error in find document'));
+            });
         });
     }
     enableDevMode() {
