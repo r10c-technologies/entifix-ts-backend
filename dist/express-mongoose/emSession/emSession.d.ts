@@ -28,12 +28,7 @@ declare class EMSession extends HcSession {
     createDocument<T extends EntityDocument>(entityName: string, document: T): Promise<T>;
     updateDocument<T extends EntityDocument>(entityName: string, document: T): Promise<T>;
     listDocuments<T extends EntityDocument>(entityName: string): Promise<Array<T>>;
-    listDocuments<T extends EntityDocument>(entityName: string, options: {
-        filters?: Array<EMSessionFilter>;
-        skip?: number;
-        take?: number;
-        sorting?: Array<EMSessionSort>;
-    }): Promise<Array<T>>;
+    listDocuments<T extends EntityDocument>(entityName: string, options: ListOptions): Promise<Array<T>>;
     findDocument<T extends EntityDocument>(entityName: string, id: string): Promise<T>;
     deleteDocument<T extends EntityDocument>(entityName: string, document: T): Promise<void>;
     activateEntityInstance<TEntity extends EMEntity, TModel extends EntityDocument>(info: EntityInfo, document: TModel): Promise<TEntity>;
@@ -43,7 +38,8 @@ declare class EMSession extends HcSession {
         persistent: boolean;
     }>;
     findEntity<TEntity extends EMEntity, TModel extends EntityDocument>(info: EntityInfo, id: string): Promise<TEntity>;
-    listEntities<TEntity extends EMEntity, TModel extends EntityDocument>(name: string): Promise<Array<TEntity>>;
+    listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string): Promise<Array<TEntity>>;
+    listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string, options: ListOptions): Promise<Array<TEntity>>;
     enableDevMode(): void;
     disableDevMode(): void;
     private createError;
@@ -56,7 +52,7 @@ declare class EMSession extends HcSession {
     throwException(message: string): void;
     throwInfo(message: string): void;
     throwInfo(message: string, warnDevMode: boolean): void;
-    errorMessage(baseMessage: string, devData?: any): string;
+    readonly isDevMode: boolean;
     periodAmqpRetry: any;
     limitAmqpRetry: any;
     readonly mongooseConnection: mongoose.Connection;
@@ -88,4 +84,11 @@ declare enum SortType {
     ascending = 1,
     descending = 2
 }
-export { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort };
+interface ListOptions {
+    filters?: Array<EMSessionFilter>;
+    skip?: number;
+    take?: number;
+    sorting?: Array<EMSessionSort>;
+    mongoFilters?: any;
+}
+export { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort, ListOptions };

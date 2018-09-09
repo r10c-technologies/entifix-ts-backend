@@ -62,7 +62,7 @@ function DefinedAccessor( params? : {   exposed? : boolean,
         if (params.persistenceType && params.persistenceType == PersistenceType.Auto && params.schema)
             console.warn(`The Persistence type for ${key} is defined as Auto, so the defined Schema will be ignored`);
 
-        if (reflectInfo.name == 'Object')
+        if (reflectInfo.name == 'Object' && params.persistenceType != PersistenceType.Auto)
             console.warn(`It seems the accessor ${key} does not have an explicit type. Please make sure that the type name it is not necessary in the exposed metadata`);
 
         entityInfo.addAccessorInfo(info);
@@ -297,7 +297,7 @@ abstract class MemberActivator
 
     //#region Accessors
 
-    protected get entityInfo
+    protected get entityInfo()
     { return this._entityInfo; }
 
     //#endregion

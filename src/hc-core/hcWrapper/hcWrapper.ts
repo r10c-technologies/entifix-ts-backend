@@ -1,3 +1,4 @@
+import { error } from "util";
 
 class Wrapper
 {
@@ -30,9 +31,11 @@ class Wrapper
         return new WrappedCollection(isLogicError, message, objectCollection, total, page, count);
     }
 
-    static wrapError(errorDescription: string, error : any) : WrappedError
+    static wrapError(errorDescription: string) : WrappedError;
+    static wrapError(errorDescription: string, error : any) : WrappedError;
+    static wrapError(errorDescription: string, error? : any) : WrappedError
     {
-        return new WrappedError(errorDescription, errorDescription);
+        return new WrappedError(errorDescription, error);
     }
 
     //#endregion
@@ -195,7 +198,7 @@ class WrappedCollection<T> extends WrappedResponse
 }
 
 
-class WrappedError 
+class WrappedError
 {
     //#region Properties
 
@@ -212,14 +215,16 @@ class WrappedError
         this._errorObject = error;
     }
 
-    serializeSimpleObject () : any
+    serializeSimpleObject() : any
     {
         return {
-            errorDescription: this.errorDescription,
-            errorObject: this.errorObject
+            isLogicError: null,
+            message: this._errorDescription,
+            info: { type: 'ERROR' },
+            data: this._errorObject
         };
-    }
-    
+    };
+
     //#endregion
 
     //#region Accessors

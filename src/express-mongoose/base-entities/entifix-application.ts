@@ -9,6 +9,7 @@ import crypto = require ('crypto');
 
 //Core Framework
 import { EMSession } from '../emSession/emSession';
+import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EntifixApplicationModule, IEntifixApplicationModuleModel } from './entifix-application-module';
 
@@ -81,7 +82,9 @@ abstract class EntifixApplication
     {
         this._session = new EMSession( this.serviceConfiguration.mongoService, this.serviceConfiguration.amqpService );
         this.configSessionAMQPConneciton();
-        
+        if (this.serviceConfiguration.devMode)
+            this._session.enableDevMode();
+
         this._session.connect().then( ()=> this.onSessionCreated() );
     }
 
@@ -128,13 +131,13 @@ abstract class EntifixApplication
         //Register Function on express middleware
         this._expressApp.use('/'+ pathProtected, (request, response, next) => {
 
-            let deniedAccess = (message?, errorCode?) => response.status(errorCode || 401).send( message ? { message: message } : null );
+            let deniedAccess = (message, errorCode?, error?) => response.status(errorCode || 401).send( Wrapper.wrapError(message, error).serializeSimpleObject() );
             
             //TOKEN VALIDATION
             var token = request.get(header);
             if (!token)
             {
-                deniedAccess();
+                deniedAccess('Authorization required');
                 return;
             }
             
@@ -145,7 +148,7 @@ abstract class EntifixApplication
                     else
                         deniedAccess( result.message )
                 },
-                error => deniedAccess(this._session.errorMessage('Error on token validation', error), 500)                    
+                error => deniedAccess('Error on token validation', 500, this.serviceConfiguration.devMode ? error : null )                    
             );
             
         });

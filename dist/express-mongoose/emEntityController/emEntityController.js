@@ -10,7 +10,7 @@ class EMEntityController {
         this._entityName = entityName;
         this._session = session;
         this._useEntities = true;
-        this._responseWrapper = new emWrapper_1.EMResponseWrapper();
+        this._responseWrapper = new emWrapper_1.EMResponseWrapper(session);
         this._resourceName = resourceName || entityName.toLowerCase();
         this.constructRouter();
     }
@@ -18,7 +18,7 @@ class EMEntityController {
         //Manage query params options
         let queryParamsConversion = this.getQueryParams(request);
         if (queryParamsConversion.error)
-            this.responseWrapper.error(response, queryParamsConversion.message, 400);
+            this.responseWrapper.error(response, queryParamsConversion.message, { code: 400 });
         let queryParams = queryParamsConversion.queryParams;
         let filterParam = queryParams.filter(qp => qp.paramName == 'filter');
         let filters = filterParam.length > 0 ? filterParam.map(qp => qp) : null;
@@ -27,68 +27,64 @@ class EMEntityController {
         let skipParam = queryParams.find(qp => qp.paramName == 'skip');
         let skip = skipParam != null ? parseInt(skipParam.paramValue) : null;
         let takeParam = queryParams.find(qp => qp.paramName == 'take');
-        let take = takeParam != null ? parseInt(takeParam.paramValue) : 100;
-        //Call the execution of mongo query in EMSession
-        this._session.listDocuments(this._entityName, { filters, skip, take, sorting })
-            .then(results => {
-            if (this._useEntities)
-                this._responseWrapper.entityCollection(response, results.map(e => this._session.activateEntityInstance(this._entityName, e)));
-            else
-                this._responseWrapper.documentCollection(response, results);
-        }, error => this._responseWrapper.sessionError(response, error));
+        let take = takeParam != null ? parseInt(takeParam.paramValue) : 100; // Retrive limit protector
+        //Call the execution of mongo query inside EMSession
+        if (this._useEntities)
+            this._session.listEntities(this._entityName, { filters, skip, take, sorting }).then(entityResults => this._responseWrapper.entityCollection(response, entityResults), error => this._responseWrapper.error(response, error));
+        else
+            this._session.listDocuments(this._entityName, { filters, skip, take, sorting }).then(docResults => this._responseWrapper.documentCollection(response, docResults), error => this._responseWrapper.error(response, error));
     }
     retrieveById(request, response) {
-        this._session.findDocument(this._entityName, request.params._id).then(result => {
-            if (this.useEntities)
-                this._responseWrapper.entity(response, this._session.activateEntityInstance(this._entityName, result));
-            else
-                this._responseWrapper.document(response, result);
-        }, error => this._responseWrapper.sessionError(response, error));
+        if (this._useEntities)
+            this._session.findEntity(this.entityInfo, request.params._id).then(entityResult => this._responseWrapper.entity(response, entityResult), error => this._responseWrapper.error(response, error));
+        else
+            this._session.findDocument(this._entityName, request.params._id).then(docResult => this._responseWrapper.document(response, docResult), error => this._responseWrapper.error(response, error));
     }
     retriveMetadata(request, response, next) {
         this._responseWrapper.object(response, this._session.getMetadataToExpose(this._entityName));
     }
     create(request, response) {
         if (!this._useEntities) {
-            this._session.createDocument(this.entityName, request.body).then(result => this._responseWrapper.document(response, result, HttpStatus.CREATED), error => this._responseWrapper.sessionError(response, error));
+            this._session.createDocument(this.entityName, request.body).then(result => this._responseWrapper.document(response, result, HttpStatus.CREATED), error => this._responseWrapper.error(response, error));
         }
         else
             this.save(request, response);
     }
     update(request, response) {
         if (!this._useEntities) {
-            this._session.updateDocument(this._entityName, request.body).then(result => this._responseWrapper.document(response, result, HttpStatus.OK), error => this._responseWrapper.sessionError(response, error));
+            this._session.updateDocument(this._entityName, request.body).then(result => this._responseWrapper.document(response, result, HttpStatus.OK), error => this._responseWrapper.error(response, error));
         }
         else
             this.save(request, response);
     }
     delete(request, response) {
-        this._session.findDocument(this._entityName, request.params._id).then(result => {
-            let responseOk = () => this._responseWrapper.object(response, { 'Delete status': 'register deleted ' });
-            let responseError = error => this._responseWrapper.sessionError(response, responseError);
-            if (this._useEntities) {
-                let entity = this._session.activateEntityInstance(this._entityName, result);
+        let id = request.params._id;
+        let responseOk = () => this._responseWrapper.object(response, { 'Delete status': 'register deleted ' });
+        let responseError = error => this._responseWrapper.error(response, responseError);
+        if (this._useEntities) {
+            this._session.findEntity(this.entityInfo, id).then(entity => {
                 entity.delete().then(movFlow => {
                     if (movFlow.continue)
                         responseOk();
                     else
                         this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
-                }, responseError);
-            }
-            else
-                this._session.deleteDocument(this.entityName, result).then(responseOk, responseError);
-        }, error => this._responseWrapper.sessionError(response, error));
+                });
+            }, error => this._responseWrapper.error(response, error));
+        }
+        else {
+            this._session.findDocument(this._entityName, request.params._id).then(docResult => this._session.deleteDocument(this._entityName, docResult).then(responseOk, responseError), error => this._responseWrapper.error(response, error));
+        }
     }
     save(request, response) {
-        let info = this._session.getInfo(this._entityName);
-        let document = emEntity_1.EMEntity.deserializePersistentAccessors(info, request.body);
-        let entity = this._session.activateEntityInstance(this._entityName, document);
-        entity.save().then(movFlow => {
-            if (movFlow.continue)
-                this._responseWrapper.entity(response, entity);
-            else
-                this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
-        }, error => this._responseWrapper.sessionError(response, error));
+        let document = emEntity_1.EMEntity.deserializePersistentAccessors(this.entityInfo, request.body);
+        this._session.activateEntityInstance(this.entityInfo, document).then(entity => {
+            entity.save().then(movFlow => {
+                if (movFlow.continue)
+                    this._responseWrapper.entity(response, entity);
+                else
+                    this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
+            }, error => this._responseWrapper.error(response, error));
+        }, error => this._responseWrapper.error(response, error));
     }
     constructRouter() {
         this._router = express.Router();
@@ -149,6 +145,9 @@ class EMEntityController {
     }
     //#endregion
     //#region Accessors (Properties)
+    get entityInfo() {
+        return this._session.getInfo(this._entityName);
+    }
     get entityName() { return this._entityName; }
     get session() { return this._session; }
     get useEntities() { return this._useEntities; }

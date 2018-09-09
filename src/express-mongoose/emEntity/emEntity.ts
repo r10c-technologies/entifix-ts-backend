@@ -2,7 +2,7 @@ import mongoose = require('mongoose');
 
 import { Entity, EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity';
 import { EMSession } from '../emSession/emSession';
-import { DefinedAccessor, DefinedEntity, PersistenceType } from '../../hc-core/hcMetaData/hcMetaData';
+import { DefinedAccessor, DefinedEntity, PersistenceType, EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { emitKeypressEvents } from 'readline';
 
 interface EntityDocument extends mongoose.Document
@@ -41,7 +41,32 @@ class EMEntity extends Entity
             this._document = {} as any;
     }
 
-    
+    serializeExposedAccessors () : any
+    {
+        var simpleObject : any = {};
+        
+        this.entityInfo.getAccessors().filter( accessor => accessor.exposed ).forEach( accessor => {
+            let nameSerialized = accessor.serializeAlias || accessor.name;
+            let valueSerialized : string;
+            if (accessor.activator != null)
+                valueSerialized = ( this[accessor.name] as EMEntity )._id;
+            else
+                simpleObject[nameSerialized] = this[accessor.name];
+        });
+
+        return simpleObject;
+    }
+
+    static deserializePersistentAccessors (info : EntityInfo, simpleObject : any) : any
+    {
+        var complexObject : any = {};
+        info.getAccessors().filter( accesor => accesor.schema != null || accesor.persistenceType == PersistenceType.Auto).forEach( accessor => {
+            let exposedName = accessor.serializeAlias || accessor.name;
+            complexObject[accessor.name] = simpleObject[exposedName];
+        });
+
+        return complexObject;
+    }
 
 
     save() : Promise<EntityMovementFlow>
@@ -174,11 +199,11 @@ class EMEntity extends Entity
     set deleted (value : Date)
     { this._document.deleted = value; }
 
-    @DefinedAccessor({ exposed: true, persistenceType: PersistenceType.Auto, persistentAlias: 'id' })
+    @DefinedAccessor({ exposed: true, persistenceType: PersistenceType.Auto, serializeAlias: 'id' })
     get _id () : any
     { return this._document._id; }
 
-    @DefinedAccessor({ exposed: true, persistenceType: PersistenceType.Auto, persistentAlias: 'v' })
+    @DefinedAccessor({ exposed: true, persistenceType: PersistenceType.Auto, serializeAlias: 'v' })
     get __v () : number
     { return this._document.__v; }
 

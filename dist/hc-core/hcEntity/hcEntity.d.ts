@@ -8,8 +8,7 @@ declare abstract class Entity implements IMetaDataInfo {
     protected abstract onDeleting(): Promise<EntityMovementFlow>;
     protected abstract onDeleted(): void;
     protected abstract onSaved(): void;
-    serializeExposedAccessors(): any;
-    static deserializePersistentAccessors(info: EntityInfo, simpleObject: any): any;
+    abstract serializeExposedAccessors(): any;
     static getInfo(): EntityInfo;
 }
 interface EntityMovementFlow {

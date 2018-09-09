@@ -31,7 +31,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         this._entityName = entityName;
         this._session = session;
         this._useEntities = true;
-        this._responseWrapper = new EMResponseWrapper();
+        this._responseWrapper = new EMResponseWrapper(session);
         this._resourceName = resourceName || entityName.toLowerCase();
 
         this.constructRouter();
@@ -43,7 +43,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         let queryParamsConversion = this.getQueryParams(request);
 
         if(queryParamsConversion.error)
-            this.responseWrapper.error( response, queryParamsConversion.message, 400 );
+            this.responseWrapper.error( response, queryParamsConversion.message, { code: 400 } );
         
         let queryParams = queryParamsConversion.queryParams;
         
@@ -57,32 +57,33 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         let skip = skipParam != null ? parseInt(skipParam.paramValue) : null;
 
         let takeParam = queryParams.find( qp => qp.paramName == 'take');
-        let take = takeParam != null ? parseInt(takeParam.paramValue) : 100;
+        let take = takeParam != null ? parseInt(takeParam.paramValue) : 100; // Retrive limit protector
 
-        //Call the execution of mongo query in EMSession
-        this._session.listDocuments<TDocument>(this._entityName, { filters, skip, take, sorting } )
-                        .then(
-                                results => {                
-                                    if (this._useEntities)
-                                        this._responseWrapper.entityCollection(response, results.map( e => this._session.activateEntityInstance<TEntity, TDocument>(this._entityName, e) ));
-                                    else
-                                        this._responseWrapper.documentCollection(response, results);
-                                },
-                                error => this._responseWrapper.sessionError(response, error)
-                            );
+        //Call the execution of mongo query inside EMSession
+        if (this._useEntities)
+            this._session.listEntities<TEntity, TDocument>(this._entityName, { filters, skip, take, sorting } ).then(
+                entityResults => this._responseWrapper.entityCollection(response, entityResults),
+                error => this._responseWrapper.error(response, error)
+            );
+        else
+            this._session.listDocuments<TDocument>(this._entityName, { filters, skip, take, sorting } ).then(
+                docResults => this._responseWrapper.documentCollection(response, docResults),
+                error => this._responseWrapper.error(response, error)
+            );
     }
 
     retrieveById ( request : express.Request, response : express.Response ) : void
     {
-        this._session.findDocument<TDocument>(this._entityName, request.params._id).then(
-            result => {
-                if (this.useEntities)
-                    this._responseWrapper.entity(response, this._session.activateEntityInstance<TEntity, TDocument>(this._entityName, result) );
-                else
-                    this._responseWrapper.document(response, result )
-            },
-            error => this._responseWrapper.sessionError(response, error)
-        );
+        if (this._useEntities)
+            this._session.findEntity<TEntity, TDocument>(this.entityInfo, request.params._id).then(
+                entityResult => this._responseWrapper.entity(response, entityResult),
+                error => this._responseWrapper.error(response, error)
+            );            
+        else
+            this._session.findDocument<TDocument>(this._entityName, request.params._id).then(
+                docResult => this._responseWrapper.document(response, docResult),
+                error => this._responseWrapper.error(response, error)
+            ); 
     }
 
     retriveMetadata( request : express.Request, response : express.Response, next : express.NextFunction)
@@ -96,7 +97,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         {
             this._session.createDocument(this.entityName, <TDocument>request.body).then(
                 result => this._responseWrapper.document(response, result, HttpStatus.CREATED),
-                error => this._responseWrapper.sessionError(response, error)
+                error => this._responseWrapper.error(response, error)
             );
         }
         else
@@ -109,7 +110,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         {
             this._session.updateDocument(this._entityName, <TDocument>request.body).then(
                 result => this._responseWrapper.document(response, result, HttpStatus.OK),
-                error => this._responseWrapper.sessionError(response, error)
+                error => this._responseWrapper.error(response, error)
             );
         }
         else
@@ -118,46 +119,50 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     delete ( request : express.Request, response : express.Response ) : void
     {
-        this._session.findDocument<TDocument>(this._entityName, request.params._id).then(
-            result => {
-                let responseOk = () => this._responseWrapper.object( response, {'Delete status': 'register deleted '} );
-                let responseError = error => this._responseWrapper.sessionError(response, responseError);
+        let id = request.params._id;
+        let responseOk = () => this._responseWrapper.object( response, {'Delete status': 'register deleted '} );
+        let responseError = error => this._responseWrapper.error(response, responseError);
 
-                if (this._useEntities)
-                {
-                    let entity = this._session.activateEntityInstance<TEntity, TDocument>(this._entityName, result);
-                    entity.delete().then( 
-                        movFlow => { 
-                            if (movFlow.continue)
-                                responseOk();
-                            else
-                                this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
-                        }
-                        , responseError);
-                }
-                else
-                    this._session.deleteDocument(this.entityName, result).then( responseOk, responseError );        
-            },
-            error => this._responseWrapper.sessionError(response, error)
-        
-        );
-    
+        if (this._useEntities)
+        {   
+            this._session.findEntity(this.entityInfo, id).then(
+                entity => {
+                    entity.delete().then( movFlow => {
+                        if (movFlow.continue)
+                            responseOk();
+                        else
+                            this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
+                    })
+                },
+                error => this._responseWrapper.error( response, error)    
+            )
+        }
+        else
+        {
+            this._session.findDocument<TDocument>(this._entityName, request.params._id).then(
+                docResult => this._session.deleteDocument(this._entityName, docResult).then( responseOk, responseError ),
+                error => this._responseWrapper.error(response, error)            
+            );
+        }
     }
 
     private save( request : express.Request, response : express.Response) : void
     {
-        let info = this._session.getInfo(this._entityName);
-        let document = EMEntity.deserializePersistentAccessors(info, request.body) as TDocument;
-        let entity = this._session.activateEntityInstance<TEntity,TDocument>(this._entityName, document);
-
-        entity.save().then(
-            movFlow => {
-                if (movFlow.continue)
-                    this._responseWrapper.entity(response, entity);
-                else
-                    this._responseWrapper.logicError(response, movFlow.message, movFlow.details);         
+        let document = EMEntity.deserializePersistentAccessors(this.entityInfo, request.body) as TDocument;
+        
+        this._session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, document).then(
+            entity => {
+                entity.save().then(
+                    movFlow => {
+                        if (movFlow.continue)
+                            this._responseWrapper.entity(response, entity);
+                        else
+                            this._responseWrapper.logicError(response, movFlow.message, movFlow.details);         
+                    },
+                    error => this._responseWrapper.error(response, error)
+                );
             },
-            error => this._responseWrapper.sessionError(response, error)
+            error => this._responseWrapper.error( response, error)
         );
     }
 
@@ -246,6 +251,12 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
 
     //#region Accessors (Properties)
+
+    
+    private get entityInfo()
+    {
+        return this._session.getInfo(this._entityName);
+    }
 
     get entityName ()
     { return this._entityName; }

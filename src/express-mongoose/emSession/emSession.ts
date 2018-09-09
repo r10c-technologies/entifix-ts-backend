@@ -147,7 +147,7 @@ class EMSession extends HcSession
             this.manageDocumentCreation(document);
             model.create(document).then( 
                 value => resolve(value), 
-                error => reject( this.createError(error, 'Session: Error in create document' )));
+                error => reject( this.createError(error, 'Error in create document' )));
         });
     }
 
@@ -165,24 +165,27 @@ class EMSession extends HcSession
                     );
                 }
                 else
-                    reject( this.createError(error, 'Session: Error in update document') );
+                    reject( this.createError(error, 'Error in update document') );
             } );
         });
     }
 
 
     listDocuments<T extends EntityDocument>(entityName: string) : Promise<Array<T>>;
-    listDocuments<T extends EntityDocument>(entityName: string, options : { filters? : Array<EMSessionFilter>, skip? : number, take? : number, sorting? : Array<EMSessionSort> } ) : Promise<Array<T>>;
-    listDocuments<T extends EntityDocument>(entityName: string, options? : { filters? : Array<EMSessionFilter>, skip? : number, take? : number, sorting? : Array<EMSessionSort> } ) : Promise<Array<T>>
+    listDocuments<T extends EntityDocument>(entityName: string, options : ListOptions ) : Promise<Array<T>>;
+    listDocuments<T extends EntityDocument>(entityName: string, options? : ListOptions ) : Promise<Array<T>>
     {        
         return new Promise<Array<T>>((resolve, reject)=>{
 
-            //PREPARE QUERY =====>>>>>           
+            //PREPARE QUERY PARAMETERS =====>>>>>           
             let skip = options != null && options.skip != null ? options.skip : 0;
             let take = options != null && options.take != null ? options.take : null;
 
-            //Construct Mongo parameters
-            let mongoFilters = this.resolveToMongoFilters(entityName, options != null && options.filters != null ? options.filters : null);
+            //Set mongo filters attending options.
+            //First Monto object or SessionFilters instead
+            let mongoFilters : any = options != null && options.mongoFilters ? options.mongoFilters : null;
+            if (!mongoFilters)
+            mongoFilters = this.resolveToMongoFilters(entityName, options != null && options.filters != null ? options.filters : null);
             if (mongoFilters.error)
                 reject( this.createError( null, mongoFilters.message ));
             
@@ -191,25 +194,24 @@ class EMSession extends HcSession
                 reject( this.createError( null, mongoSorting.message ));
             
 
-            //Create Query
+            //CREATE QUERY =====>>>>>
             let query = this.getModel<T>(entityName).find( mongoFilters.filters );
 
-            //Order Query
             if (mongoSorting != null && mongoSorting.sorting != null)
                 query = query.sort( mongoSorting.sorting );
             
-            //Limit Query
             if (skip > 0)
                 query = query.skip(skip);
             if (take != null)
                 query = query.limit(take);
             
+
             //EXECUTE QUERY =====>>>>>
             query.exec(( error, result ) => {
                 if (!error)
                     resolve(result);   
                 else
-                     reject( this.createError(error, 'Session: Error in retrive docments') );                
+                     reject( this.createError(error, 'Error in retrive docments') );                
             });
         }); 
     }
@@ -219,7 +221,7 @@ class EMSession extends HcSession
         return new Promise<T>( (resolve, reject ) => { 
             this.getModel<T>(entityName).where("deferredDeletion").ne(true).where("_id", id).then( 
                 res => resolve( res != null && res.length > 0 ? res[0] : null ),
-                err => reject ( this.createError(err, 'Session: Error in retrive single document') ) 
+                err => reject ( this.createError(err, 'Error in retrive single document') ) 
             );
         });
     }
@@ -235,7 +237,7 @@ class EMSession extends HcSession
                 if (!error)
                     resolve();
                 else
-                    reject ( this.createError(error, 'Session: Error in delete document') );
+                    reject ( this.createError(error, 'Error in delete document') );
             } );
         });
     }
@@ -244,7 +246,7 @@ class EMSession extends HcSession
     {        
         return new Promise<TEntity>( (resolve, reject) => {
 
-            let baseInstace = <TEntity>this.entitiesInfo.find(a => a.name == name).activateType(document);
+            let baseInstace = <TEntity>this.entitiesInfo.find(a => a.name == info.name).activateType(document);
 
             let entityAccessors = info.getAccessors().filter( a => a.activator != null );
             if ( entityAccessors.length > 0)
@@ -254,7 +256,7 @@ class EMSession extends HcSession
 
                 Promise.all(promises).then( 
                     () => resolve(baseInstace),
-                    error => reject(this.createError(error, 'Session: Error in create instance of a member'))
+                    error => reject(this.createError(error, 'Error in create instance of a member'))
                 );
             }
             else
@@ -266,7 +268,7 @@ class EMSession extends HcSession
     getMetadataToExpose(entityName : string) : Array<{ name : string, type : string, persistent : boolean}>
     {
         let info = <EntityInfo>(this.entitiesInfo.find( e => e.name == entityName).info);
-        return info.getExposedAccessors().map( accessor => { 
+        return info.getAccessors().filter(accessor => accessor.exposed).map( accessor => { 
             return { 
                 name: accessor.name, 
                 type: accessor.type, 
@@ -279,32 +281,39 @@ class EMSession extends HcSession
     {
         return new Promise<TEntity>( (resolve, reject) => 
         {
-            let model = this.getModel<TModel>(info.name);            
+            this.findDocument<TModel>(info.name, id).then( 
+                docResult => this.activateEntityInstance<TEntity, TModel>(info, docResult).then( entityInstance => resolve(entityInstance), error => reject(error) ),
+                error => reject (error)
+            )
+        });
+    }
 
-            model.findById( id, (error, result) => { 
-                if (!error)
-                    this.activateEntityInstance<TEntity, TModel>(info, result).then( entityInstance => resolve(entityInstance));
-                else
-                    reject( this.createError( error, 'Session: Error in find document') );
-            });
+    listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string) : Promise<Array<TEntity>>;
+    listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string, options : ListOptions ) : Promise<Array<TEntity>>;
+    listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string, options? : ListOptions ) : Promise<Array<TEntity>>
+    {        
+        return new Promise<Array<TEntity>>((resolve, reject)=>{
+            this.listDocuments<TDocument>(entityName, options).then(
+                docsResult => 
+                { 
+                    let entities = new Array<TEntity>();
+                    let promises = new Array<Promise<void>>();
+
+                    docsResult.forEach( docResult => {
+                        promises.push( this.activateEntityInstance<TEntity, TDocument>(this.getInfo(entityName), docResult).then( entity => { entities.push(entity) }));
+                    });
+
+                    Promise.all(promises).then(
+                        () => resolve(entities),
+                        error => reject(error) 
+                    );
+                },
+                error => reject(error)
+            );
         }); 
     }
 
-    listEntities<TEntity extends EMEntity, TModel extends EntityDocument>( name: string ) : Promise<Array<TEntity>>
-    {
-        return new Promise<Array<TEntity>>( (resolve, reject) => {
-            
-            let model = this.getModel<TModel>(name);
 
-            model.findById( id, (error, result) => { 
-                if (error)
-                    reject( this.createError( error, 'Session: Error in find document') );
-                
-                
-            });
-
-        }); 
-    }
 
     enableDevMode () : void
     {
@@ -320,11 +329,12 @@ class EMSession extends HcSession
     {
         if (this._devMode)
         {
-            console.warn('DevMode: Error in EMSession: ' + message);    
-            return new EMSessionError(error, message);
+            let m = 'DevMode: Error in EMSession => ' + message;
+            console.warn(m);    
+            return new EMSessionError(error, m);
         }
         else
-            return new EMSessionError(null, 'Internal session error');
+            return new EMSessionError(null, 'INTERNAL SERVER ERROR');
     }
 
     private manageDocumentCreation<TDocument extends EntityDocument>(document : TDocument) : void
@@ -354,7 +364,7 @@ class EMSession extends HcSession
                 info.getAllMembers()
                     .filter( m => (m instanceof AccessorInfo) && ( m.schema != null || m.persistenceType == PersistenceType.Auto) )
                     .map( m => { 
-                        return  { property: m.name, type: m.type, alias : (m as AccessorInfo).persistentAlias } 
+                        return  { property: m.name, type: m.type, alias : (m as AccessorInfo).serializeAlias } 
                     });
 
 
@@ -529,26 +539,15 @@ class EMSession extends HcSession
             console.info(message);
     }
 
-    errorMessage( baseMessage : string, devData? : any ) : string
-    {
-        if (this._devMode)
-        {
-            let m = 'DEV-MODE: Error - ' + baseMessage;
-            if (devData)
-                m = m  + ' - ' + JSON.stringify(devData);
-            
-            return m;
-        }            
-        else
-            return baseMessage;
-    }
-
 
     //#endregion
 
 
 
     //#region Accessors (Properties)
+
+    get isDevMode()
+    { return this._devMode; }
 
     get periodAmqpRetry ()
     { return this._periodAmqpRetry; }
@@ -614,4 +613,13 @@ enum SortType
     descending = 2
 }
 
-export { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort }
+interface ListOptions 
+{ 
+    filters? : Array<EMSessionFilter>, 
+    skip? : number, 
+    take? : number, 
+    sorting? : Array<EMSessionSort>,
+    mongoFilters? : any 
+}
+
+export { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort, ListOptions }

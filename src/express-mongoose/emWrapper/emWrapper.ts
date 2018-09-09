@@ -4,6 +4,7 @@ import express = require('express');
 import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
 import { EMSessionError } from '../emSession/emSession';
 import { EMEntity } from '../emEntity/emEntity';
+import { EMSession } from '../emSession/emSession';
 
 class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EMEntity>
 {
@@ -12,6 +13,11 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
     //#endregion
 
     //#region Methods
+
+    constructor( private session : EMSession)
+    {
+
+    }
 
     object( response : express.Response, object : any);
     object( response : express.Response, object : any, status : number);
@@ -53,29 +59,54 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
         response.send( Wrapper.wrapCollection(false, null, entities.map(a => a.serializeExposedAccessors()) ).serializeSimpleObject() );
     }
 
-    error( response: express.Response, message: string, code: number )
+    error( response: express.Response, error : any, options? : { code?: number })
     {
-        response.statusCode = code;
-        response.send( Wrapper.wrapError(message, null).serializeSimpleObject() );
-    } 
-
-    sessionError( response: express.Response, error : any)
-    {
-        response.statusCode = 500;
+        response.statusCode = options && options.code ? options.code : 500;
         if (error instanceof EMSessionError)
         {
             let e = <EMSessionError>error;
-            let errorMessage : string;
-            
-            if (e.error)
-                errorMessage = e.error.name + ' - ' + e.error.message;
-            else
-                errorMessage = e.message;
 
-            response.send( Wrapper.wrapError(errorMessage, e.error).serializeSimpleObject() );   
+            let data : any;
+            if (this.session.isDevMode)
+            {
+                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was ocurred in the Service's Session"};
+                if (error)
+                {
+                    data.errorDetails = { sessionMessage: e.message };
+                    if (e.error)
+                    {
+                        data.errorDetails.sessionError = { 
+                            type: typeof e.error,
+                            asString: e.error.toString != null ? e.error.toString() : null,
+                            serialized: JSON.stringify(e.error),
+                            message: e.error.message,
+                            stack: e.error.stack
+                        } 
+                    }
+                }
+                    
+            }                
+
+            response.send( Wrapper.wrapError( 'INTERNAL UNHANDLED ERROR', e.error).serializeSimpleObject() );   
         }
         else
-            response.send( 'INTERNAL UNHANDLED ERROR');
+        {
+            let data : any;
+            if (this.session.isDevMode)
+            {
+                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred in the Service's Session. The details were attached"};
+                if (error)
+                    data.errorDetails = { 
+                        type: typeof error,
+                        asString: error.toString != null ? error.toString() : null,
+                        serialized: JSON.stringify(error),
+                        message: error.message,
+                        stack: error.stack
+                    };
+            }                
+
+            response.send( Wrapper.wrapError( 'INTERNAL UNHANDLED ERROR', data).serializeSimpleObject() );
+        }
     }
 
     logicError ( response: express.Response, message: string);

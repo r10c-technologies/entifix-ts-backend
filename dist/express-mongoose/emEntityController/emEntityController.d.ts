@@ -21,6 +21,7 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     private constructRouter;
     protected defineRoutes(): void;
     private getQueryParams;
+    private readonly entityInfo;
     readonly entityName: string;
     readonly session: EMSession;
     useEntities: boolean;

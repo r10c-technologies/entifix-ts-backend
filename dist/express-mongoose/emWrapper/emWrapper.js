@@ -3,6 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const hcWrapper_1 = require("../../hc-core/hcWrapper/hcWrapper");
 const emSession_1 = require("../emSession/emSession");
 class EMResponseWrapper {
+    //#region Properties
+    //#endregion
+    //#region Methods
+    constructor(session) {
+        this.session = session;
+    }
     object(response, object, status) {
         response.statusCode = status || 200;
         response.send(hcWrapper_1.Wrapper.wrapObject(false, null, object).serializeSimpleObject());
@@ -23,23 +29,43 @@ class EMResponseWrapper {
         response.statusCode = status || 200;
         response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, entities.map(a => a.serializeExposedAccessors())).serializeSimpleObject());
     }
-    error(response, message, code) {
-        response.statusCode = code;
-        response.send(hcWrapper_1.Wrapper.wrapError(message, null).serializeSimpleObject());
-    }
-    sessionError(response, error) {
-        response.statusCode = 500;
+    error(response, error, options) {
+        response.statusCode = options && options.code ? options.code : 500;
         if (error instanceof emSession_1.EMSessionError) {
             let e = error;
-            let errorMessage;
-            if (e.error)
-                errorMessage = e.error.name + ' - ' + e.error.message;
-            else
-                errorMessage = e.message;
-            response.send(hcWrapper_1.Wrapper.wrapError(errorMessage, e.error).serializeSimpleObject());
+            let data;
+            if (this.session.isDevMode) {
+                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was ocurred in the Service's Session" };
+                if (error) {
+                    data.errorDetails = { sessionMessage: e.message };
+                    if (e.error) {
+                        data.errorDetails.sessionError = {
+                            type: typeof e.error,
+                            asString: e.error.toString != null ? e.error.toString() : null,
+                            serialized: JSON.stringify(e.error),
+                            message: e.error.message,
+                            stack: e.error.stack
+                        };
+                    }
+                }
+            }
+            response.send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED ERROR', e.error).serializeSimpleObject());
         }
-        else
-            response.send('INTERNAL UNHANDLED ERROR');
+        else {
+            let data;
+            if (this.session.isDevMode) {
+                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred in the Service's Session. The details were attached" };
+                if (error)
+                    data.errorDetails = {
+                        type: typeof error,
+                        asString: error.toString != null ? error.toString() : null,
+                        serialized: JSON.stringify(error),
+                        message: error.message,
+                        stack: error.stack
+                    };
+            }
+            response.send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED ERROR', data).serializeSimpleObject());
+        }
     }
     logicError(response, message, errorDetails) {
         response.send(hcWrapper_1.Wrapper.wrapObject(true, message, errorDetails != null ? errorDetails : {}).serializeSimpleObject());

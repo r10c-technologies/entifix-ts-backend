@@ -7,10 +7,9 @@ import { Wrapper, WrappedError, WrappedCollection, WrappedObject } from './hc-co
 import { EMEntity, IBaseEntity, EntityDocument } from './express-mongoose/emEntity/emEntity';
 import { EMEntityController } from './express-mongoose/emEntityController/emEntityController';
 import { EMRouterManager } from './express-mongoose/emRouterManager/emRouterManager';
-import { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort } from './express-mongoose/emSession/emSession';
-import { EMQueryWrapper } from './express-mongoose/emUtilities/emUtilities';
+import { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort, ListOptions } from './express-mongoose/emSession/emSession';
 import { EMResponseWrapper } from './express-mongoose/emWrapper/emWrapper';
-
+import { EMMemberActivator } from './express-mongoose/emMetadata/emMetadata';
 import { ResourceDetail, IResourceDetail, IResourceDetailModel } from './express-mongoose/base-entities/resource-detail';
 import { EntifixApplication, EntifixAppConfig } from './express-mongoose/base-entities/entifix-application';
 import { EntifixApplicationModule, EntifixResource, IEntifixApplicationModuleModel } from './express-mongoose/base-entities/entifix-application-module';
@@ -22,7 +21,7 @@ export {
     Wrapper, WrappedError, WrappedCollection, WrappedObject,
     EMEntity, IBaseEntity, EntityDocument,
     EMEntityController,
-    EMRouterManager,
+    EMRouterManager, ListOptions, EMMemberActivator,
     EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort,
     EMResponseWrapper,
     ResourceDetail, IResourceDetail, IResourceDetailModel,

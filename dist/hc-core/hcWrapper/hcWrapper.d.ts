@@ -4,6 +4,7 @@ declare class Wrapper {
     static wrapObject<T>(isLogicError: boolean, message: string, object: T, isEntity: boolean): WrappedObject<T>;
     static wrapCollection<T>(isLogicError: boolean, message: string, objectCollection: Array<T>): WrappedCollection<T>;
     static wrapCollection<T>(isLogicError: boolean, message: string, objectCollection: Array<T>, total: number, count: number, page: number): WrappedCollection<T>;
+    static wrapError(errorDescription: string): WrappedError;
     static wrapError(errorDescription: string, error: any): WrappedError;
 }
 declare abstract class WrappedResponse {

@@ -21,6 +21,26 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
         else
             this._document = {};
     }
+    serializeExposedAccessors() {
+        var simpleObject = {};
+        this.entityInfo.getAccessors().filter(accessor => accessor.exposed).forEach(accessor => {
+            let nameSerialized = accessor.serializeAlias || accessor.name;
+            let valueSerialized;
+            if (accessor.activator != null)
+                valueSerialized = this[accessor.name]._id;
+            else
+                simpleObject[nameSerialized] = this[accessor.name];
+        });
+        return simpleObject;
+    }
+    static deserializePersistentAccessors(info, simpleObject) {
+        var complexObject = {};
+        info.getAccessors().filter(accesor => accesor.schema != null || accesor.persistenceType == hcMetaData_1.PersistenceType.Auto).forEach(accessor => {
+            let exposedName = accessor.serializeAlias || accessor.name;
+            complexObject[accessor.name] = simpleObject[exposedName];
+        });
+        return complexObject;
+    }
     save() {
         return new Promise((resolve, reject) => {
             this.onSaving().then(movFlow => {
@@ -115,12 +135,12 @@ __decorate([
     __metadata("design:paramtypes", [Date])
 ], EMEntity.prototype, "deleted", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, persistenceType: hcMetaData_1.PersistenceType.Auto, persistentAlias: 'id' }),
+    hcMetaData_1.DefinedAccessor({ exposed: true, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'id' }),
     __metadata("design:type", Object),
     __metadata("design:paramtypes", [])
 ], EMEntity.prototype, "_id", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, persistenceType: hcMetaData_1.PersistenceType.Auto, persistentAlias: 'v' }),
+    hcMetaData_1.DefinedAccessor({ exposed: true, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'v' }),
     __metadata("design:type", Number),
     __metadata("design:paramtypes", [])
 ], EMEntity.prototype, "__v", null);

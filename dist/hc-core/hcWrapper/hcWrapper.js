@@ -17,7 +17,7 @@ class Wrapper {
         return new WrappedCollection(isLogicError, message, objectCollection, total, page, count);
     }
     static wrapError(errorDescription, error) {
-        return new WrappedError(errorDescription, errorDescription);
+        return new WrappedError(errorDescription, error);
     }
 }
 exports.Wrapper = Wrapper;
@@ -104,10 +104,13 @@ class WrappedError {
     }
     serializeSimpleObject() {
         return {
-            errorDescription: this.errorDescription,
-            errorObject: this.errorObject
+            isLogicError: null,
+            message: this._errorDescription,
+            info: { type: 'ERROR' },
+            data: this._errorObject
         };
     }
+    ;
     //#endregion
     //#region Accessors
     get errorDescription() { return this._errorDescription; }

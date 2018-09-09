@@ -7,6 +7,7 @@ const cors = require("cors");
 const redis = require("redis");
 //Core Framework
 const emSession_1 = require("../emSession/emSession");
+const hcWrapper_1 = require("../../hc-core/hcWrapper/hcWrapper");
 const emRouterManager_1 = require("../emRouterManager/emRouterManager");
 const entifix_application_module_1 = require("./entifix-application-module");
 class EntifixApplication {
@@ -35,6 +36,8 @@ class EntifixApplication {
     createEntifixSession() {
         this._session = new emSession_1.EMSession(this.serviceConfiguration.mongoService, this.serviceConfiguration.amqpService);
         this.configSessionAMQPConneciton();
+        if (this.serviceConfiguration.devMode)
+            this._session.enableDevMode();
         this._session.connect().then(() => this.onSessionCreated());
     }
     createMiddlewareFunctions() {
@@ -70,11 +73,11 @@ class EntifixApplication {
         let header = this.serviceConfiguration.protectRoutes && this.serviceConfiguration.protectRoutes.header ? this.serviceConfiguration.protectRoutes.header : 'Authorization';
         //Register Function on express middleware
         this._expressApp.use('/' + pathProtected, (request, response, next) => {
-            let deniedAccess = (message, errorCode) => response.status(errorCode || 401).send(message ? { message: message } : null);
+            let deniedAccess = (message, errorCode, error) => response.status(errorCode || 401).send(hcWrapper_1.Wrapper.wrapError(message, error).serializeSimpleObject());
             //TOKEN VALIDATION
             var token = request.get(header);
             if (!token) {
-                deniedAccess();
+                deniedAccess('Authorization required');
                 return;
             }
             this.validateToken(token, request).then(result => {
@@ -82,7 +85,7 @@ class EntifixApplication {
                     next();
                 else
                     deniedAccess(result.message);
-            }, error => deniedAccess(this._session.errorMessage('Error on token validation', error), 500));
+            }, error => deniedAccess('Error on token validation', 500, this.serviceConfiguration.devMode ? error : null));
         });
     }
     onSessionCreated() {
