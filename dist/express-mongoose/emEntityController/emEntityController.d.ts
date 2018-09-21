@@ -18,6 +18,7 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     update(request: express.Request, response: express.Response): void;
     delete(request: express.Request, response: express.Response): void;
     private save;
+    protected validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;
     private constructRouter;
     protected defineRoutes(): void;
     private getQueryParams;
@@ -28,5 +29,11 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     readonly router: express.Router;
     protected readonly responseWrapper: EMResponseWrapper<TDocument, TEntity>;
     readonly resourceName: string;
+}
+interface RequestValidation<TDocument> {
+    document?: TDocument;
+    error?: string;
+    errorData?: any;
+    devData?: any;
 }
 export { EMEntityController };

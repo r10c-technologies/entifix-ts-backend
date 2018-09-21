@@ -18,7 +18,7 @@ class EMEntityController {
         //Manage query params options
         let queryParamsConversion = this.getQueryParams(request);
         if (queryParamsConversion.error)
-            this.responseWrapper.error(response, queryParamsConversion.message, { code: 400 });
+            this.responseWrapper.handledError(response, 'Bad query param', HttpStatus.BAD_REQUEST, { description: queryParamsConversion.message });
         let queryParams = queryParamsConversion.queryParams;
         let filterParam = queryParams.filter(qp => qp.paramName == 'filter');
         let filters = filterParam.length > 0 ? filterParam.map(qp => qp) : null;
@@ -30,29 +30,29 @@ class EMEntityController {
         let take = takeParam != null ? parseInt(takeParam.paramValue) : 100; // Retrive limit protector
         //Call the execution of mongo query inside EMSession
         if (this._useEntities)
-            this._session.listEntities(this._entityName, { filters, skip, take, sorting }).then(entityResults => this._responseWrapper.entityCollection(response, entityResults), error => this._responseWrapper.error(response, error));
+            this._session.listEntities(this._entityName, { filters, skip, take, sorting }).then(entityResults => this._responseWrapper.entityCollection(response, entityResults), error => this._responseWrapper.exception(response, error));
         else
-            this._session.listDocuments(this._entityName, { filters, skip, take, sorting }).then(docResults => this._responseWrapper.documentCollection(response, docResults), error => this._responseWrapper.error(response, error));
+            this._session.listDocuments(this._entityName, { filters, skip, take, sorting }).then(docResults => this._responseWrapper.documentCollection(response, docResults), error => this._responseWrapper.exception(response, error));
     }
     retrieveById(request, response) {
         if (this._useEntities)
-            this._session.findEntity(this.entityInfo, request.params._id).then(entityResult => this._responseWrapper.entity(response, entityResult), error => this._responseWrapper.error(response, error));
+            this._session.findEntity(this.entityInfo, request.params._id).then(entityResult => this._responseWrapper.entity(response, entityResult), error => this._responseWrapper.exception(response, error));
         else
-            this._session.findDocument(this._entityName, request.params._id).then(docResult => this._responseWrapper.document(response, docResult), error => this._responseWrapper.error(response, error));
+            this._session.findDocument(this._entityName, request.params._id).then(docResult => this._responseWrapper.document(response, docResult), error => this._responseWrapper.exception(response, error));
     }
     retriveMetadata(request, response, next) {
         this._responseWrapper.object(response, this._session.getMetadataToExpose(this._entityName));
     }
     create(request, response) {
         if (!this._useEntities) {
-            this._session.createDocument(this.entityName, request.body).then(result => this._responseWrapper.document(response, result, HttpStatus.CREATED), error => this._responseWrapper.error(response, error));
+            this._session.createDocument(this.entityName, request.body).then(result => this._responseWrapper.document(response, result, { status: HttpStatus.CREATED }), error => this._responseWrapper.exception(response, error));
         }
         else
             this.save(request, response);
     }
     update(request, response) {
         if (!this._useEntities) {
-            this._session.updateDocument(this._entityName, request.body).then(result => this._responseWrapper.document(response, result, HttpStatus.OK), error => this._responseWrapper.error(response, error));
+            this._session.updateDocument(this._entityName, request.body).then(result => this._responseWrapper.document(response, result, { status: HttpStatus.ACCEPTED }), error => this._responseWrapper.exception(response, error));
         }
         else
             this.save(request, response);
@@ -60,7 +60,7 @@ class EMEntityController {
     delete(request, response) {
         let id = request.params._id;
         let responseOk = () => this._responseWrapper.object(response, { 'Delete status': 'register deleted ' });
-        let responseError = error => this._responseWrapper.error(response, responseError);
+        let responseError = error => this._responseWrapper.exception(response, responseError);
         if (this._useEntities) {
             this._session.findEntity(this.entityInfo, id).then(entity => {
                 entity.delete().then(movFlow => {
@@ -69,22 +69,58 @@ class EMEntityController {
                     else
                         this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
                 });
-            }, error => this._responseWrapper.error(response, error));
+            }, error => this._responseWrapper.exception(response, error));
         }
         else {
-            this._session.findDocument(this._entityName, request.params._id).then(docResult => this._session.deleteDocument(this._entityName, docResult).then(responseOk, responseError), error => this._responseWrapper.error(response, error));
+            this._session.findDocument(this._entityName, request.params._id).then(docResult => this._session.deleteDocument(this._entityName, docResult).then(responseOk, responseError), error => this._responseWrapper.exception(response, error));
         }
     }
     save(request, response) {
-        let document = emEntity_1.EMEntity.deserializePersistentAccessors(this.entityInfo, request.body);
-        this._session.activateEntityInstance(this.entityInfo, document).then(entity => {
-            entity.save().then(movFlow => {
-                if (movFlow.continue)
-                    this._responseWrapper.entity(response, entity);
-                else
-                    this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
-            }, error => this._responseWrapper.error(response, error));
-        }, error => this._responseWrapper.error(response, error));
+        this.validateDocumentRequest(request, response).then((validation) => {
+            if (validation) {
+                this._session.activateEntityInstance(this.entityInfo, validation.document).then(entity => {
+                    entity.save().then(movFlow => {
+                        if (movFlow.continue)
+                            this._responseWrapper.entity(response, entity, { devData: validation.devData });
+                        else
+                            this._responseWrapper.logicError(response, movFlow.message, { errorDetails: movFlow.details, devData: validation.devData });
+                    }, error => this._responseWrapper.exception(response, error));
+                }, error => this._responseWrapper.exception(response, error));
+            }
+        });
+    }
+    validateDocumentRequest(request, response) {
+        return new Promise((resolve, reject) => {
+            if ((typeof request.body) != 'object')
+                return resolve({ error: 'The data provided is not an object', errorData: request });
+            let parsedRequest = emEntity_1.EMEntity.deserializeAccessors(this.entityInfo, request.body);
+            if (parsedRequest.remainingValues)
+                return resolve({ error: 'There are values that are not part of the resource', errorData: parsedRequest.remainingValues });
+            if (parsedRequest.nonPersistentValues)
+                var devData = [{ message: 'The request has readonly accessors and these are going to be ignored', accessors: parsedRequest.nonPersistentValues }];
+            if (parsedRequest.persistentValues._id) {
+                this._session.findDocument(this._entityName, parsedRequest.persistentValues._id).then(document => {
+                    document.set(parsedRequest.persistentValues);
+                    resolve({ document, devData });
+                }, err => reject(err));
+            }
+            else {
+                let model = this._session.getModel(this._entityName);
+                let document;
+                document = new model(parsedRequest.persistentValues);
+                resolve({ document, devData });
+            }
+        }).then(validation => {
+            if (validation.error) {
+                let details = {
+                    validationError: validation.error,
+                    validationDetails: validation.errorData
+                };
+                this._responseWrapper.handledError(response, 'NOT VALID PAYLOAD FOR THE RESOURCE', HttpStatus.BAD_REQUEST, details);
+                return null;
+            }
+            return validation;
+        }, error => this._responseWrapper.exception(response, error));
     }
     constructRouter() {
         this._router = express.Router();

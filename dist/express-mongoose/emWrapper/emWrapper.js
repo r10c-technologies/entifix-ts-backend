@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const hcWrapper_1 = require("../../hc-core/hcWrapper/hcWrapper");
 const emSession_1 = require("../emSession/emSession");
+const HttpStatus = require("http-status-codes");
 class EMResponseWrapper {
     //#region Properties
     //#endregion
@@ -9,28 +10,29 @@ class EMResponseWrapper {
     constructor(session) {
         this.session = session;
     }
-    object(response, object, status) {
-        response.statusCode = status || 200;
-        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, object).serializeSimpleObject());
+    object(response, object, options) {
+        let devData = options != null ? options.devData : null;
+        response.statusCode = options != null && options.status != null ? options.status : HttpStatus.OK;
+        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, object, { devData }).serializeSimpleObject());
     }
-    document(response, document, status) {
-        response.statusCode = status || 200;
-        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, document, true).serializeSimpleObject());
+    document(response, document, options) {
+        let devData = options != null ? options.devData : null;
+        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, document, { isEntity: false, devData }).serializeSimpleObject());
     }
-    entity(response, entity, status) {
-        response.statusCode = status || 200;
-        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, entity.serializeExposedAccessors(), true).serializeSimpleObject());
+    entity(response, entity, options) {
+        let devData = options != null ? options.devData : null;
+        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, entity.serializeExposedAccessors(), { isEntity: true, devData }).serializeSimpleObject());
     }
-    documentCollection(response, documents, status) {
-        response.statusCode = status || 200;
-        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, documents).serializeSimpleObject());
+    documentCollection(response, documents, options) {
+        let devData = options != null ? options.devData : null;
+        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, documents, { devData }).serializeSimpleObject());
     }
-    entityCollection(response, entities, status) {
-        response.statusCode = status || 200;
-        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, entities.map(a => a.serializeExposedAccessors())).serializeSimpleObject());
+    entityCollection(response, entities, options) {
+        let devData = options != null ? options.devData : null;
+        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, entities.map(a => a.serializeExposedAccessors()), { devData }).serializeSimpleObject());
     }
-    error(response, error, options) {
-        response.statusCode = options && options.code ? options.code : 500;
+    exception(response, error) {
+        response.statusCode = 500;
         if (error instanceof emSession_1.EMSessionError) {
             let e = error;
             let data;
@@ -49,12 +51,12 @@ class EMResponseWrapper {
                     }
                 }
             }
-            response.send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED ERROR', e.error).serializeSimpleObject());
+            response.send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED ERROR', data).serializeSimpleObject());
         }
         else {
             let data;
             if (this.session.isDevMode) {
-                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred in the Service's Session. The details were attached" };
+                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred in a known context. The details were attached" };
                 if (error)
                     data.errorDetails = {
                         type: typeof error,
@@ -67,8 +69,14 @@ class EMResponseWrapper {
             response.send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED ERROR', data).serializeSimpleObject());
         }
     }
-    logicError(response, message, errorDetails) {
-        response.send(hcWrapper_1.Wrapper.wrapObject(true, message, errorDetails != null ? errorDetails : {}).serializeSimpleObject());
+    handledError(response, message, status, errorDetails) {
+        response.statusCode = status;
+        response.send(hcWrapper_1.Wrapper.wrapError(message.toUpperCase(), errorDetails).serializeSimpleObject());
+    }
+    logicError(response, message, options) {
+        let errorDetails = options != null ? options.errorDetails : null;
+        let devData = options != null ? options.devData : null;
+        response.send(hcWrapper_1.Wrapper.wrapObject(true, message, errorDetails, { devData }).serializeSimpleObject());
     }
     logicAccept(response, message, details) {
         response.send(hcWrapper_1.Wrapper.wrapObject(false, message, details != null ? details : {}).serializeSimpleObject());

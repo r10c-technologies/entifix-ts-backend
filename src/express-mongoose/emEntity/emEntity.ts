@@ -47,9 +47,8 @@ class EMEntity extends Entity
         
         this.entityInfo.getAccessors().filter( accessor => accessor.exposed ).forEach( accessor => {
             let nameSerialized = accessor.serializeAlias || accessor.name;
-            let valueSerialized : string;
             if (accessor.activator != null)
-                valueSerialized = ( this[accessor.name] as EMEntity )._id;
+                simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
             else
                 simpleObject[nameSerialized] = this[accessor.name];
         });
@@ -57,15 +56,28 @@ class EMEntity extends Entity
         return simpleObject;
     }
 
-    static deserializePersistentAccessors (info : EntityInfo, simpleObject : any) : any
+    static deserializeAccessors (info : EntityInfo, simpleObject : any) : { persistentValues : any, nonPersistentValues : any, remainingValues : any }
     {
-        var complexObject : any = {};
-        info.getAccessors().filter( accesor => accesor.schema != null || accesor.persistenceType == PersistenceType.Auto).forEach( accessor => {
+        let persistentValues : any = {};
+        let tempNonPersintentValues : any = {};
+        
+        info.getAccessors().forEach( accessor => {
+
             let exposedName = accessor.serializeAlias || accessor.name;
-            complexObject[accessor.name] = simpleObject[exposedName];
+            let persistentName = accessor.persistentAlias || accessor.name;
+
+            if (accessor.schema != null || accessor.persistenceType == PersistenceType.Auto)
+                persistentValues[persistentName] = simpleObject[exposedName];
+            else
+                tempNonPersintentValues[persistentName] = simpleObject[exposedName];
+
+            delete simpleObject[exposedName];
         });
 
-        return complexObject;
+        let remaining = Object.keys(simpleObject).length > 0 ? simpleObject : null;
+        let nonPersistent = Object.keys(tempNonPersintentValues).length > 0 ? tempNonPersintentValues : null;  
+
+        return { persistentValues: persistentValues, remainingValues: remaining, nonPersistentValues: nonPersistent };
     }
 
 
@@ -77,22 +89,8 @@ class EMEntity extends Entity
                 movFlow => 
                 {
                     if (movFlow.continue)
-                    {
-                        if (this._document._id)
-                        {
-                            this._session.updateDocument(this.entityInfo.name, this._document).then(
-                                documentUpdated => {
-                                    this._document = documentUpdated;
-                                    this.onSaved();
-                                    resolve({ continue: true });
-                                },
-                                error => {
-                                    console.error('Error on update a document insde an entity');
-                                    reject(error);
-                                }
-                            );
-                        }
-                        else
+                    {                        
+                        if (this._document.isNew)
                         {
                             this._session.createDocument(this.entityInfo.name, this._document).then(
                                 documentCreated => {
@@ -102,6 +100,20 @@ class EMEntity extends Entity
                                 },
                                 error  =>{
                                     console.error('Error on create a document inside an entity');
+                                    reject(error);
+                                }
+                            );
+                        }
+                        else
+                        {
+                            this._session.updateDocument(this.entityInfo.name, this._document).then(
+                                documentUpdated => {
+                                    this._document = documentUpdated;
+                                    this.onSaved();
+                                    resolve({ continue: true });
+                                },
+                                error => {
+                                    console.error('Error on update a document insde an entity');
                                     reject(error);
                                 }
                             );

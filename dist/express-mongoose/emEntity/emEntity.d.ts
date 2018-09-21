@@ -14,7 +14,11 @@ declare class EMEntity extends Entity {
     constructor(session: EMSession);
     constructor(session: EMSession, document: EntityDocument);
     serializeExposedAccessors(): any;
-    static deserializePersistentAccessors(info: EntityInfo, simpleObject: any): any;
+    static deserializeAccessors(info: EntityInfo, simpleObject: any): {
+        persistentValues: any;
+        nonPersistentValues: any;
+        remainingValues: any;
+    };
     save(): Promise<EntityMovementFlow>;
     delete(): Promise<EntityMovementFlow>;
     protected onSaving(): Promise<EntityMovementFlow>;

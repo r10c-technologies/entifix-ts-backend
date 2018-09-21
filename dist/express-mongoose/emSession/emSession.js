@@ -74,22 +74,32 @@ class EMSession extends hcSession_1.HcSession {
     }
     createDocument(entityName, document) {
         return new Promise((resolve, reject) => {
-            let model = this.getModel(entityName);
+            // let model = this.getModel<T>(entityName);
             this.manageDocumentCreation(document);
-            model.create(document).then(value => resolve(value), error => reject(this.createError(error, 'Error in create document')));
+            // model.create(document).then( 
+            //     value => resolve(value), 
+            //     error => reject( this.createError(error, 'Error in create document' ))
+            // );
+            document.save().then(value => resolve(value), error => reject(this.createError(error, 'Error in create document')));
         });
     }
     updateDocument(entityName, document) {
         return new Promise((resolve, reject) => {
             let model = this.getModel(entityName);
             this.manageDocumentUpdate(document);
-            model.findByIdAndUpdate(document._id, document, (error, result) => {
-                if (!error) {
-                    this.findDocument(entityName, document._id).then(res => resolve(res), err => reject(err));
-                }
-                else
-                    reject(this.createError(error, 'Error in update document'));
-            });
+            // model.findByIdAndUpdate( document._id, document, (error, result) => {
+            // model.findByIdAndUpdate( document._id, { $set: document }, (error, result) => {
+            //     if (!error)
+            //     {
+            //         this.findDocument(entityName, document._id).then(
+            //             res => resolve(<T>res),
+            //             err => reject(err)
+            //         );
+            //     }
+            //     else
+            //         reject( this.createError(error, 'Error in update document') );
+            // } );
+            document.update(document).then(value => resolve(value), error => reject(this.createError(error, 'Error in update document')));
         });
     }
     listDocuments(entityName, options) {
@@ -147,7 +157,7 @@ class EMSession extends hcSession_1.HcSession {
             let entityAccessors = info.getAccessors().filter(a => a.activator != null);
             if (entityAccessors.length > 0) {
                 let promises = [];
-                entityAccessors.forEach(entityAccessor => promises.push(entityAccessor.activator.activateMember(baseInstace, this, entityAccessor.name)));
+                entityAccessors.forEach(entityAccessor => promises.push(entityAccessor.activator.activateMember(baseInstace, this, entityAccessor)));
                 Promise.all(promises).then(() => resolve(baseInstace), error => reject(this.createError(error, 'Error in create instance of a member')));
             }
             else
@@ -213,25 +223,26 @@ class EMSession extends hcSession_1.HcSession {
         let persistentMembers = info.getAllMembers()
             .filter(m => (m instanceof hcMetaData_1.AccessorInfo) && (m.schema != null || m.persistenceType == hcMetaData_1.PersistenceType.Auto))
             .map(m => {
-            return { property: m.name, type: m.type, alias: m.serializeAlias };
+            return { property: m.name, type: m.type, serializeAlias: m.serializeAlias, persistentAlias: m.persistentAlias };
         });
-        //Filter for defferred deletion.
+        //Base mongo filters
         let mongoFilters;
         // Convert all the fixed and optional filters in Mongoose Filetrs
         if (filters != null && filters.length > 0) {
-            //mongoFilters = { $and : [ { deferredDeletion: { $in: [null, false] } } ] };  
-            mongoFilters = { $and: [{ deferredDeletion: false }] };
+            mongoFilters = { $and: [{ deferredDeletion: { $in: [null, false] } }] };
+            // mongoFilters = { $and : [ { deferredDeletion: false } ] };
             let opFilters = [];
             let errFilters;
             //get all filters
             for (let filter of filters) {
-                let pMember = persistentMembers.find(pm => pm.property == filter.property || pm.alias == filter.property);
+                let pMember = persistentMembers.find(pm => pm.property == filter.property || pm.serializeAlias == filter.property || pm.persistentAlias == filter.property);
                 if (pMember == null) {
                     errFilters = 'Attempt to filter by a non persistent member';
                     break;
                 }
                 //Single mongo filter
-                let mongoFilterConversion = this.parseMongoFilter(filter, pMember.type, pMember.property);
+                let persistentName = pMember.persistentAlias ? pMember.persistentAlias : pMember.property;
+                let mongoFilterConversion = this.parseMongoFilter(filter, pMember.type, persistentName);
                 if (mongoFilterConversion.err) {
                     errFilters = mongoFilterConversion.message;
                     break;
@@ -251,8 +262,8 @@ class EMSession extends hcSession_1.HcSession {
                 return { error: true, message: errFilters };
         }
         else {
-            //mongoFilters = { deferredDeletion: { $in: [null, false] }  };
-            mongoFilters = { deferredDeletion: false };
+            mongoFilters = { deferredDeletion: { $in: [null, false] } };
+            // mongoFilters = { deferredDeletion: false };
         }
         return { error: false, filters: mongoFilters };
     }

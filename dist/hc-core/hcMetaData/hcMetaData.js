@@ -33,9 +33,14 @@ function DefinedAccessor(params) {
         info.className = target.constructor.name;
         info.type = reflectInfo.name;
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
-        info.serializeAlias = params.serializeAlias;
         info.readOnly = params.readOnly != null ? params.readOnly : false;
         info.activator = params.activator;
+        if (params.alias)
+            info.setAlias(params.alias);
+        if (params.serializeAlias)
+            info.serializeAlias = params.serializeAlias;
+        if (params.persistentAlias)
+            info.persistentAlias = params.persistentAlias;
         if (params.persistenceType && params.persistenceType == PersistenceType.Auto && params.schema)
             console.warn(`The Persistence type for ${key} is defined as Auto, so the defined Schema will be ignored`);
         if (reflectInfo.name == 'Object' && params.persistenceType != PersistenceType.Auto)
@@ -131,12 +136,13 @@ class EntityInfo {
         return this.getAllMembers().filter(e => e instanceof AccessorInfo).map(e => e);
     }
     getAccessorSchemas() {
-        return this.getAllMembers().filter(e => e instanceof AccessorInfo && e.schema != null && e.persistenceType == PersistenceType.Defined).map(e => { return { accessorName: e.name, accessorSchema: e.schema }; });
+        return this.getAllMembers().filter(e => e instanceof AccessorInfo && e.schema != null && e.persistenceType == PersistenceType.Defined).map(e => { return { accessorName: e.name, accessorSchema: e.schema, alias: e.persistentAlias }; });
     }
     getCompleteSchema() {
         var schema = {};
         this.getAccessorSchemas().forEach(schemaProperty => {
-            schema[schemaProperty.accessorName] = schemaProperty.accessorSchema;
+            let persistentName = schemaProperty.alias ? schemaProperty.alias : schemaProperty.accessorName;
+            schema[persistentName] = schemaProperty.accessorSchema;
         });
         return schema;
     }
@@ -216,6 +222,10 @@ class AccessorInfo extends MemberInfo {
         this._exposed = false;
         this._readOnly = false;
     }
+    setAlias(alias) {
+        this._persistentAlias = alias;
+        this._serializeAlias = alias;
+    }
     //#endregion
     //#region Accessors
     get exposed() { return this._exposed; }
@@ -224,8 +234,10 @@ class AccessorInfo extends MemberInfo {
     set schema(value) { this._schema = value; }
     get persistenceType() { return this._persistenceType; }
     set persistenceType(value) { this._persistenceType = value; }
-    get serializeAlias() { return this._serializetAlias; }
-    set serializeAlias(value) { this._serializetAlias = value; }
+    get serializeAlias() { return this._serializeAlias; }
+    set serializeAlias(value) { this._serializeAlias = value; }
+    get persistentAlias() { return this._persistentAlias; }
+    set persistentAlias(value) { this._persistentAlias = value; }
     get readOnly() { return this._readOnly; }
     set readOnly(value) { this._readOnly = value; }
     get activator() { return this._activator; }

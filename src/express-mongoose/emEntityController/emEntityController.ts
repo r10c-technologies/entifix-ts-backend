@@ -43,8 +43,8 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         let queryParamsConversion = this.getQueryParams(request);
 
         if(queryParamsConversion.error)
-            this.responseWrapper.error( response, queryParamsConversion.message, { code: 400 } );
-        
+            this.responseWrapper.handledError(response, 'Bad query param', HttpStatus.BAD_REQUEST, { description: queryParamsConversion.message } );
+            
         let queryParams = queryParamsConversion.queryParams;
         
         let filterParam = queryParams.filter( qp => qp.paramName == 'filter');
@@ -63,12 +63,12 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         if (this._useEntities)
             this._session.listEntities<TEntity, TDocument>(this._entityName, { filters, skip, take, sorting } ).then(
                 entityResults => this._responseWrapper.entityCollection(response, entityResults),
-                error => this._responseWrapper.error(response, error)
+                error => this._responseWrapper.exception(response, error)
             );
         else
             this._session.listDocuments<TDocument>(this._entityName, { filters, skip, take, sorting } ).then(
                 docResults => this._responseWrapper.documentCollection(response, docResults),
-                error => this._responseWrapper.error(response, error)
+                error => this._responseWrapper.exception(response, error)
             );
     }
 
@@ -77,12 +77,12 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         if (this._useEntities)
             this._session.findEntity<TEntity, TDocument>(this.entityInfo, request.params._id).then(
                 entityResult => this._responseWrapper.entity(response, entityResult),
-                error => this._responseWrapper.error(response, error)
+                error => this._responseWrapper.exception(response, error)
             );            
         else
             this._session.findDocument<TDocument>(this._entityName, request.params._id).then(
                 docResult => this._responseWrapper.document(response, docResult),
-                error => this._responseWrapper.error(response, error)
+                error => this._responseWrapper.exception(response, error)
             ); 
     }
 
@@ -96,8 +96,8 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         if (!this._useEntities)
         {
             this._session.createDocument(this.entityName, <TDocument>request.body).then(
-                result => this._responseWrapper.document(response, result, HttpStatus.CREATED),
-                error => this._responseWrapper.error(response, error)
+                result => this._responseWrapper.document(response, result, { status: HttpStatus.CREATED }),
+                error => this._responseWrapper.exception(response, error)
             );
         }
         else
@@ -109,8 +109,8 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         if (!this._useEntities)
         {
             this._session.updateDocument(this._entityName, <TDocument>request.body).then(
-                result => this._responseWrapper.document(response, result, HttpStatus.OK),
-                error => this._responseWrapper.error(response, error)
+                result => this._responseWrapper.document(response, result, { status: HttpStatus.ACCEPTED }),
+                error => this._responseWrapper.exception(response, error)
             );
         }
         else
@@ -121,7 +121,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     {
         let id = request.params._id;
         let responseOk = () => this._responseWrapper.object( response, {'Delete status': 'register deleted '} );
-        let responseError = error => this._responseWrapper.error(response, responseError);
+        let responseError = error => this._responseWrapper.exception(response, responseError);
 
         if (this._useEntities)
         {   
@@ -134,35 +134,89 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                             this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
                     })
                 },
-                error => this._responseWrapper.error( response, error)    
+                error => this._responseWrapper.exception( response, error)    
             )
         }
         else
         {
             this._session.findDocument<TDocument>(this._entityName, request.params._id).then(
                 docResult => this._session.deleteDocument(this._entityName, docResult).then( responseOk, responseError ),
-                error => this._responseWrapper.error(response, error)            
+                error => this._responseWrapper.exception(response, error)            
             );
         }
     }
 
     private save( request : express.Request, response : express.Response) : void
     {
-        let document = EMEntity.deserializePersistentAccessors(this.entityInfo, request.body) as TDocument;
-        
-        this._session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, document).then(
-            entity => {
-                entity.save().then(
-                    movFlow => {
-                        if (movFlow.continue)
-                            this._responseWrapper.entity(response, entity);
-                        else
-                            this._responseWrapper.logicError(response, movFlow.message, movFlow.details);         
+        this.validateDocumentRequest(request, response).then( (validation : RequestValidation<TDocument> ) => {
+            if (validation)
+            {
+                this._session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, validation.document ).then(
+                    entity => {
+                        entity.save().then(
+                            movFlow => {
+                                if (movFlow.continue)
+                                    this._responseWrapper.entity(response, entity, { devData: validation.devData });
+                                else
+                                    this._responseWrapper.logicError(response, movFlow.message, { errorDetails: movFlow.details,  devData: validation.devData });         
+                            },
+                            error => this._responseWrapper.exception(response, error)
+                        );
                     },
-                    error => this._responseWrapper.error(response, error)
+                    error => this._responseWrapper.exception( response, error)
                 );
+            }
+        });
+    }
+
+    protected validateDocumentRequest ( request : express.Request, response : express.Response ) : Promise<RequestValidation<TDocument> | void>
+    {
+        return new Promise<RequestValidation<TDocument>>( (resolve, reject) => {
+
+            if  ( (typeof request.body) != 'object' )
+                return resolve({ error: 'The data provided is not an object', errorData: request });
+
+            let parsedRequest = EMEntity.deserializeAccessors(this.entityInfo, request.body);
+            if (parsedRequest.remainingValues)
+                return resolve({ error: 'There are values that are not part of the resource', errorData: parsedRequest.remainingValues });
+            
+            if (parsedRequest.nonPersistentValues)
+                var devData = [{ message: 'The request has readonly accessors and these are going to be ignored', accessors : parsedRequest.nonPersistentValues }];
+
+            if (parsedRequest.persistentValues._id)
+            {
+                this._session.findDocument<TDocument>(this._entityName, parsedRequest.persistentValues._id).then(
+                    document => {
+                        document.set(parsedRequest.persistentValues);
+                        resolve( { document, devData } );
+                    },
+                    err => reject(err)
+                );
+            }
+            else
+            {
+                let model = this._session.getModel(this._entityName);
+                let document : TDocument;
+
+                document = new model(parsedRequest.persistentValues) as TDocument;                
+                resolve({ document, devData });
+            }
+        }).then( 
+            validation => {
+                if (validation.error)
+                {
+                    let details : any = { 
+                        validationError : validation.error,
+                        validationDetails: validation.errorData
+                    };
+                
+                    this._responseWrapper.handledError( response, 'NOT VALID PAYLOAD FOR THE RESOURCE', HttpStatus.BAD_REQUEST, details )
+                    return null;    
+                }
+            
+                return validation;                                       
             },
-            error => this._responseWrapper.error( response, error)
+            error => this._responseWrapper.exception( response, error )
         );
     }
 
@@ -416,6 +470,14 @@ class Filter extends QueryParam implements EMSessionFilter
     { this._filterType = value; }
     
     //#endregion
+}
+
+interface RequestValidation<TDocument>
+{ 
+    document? : TDocument; 
+    error? : string; 
+    errorData? : any;
+    devData? : any; 
 }
 
 

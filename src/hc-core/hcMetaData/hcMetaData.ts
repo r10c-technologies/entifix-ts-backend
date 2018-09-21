@@ -37,7 +37,9 @@ function DefinedEntity( params? : { packageName : string, abstract? : boolean } 
 function DefinedAccessor( params? : {   exposed? : boolean, 
                                         schema? : any, 
                                         persistenceType? : PersistenceType, 
-                                        serializeAlias? : string, 
+                                        alias? : string,
+                                        serializeAlias? : string,
+                                        persistentAlias? : string,
                                         readOnly? : boolean ,
                                         activator? : MemberActivator } ) 
 {
@@ -55,9 +57,15 @@ function DefinedAccessor( params? : {   exposed? : boolean,
         info.className = target.constructor.name;
         info.type = reflectInfo.name;
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
-        info.serializeAlias = params.serializeAlias;
         info.readOnly = params.readOnly != null ?  params.readOnly : false;
         info.activator = params.activator;
+        
+        if (params.alias)
+            info.setAlias(params.alias);
+        if (params.serializeAlias)
+            info.serializeAlias = params.serializeAlias;
+        if (params.persistentAlias)
+            info.persistentAlias = params.persistentAlias;
 
         if (params.persistenceType && params.persistenceType == PersistenceType.Auto && params.schema)
             console.warn(`The Persistence type for ${key} is defined as Auto, so the defined Schema will be ignored`);
@@ -205,10 +213,10 @@ class EntityInfo
     }
 
 
-    getAccessorSchemas() : Array<{ accessorName : string, accessorSchema : any }>
+    getAccessorSchemas() : Array<{ accessorName : string, accessorSchema : any, alias?: string}>
     {        
         return this.getAllMembers().filter( e => e instanceof AccessorInfo && (<AccessorInfo>e).schema != null && (<AccessorInfo>e).persistenceType == PersistenceType.Defined).map( 
-            e => { return { accessorName: e.name, accessorSchema: (<AccessorInfo>e).schema } } 
+            e => { return { accessorName: e.name, accessorSchema: (<AccessorInfo>e).schema, alias: (<AccessorInfo>e).persistentAlias } } 
         );
     }
 
@@ -217,7 +225,8 @@ class EntityInfo
         var schema = {};
 
         this.getAccessorSchemas().forEach( schemaProperty => {
-            schema[schemaProperty.accessorName] = schemaProperty.accessorSchema;
+            let persistentName = schemaProperty.alias ? schemaProperty.alias : schemaProperty.accessorName;
+            schema[persistentName] = schemaProperty.accessorSchema;
         });
 
         return schema;
@@ -291,13 +300,13 @@ abstract class MemberActivator
         this._entityInfo = info;
     }
 
-    abstract activateMember( entity : Entity, session : HcSession, memberName : string ) : Promise<void>;
+    abstract activateMember( entity : Entity, session : HcSession, accessorInfo : AccessorInfo ) : Promise<void>;
     
     //#endregion
 
     //#region Accessors
 
-    protected get entityInfo()
+    get entityInfo()
     { return this._entityInfo; }
 
     //#endregion
@@ -376,9 +385,10 @@ class AccessorInfo extends MemberInfo
     private _exposed : boolean;
     private _schema : any;
     private _persistenceType : PersistenceType;
-    private _serializetAlias : string;
+    private _serializeAlias : string;
     private _readOnly : boolean;
     private _activator : MemberActivator;
+    private _persistentAlias : string;
 
     //#endregion
 
@@ -391,6 +401,12 @@ class AccessorInfo extends MemberInfo
         this._persistenceType = PersistenceType.Defined;
         this._exposed = false;
         this._readOnly = false;
+    }
+
+    setAlias(alias : string) : void
+    {
+        this._persistentAlias = alias;
+        this._serializeAlias = alias;
     }
 
     //#endregion
@@ -413,9 +429,14 @@ class AccessorInfo extends MemberInfo
     { this._persistenceType = value; }
 
     get serializeAlias ( )
-    { return this._serializetAlias; }
+    { return this._serializeAlias; }
     set serializeAlias( value )
-    { this._serializetAlias = value; }
+    { this._serializeAlias = value; }
+
+    get persistentAlias ( )
+    { return this._persistentAlias; }
+    set persistentAlias( value )
+    { this._persistentAlias = value; }
 
     get readOnly( )
     { return this._readOnly; }

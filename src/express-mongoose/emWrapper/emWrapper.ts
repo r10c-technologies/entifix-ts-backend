@@ -5,6 +5,8 @@ import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
 import { EMSessionError } from '../emSession/emSession';
 import { EMEntity } from '../emEntity/emEntity';
 import { EMSession } from '../emSession/emSession';
+import HttpStatus = require('http-status-codes');
+import { resolveNs } from 'dns';
 
 class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EMEntity>
 {
@@ -20,48 +22,50 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
     }
 
     object( response : express.Response, object : any);
-    object( response : express.Response, object : any, status : number);
-    object( response : express.Response, object : any, status? : number)
+    object( response : express.Response, object : any, options: { devData? : any , status? : number });
+    object( response : express.Response, object : any, options?: { devData? : any , status? : number })
     {
-        response.statusCode = status || 200;
-        response.send( Wrapper.wrapObject(false, null, object).serializeSimpleObject() );
+        let devData = options != null ? options.devData : null;
+
+        response.statusCode = options != null && options.status != null ? options.status : HttpStatus.OK;
+        response.send( Wrapper.wrapObject(false, null, object, { devData }).serializeSimpleObject() );
     }
     
-    document( response : express.Response, document : TDocument);
-    document( response : express.Response, document : TDocument, status : number);
-    document( response : express.Response, document : TDocument, status? : number)
+    document( response : express.Response, document : TDocument) : void;
+    document( response : express.Response, document : TDocument, options : { devData? : any, status? : number }) : void;
+    document( response : express.Response, document : TDocument, options? : { devData? : any, status? : number  }) : void
     {
-        response.statusCode = status || 200;
-        response.send( Wrapper.wrapObject(false, null, document, true).serializeSimpleObject() );
+        let devData = options != null ? options.devData : null;
+        response.send( Wrapper.wrapObject(false, null, document, { isEntity: false, devData }).serializeSimpleObject() );
     }
 
-    entity( response : express.Response, entity : TEntity);
-    entity( response : express.Response, entity : TEntity, status : number);
-    entity( response : express.Response, entity : TEntity, status? : number)
+    entity( response : express.Response, entity : TEntity) : void;
+    entity( response : express.Response, entity : TEntity, options : { devData? : any }) : void;
+    entity( response : express.Response, entity : TEntity, options? : { devData? : any })
     {
-        response.statusCode = status || 200;
-        response.send( Wrapper.wrapObject(false, null, entity.serializeExposedAccessors(), true ).serializeSimpleObject() );
+        let devData = options != null ? options.devData : null;
+        response.send( Wrapper.wrapObject(false, null, entity.serializeExposedAccessors(), { isEntity: true, devData } ).serializeSimpleObject() );
     }
 
     documentCollection( response : express.Response, documents : Array<TDocument>);
-    documentCollection( response : express.Response, documents : Array<TDocument>, status : number);
-    documentCollection( response : express.Response, documents : Array<TDocument>, status? : number)
+    documentCollection( response : express.Response, documents : Array<TDocument>, options : { devData? : any });
+    documentCollection( response : express.Response, documents : Array<TDocument>, options? : { devData? : any })
     {
-        response.statusCode = status || 200;
-        response.send( Wrapper.wrapCollection(false, null, documents).serializeSimpleObject() );
+        let devData = options != null ? options.devData : null;
+        response.send( Wrapper.wrapCollection(false, null, documents, { devData }).serializeSimpleObject() );
     }
 
     entityCollection( response : express.Response, entities : Array<TEntity>);
-    entityCollection( response : express.Response, entities : Array<TEntity>, status : number);
-    entityCollection( response : express.Response, entities : Array<TEntity>, status? : number)
+    entityCollection( response : express.Response, entities : Array<TEntity>, options : { devData? : any });
+    entityCollection( response : express.Response, entities : Array<TEntity>, options? : { devData? : any } )
     {
-        response.statusCode = status || 200;
-        response.send( Wrapper.wrapCollection(false, null, entities.map(a => a.serializeExposedAccessors()) ).serializeSimpleObject() );
+        let devData = options != null ? options.devData : null;
+        response.send( Wrapper.wrapCollection(false, null, entities.map(a => a.serializeExposedAccessors()), { devData } ).serializeSimpleObject() );
     }
 
-    error( response: express.Response, error : any, options? : { code?: number })
+    exception( response: express.Response, error : any)
     {
-        response.statusCode = options && options.code ? options.code : 500;
+        response.statusCode = 500;
         if (error instanceof EMSessionError)
         {
             let e = <EMSessionError>error;
@@ -87,14 +91,14 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
                     
             }                
 
-            response.send( Wrapper.wrapError( 'INTERNAL UNHANDLED ERROR', e.error).serializeSimpleObject() );   
+            response.send( Wrapper.wrapError( 'INTERNAL UNHANDLED ERROR', data).serializeSimpleObject() );   
         }
         else
         {
             let data : any;
             if (this.session.isDevMode)
             {
-                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred in the Service's Session. The details were attached"};
+                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred in a known context. The details were attached"};
                 if (error)
                     data.errorDetails = { 
                         type: typeof error,
@@ -109,11 +113,22 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
         }
     }
 
-    logicError ( response: express.Response, message: string);
-    logicError ( response: express.Response, message: string, errorDetails : any);
-    logicError ( response: express.Response, message: string, errorDetails? : any)
+    handledError( response : express.Response, message : string, status : number ) : void;
+    handledError( response : express.Response, message : string, status : number, errorDetails : any ) : void;
+    handledError( response : express.Response, message : string, status : number, errorDetails? : any ) : void
     {
-        response.send( Wrapper.wrapObject<any>(true, message, errorDetails != null ? errorDetails : {}).serializeSimpleObject() );   
+        response.statusCode = status;
+        response.send( Wrapper.wrapError( message.toUpperCase(), errorDetails ).serializeSimpleObject() );    
+    }
+
+    logicError ( response: express.Response, message: string ) : void;
+    logicError ( response: express.Response, message: string, options : { errorDetails? : any, devData? : any }) : void;
+    logicError ( response: express.Response, message: string, options? : { errorDetails? : any, devData? : any }) :void
+    {
+        let errorDetails = options != null ? options.errorDetails : null;
+        let devData = options != null ? options.devData : null;
+
+        response.send( Wrapper.wrapObject<any>(true, message, errorDetails, { devData }).serializeSimpleObject() );   
     }
 
     logicAccept ( response: express.Response, message: string);

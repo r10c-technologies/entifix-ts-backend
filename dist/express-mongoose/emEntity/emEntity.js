@@ -25,43 +25,50 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
         var simpleObject = {};
         this.entityInfo.getAccessors().filter(accessor => accessor.exposed).forEach(accessor => {
             let nameSerialized = accessor.serializeAlias || accessor.name;
-            let valueSerialized;
             if (accessor.activator != null)
-                valueSerialized = this[accessor.name]._id;
+                simpleObject[nameSerialized] = this[accessor.name]._id;
             else
                 simpleObject[nameSerialized] = this[accessor.name];
         });
         return simpleObject;
     }
-    static deserializePersistentAccessors(info, simpleObject) {
-        var complexObject = {};
-        info.getAccessors().filter(accesor => accesor.schema != null || accesor.persistenceType == hcMetaData_1.PersistenceType.Auto).forEach(accessor => {
+    static deserializeAccessors(info, simpleObject) {
+        let persistentValues = {};
+        let tempNonPersintentValues = {};
+        info.getAccessors().forEach(accessor => {
             let exposedName = accessor.serializeAlias || accessor.name;
-            complexObject[accessor.name] = simpleObject[exposedName];
+            let persistentName = accessor.persistentAlias || accessor.name;
+            if (accessor.schema != null || accessor.persistenceType == hcMetaData_1.PersistenceType.Auto)
+                persistentValues[persistentName] = simpleObject[exposedName];
+            else
+                tempNonPersintentValues[persistentName] = simpleObject[exposedName];
+            delete simpleObject[exposedName];
         });
-        return complexObject;
+        let remaining = Object.keys(simpleObject).length > 0 ? simpleObject : null;
+        let nonPersistent = Object.keys(tempNonPersintentValues).length > 0 ? tempNonPersintentValues : null;
+        return { persistentValues: persistentValues, remainingValues: remaining, nonPersistentValues: nonPersistent };
     }
     save() {
         return new Promise((resolve, reject) => {
             this.onSaving().then(movFlow => {
                 if (movFlow.continue) {
-                    if (this._document._id) {
-                        this._session.updateDocument(this.entityInfo.name, this._document).then(documentUpdated => {
-                            this._document = documentUpdated;
-                            this.onSaved();
-                            resolve({ continue: true });
-                        }, error => {
-                            console.error('Error on update a document insde an entity');
-                            reject(error);
-                        });
-                    }
-                    else {
+                    if (this._document.isNew) {
                         this._session.createDocument(this.entityInfo.name, this._document).then(documentCreated => {
                             this._document = documentCreated;
                             this.onSaved();
                             resolve({ continue: true });
                         }, error => {
                             console.error('Error on create a document inside an entity');
+                            reject(error);
+                        });
+                    }
+                    else {
+                        this._session.updateDocument(this.entityInfo.name, this._document).then(documentUpdated => {
+                            this._document = documentUpdated;
+                            this.onSaved();
+                            resolve({ continue: true });
+                        }, error => {
+                            console.error('Error on update a document insde an entity');
                             reject(error);
                         });
                     }

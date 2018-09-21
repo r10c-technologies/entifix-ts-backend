@@ -6,15 +6,11 @@ class Wrapper {
     //#region Methods
     constructor() {
     }
-    static wrapObject(isLogicError, message, object, isEntity) {
-        return new WrappedObject(isLogicError, message, object, isEntity);
+    static wrapObject(isLogicError, message, object, options) {
+        return new WrappedObject(isLogicError, message, object, options);
     }
-    static wrapCollection(isLogicError, message, objectCollection, total, count, page) {
-        objectCollection = objectCollection || [];
-        total = total || objectCollection.length;
-        count = count || objectCollection.length;
-        page = page || 0;
-        return new WrappedCollection(isLogicError, message, objectCollection, total, page, count);
+    static wrapCollection(isLogicError, message, objectCollection, options) {
+        return new WrappedCollection(isLogicError, message, objectCollection, options);
     }
     static wrapError(errorDescription, error) {
         return new WrappedError(errorDescription, error);
@@ -24,16 +20,20 @@ exports.Wrapper = Wrapper;
 class WrappedResponse {
     //#endregion
     //#region Methods
-    constructor(isLogicError, message) {
+    constructor(devData, isLogicError, message) {
         this._isLogicError = isLogicError;
         this._message = message;
+        this._devData = devData;
     }
     serializeSimpleObject() {
-        return {
+        let obj = {
             isLogicError: this.isLogicError,
             message: this.message,
             info: { type: this._dataType }
         };
+        if (this._devData)
+            obj.devData = this._devData;
+        return obj;
     }
     ;
     //#endregion 
@@ -45,8 +45,10 @@ class WrappedResponse {
 }
 exports.WrappedResponse = WrappedResponse;
 class WrappedObject extends WrappedResponse {
-    constructor(isLogicError, message, data, isEntity) {
-        super(isLogicError, message);
+    constructor(isLogicError, message, data, options) {
+        let devData = options != null ? options.devData : null;
+        super(devData, isLogicError, message);
+        let isEntity = options != null && options.isEntity != null ? options.isEntity : false;
         this._data = data;
         if (isEntity == true)
             this._dataType = 'Entity';
@@ -65,14 +67,15 @@ class WrappedObject extends WrappedResponse {
 }
 exports.WrappedObject = WrappedObject;
 class WrappedCollection extends WrappedResponse {
-    //#endregion
-    //#region Methods
-    constructor(isLogicError, message, data, total, page, count) {
-        super(isLogicError, message);
+    constructor(isLogicError, message, data, options) {
+        let devData = options != null ? options.devData : null;
+        super(devData, isLogicError, message);
+        data = data || [];
+        options = options || {};
         this._data = data;
-        this._count = count;
-        this._page = page;
-        this._total = total;
+        this._count = options.count || data.length;
+        this._page = options.page || 1;
+        this._total = options.total || null;
         this._dataType = 'Collection';
     }
     serializeSimpleObject() {
@@ -95,26 +98,21 @@ class WrappedCollection extends WrappedResponse {
     set page(value) { this._page = value; }
 }
 exports.WrappedCollection = WrappedCollection;
-class WrappedError {
-    //#endregion
-    //#region Methods
-    constructor(description, error) {
-        this._errorDescription = description;
+class WrappedError extends WrappedResponse {
+    constructor(description, error, options) {
+        let devData = options != null ? options.devData : null;
+        super(devData, null, description);
         this._errorObject = error;
+        this._dataType = 'Error';
     }
     serializeSimpleObject() {
-        return {
-            isLogicError: null,
-            message: this._errorDescription,
-            info: { type: 'ERROR' },
-            data: this._errorObject
-        };
+        var simpleObject = super.serializeSimpleObject();
+        simpleObject.data = this._errorObject;
+        return simpleObject;
     }
     ;
     //#endregion
     //#region Accessors
-    get errorDescription() { return this._errorDescription; }
-    set errorDescription(value) { this._errorObject = value; }
     get errorObject() { return this._errorObject; }
     set errorObject(value) { this._errorObject = value; }
 }

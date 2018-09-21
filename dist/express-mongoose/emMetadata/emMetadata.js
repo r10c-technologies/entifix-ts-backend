@@ -5,9 +5,11 @@ class EMMemberActivator extends hcMetaData_1.MemberActivator {
     //#region Properties
     //#endregion
     //#region Methods
-    activateMember(entity, session, memberName) {
-        let id = entity[memberName];
-        return session.findEntity(this.entityInfo, id).then(entityMemberInstance => { entity[memberName] = entityMemberInstance; });
+    activateMember(entity, session, accessorInfo) {
+        let doc = entity.getDocument();
+        let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
+        let id = doc[persistentMember];
+        return session.findEntity(this.entityInfo, id).then(entityMemberInstance => { entity[accessorInfo.name] = entityMemberInstance; });
     }
 }
 exports.EMMemberActivator = EMMemberActivator;

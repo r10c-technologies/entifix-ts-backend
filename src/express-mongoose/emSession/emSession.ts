@@ -143,11 +143,18 @@ class EMSession extends HcSession
     createDocument<T extends EntityDocument>(entityName: string, document: T ) : Promise<T>
     {   
         return new Promise<T>((resolve, reject)=>{
-            let model = this.getModel<T>(entityName);
+            // let model = this.getModel<T>(entityName);
             this.manageDocumentCreation(document);
-            model.create(document).then( 
+            // model.create(document).then( 
+            //     value => resolve(value), 
+            //     error => reject( this.createError(error, 'Error in create document' ))
+            // );
+
+            document.save().then(
                 value => resolve(value), 
-                error => reject( this.createError(error, 'Error in create document' )));
+                error => reject( this.createError(error, 'Error in create document' ))
+            );
+
         });
     }
 
@@ -156,17 +163,25 @@ class EMSession extends HcSession
         return new Promise<T>((resolve, reject)=>{        
             let model = this.getModel<T>(entityName);
             this.manageDocumentUpdate(document);
-            model.findByIdAndUpdate( document._id, document, (error, result) => {
-                if (!error)
-                {
-                    this.findDocument(entityName, document._id).then(
-                        res => resolve(<T>res),
-                        err => reject(err)
-                    );
-                }
-                else
-                    reject( this.createError(error, 'Error in update document') );
-            } );
+            
+            // model.findByIdAndUpdate( document._id, document, (error, result) => {
+            // model.findByIdAndUpdate( document._id, { $set: document }, (error, result) => {
+            
+            //     if (!error)
+            //     {
+            //         this.findDocument(entityName, document._id).then(
+            //             res => resolve(<T>res),
+            //             err => reject(err)
+            //         );
+            //     }
+            //     else
+            //         reject( this.createError(error, 'Error in update document') );
+            // } );
+
+            document.update(document).then( 
+                value => resolve(value),
+                error => reject( this.createError(error, 'Error in update document') )
+            );
         });
     }
 
@@ -252,7 +267,7 @@ class EMSession extends HcSession
             if ( entityAccessors.length > 0)
             {
                 let promises : Array<Promise<void>> = [];
-                entityAccessors.forEach( entityAccessor => promises.push(entityAccessor.activator.activateMember( baseInstace, this, entityAccessor.name)));
+                entityAccessors.forEach( entityAccessor => promises.push(entityAccessor.activator.activateMember( baseInstace, this, entityAccessor )));
 
                 Promise.all(promises).then( 
                     () => resolve(baseInstace),
@@ -263,7 +278,6 @@ class EMSession extends HcSession
                 resolve(baseInstace);
         });
     }
-
 
     getMetadataToExpose(entityName : string) : Array<{ name : string, type : string, persistent : boolean}>
     {
@@ -312,8 +326,6 @@ class EMSession extends HcSession
             );
         }); 
     }
-
-
 
     enableDevMode () : void
     {
@@ -364,25 +376,26 @@ class EMSession extends HcSession
                 info.getAllMembers()
                     .filter( m => (m instanceof AccessorInfo) && ( m.schema != null || m.persistenceType == PersistenceType.Auto) )
                     .map( m => { 
-                        return  { property: m.name, type: m.type, alias : (m as AccessorInfo).serializeAlias } 
+                        return  { property: m.name, type: m.type, serializeAlias : (m as AccessorInfo).serializeAlias, persistentAlias : (m as AccessorInfo).persistentAlias } 
                     });
 
 
-        //Filter for defferred deletion.
+        //Base mongo filters
         let mongoFilters : any;
             
         // Convert all the fixed and optional filters in Mongoose Filetrs
         if (filters != null && filters.length > 0)
         {
-            //mongoFilters = { $and : [ { deferredDeletion: { $in: [null, false] } } ] };  
-            mongoFilters = { $and : [ { deferredDeletion: false } ] };
+            mongoFilters = { $and : [ { deferredDeletion: { $in: [null, false] } } ] };  
+            // mongoFilters = { $and : [ { deferredDeletion: false } ] };
+            
             let opFilters = [];
             let errFilters : string;
 
             //get all filters
             for (let filter of filters)
             {
-                let pMember = persistentMembers.find( pm => pm.property == filter.property || pm.alias == filter.property);
+                let pMember = persistentMembers.find( pm => pm.property == filter.property || pm.serializeAlias == filter.property || pm.persistentAlias == filter.property);
                 if (pMember == null)
                 {
                     errFilters = 'Attempt to filter by a non persistent member';
@@ -390,7 +403,8 @@ class EMSession extends HcSession
                 }
                 
                 //Single mongo filter
-                let mongoFilterConversion = this.parseMongoFilter( filter, pMember.type, pMember.property );
+                let persistentName = pMember.persistentAlias ? pMember.persistentAlias : pMember.property;
+                let mongoFilterConversion = this.parseMongoFilter( filter, pMember.type, persistentName );
                 if ( mongoFilterConversion.err)
                 {   
                     errFilters = mongoFilterConversion.message;
@@ -417,8 +431,8 @@ class EMSession extends HcSession
         }
         else
         {
-            //mongoFilters = { deferredDeletion: { $in: [null, false] }  };
-            mongoFilters = { deferredDeletion: false };
+            mongoFilters = { deferredDeletion: { $in: [null, false] }  };
+            // mongoFilters = { deferredDeletion: false };
         }
                
         

@@ -10,7 +10,9 @@ declare function DefinedAccessor(params?: {
     exposed?: boolean;
     schema?: any;
     persistenceType?: PersistenceType;
+    alias?: string;
     serializeAlias?: string;
+    persistentAlias?: string;
     readOnly?: boolean;
     activator?: MemberActivator;
 }): (target: any, key: string, descriptor: PropertyDescriptor) => void;
@@ -31,6 +33,7 @@ declare class EntityInfo {
     getAccessorSchemas(): Array<{
         accessorName: string;
         accessorSchema: any;
+        alias?: string;
     }>;
     getCompleteSchema(): any;
     implementBaseInfo(baseInfo: EntityInfo): void;
@@ -44,8 +47,8 @@ declare class EntityInfo {
 declare abstract class MemberActivator {
     private _entityInfo;
     constructor(info: EntityInfo);
-    abstract activateMember(entity: Entity, session: HcSession, memberName: string): Promise<void>;
-    protected readonly entityInfo: EntityInfo;
+    abstract activateMember(entity: Entity, session: HcSession, accessorInfo: AccessorInfo): Promise<void>;
+    readonly entityInfo: EntityInfo;
 }
 declare abstract class MemberInfo {
     private _name;
@@ -65,14 +68,17 @@ declare class AccessorInfo extends MemberInfo {
     private _exposed;
     private _schema;
     private _persistenceType;
-    private _serializetAlias;
+    private _serializeAlias;
     private _readOnly;
     private _activator;
+    private _persistentAlias;
     constructor();
+    setAlias(alias: string): void;
     exposed: boolean;
     schema: any;
     persistenceType: PersistenceType;
     serializeAlias: string;
+    persistentAlias: string;
     readOnly: boolean;
     activator: MemberActivator;
 }

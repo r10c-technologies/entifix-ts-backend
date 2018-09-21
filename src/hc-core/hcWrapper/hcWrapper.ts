@@ -13,22 +13,17 @@ class Wrapper
     }
     
     static wrapObject<T>(isLogicError: boolean, message : string, object : T) : WrappedObject<T>;
-    static wrapObject<T>(isLogicError: boolean, message : string, object : T, isEntity : boolean ) : WrappedObject<T>;
-    static wrapObject<T>(isLogicError: boolean, message : string, object : T, isEntity? : boolean) : WrappedObject<T>
+    static wrapObject<T>(isLogicError: boolean, message : string, object : T, options : {  isEntity? : boolean, devData? : any } ) : WrappedObject<T>;
+    static wrapObject<T>(isLogicError: boolean, message : string, object : T, options? : {  isEntity? : boolean, devData? : any }) : WrappedObject<T>
     {
-        return new WrappedObject(isLogicError, message, object, isEntity);
+        return new WrappedObject(isLogicError, message, object, options);
     }
 
     static wrapCollection<T>( isLogicError: boolean, message : string, objectCollection : Array<T>) : WrappedCollection<T>;
-    static wrapCollection<T>( isLogicError: boolean, message : string, objectCollection : Array<T>, total : number, count : number, page: number ) : WrappedCollection<T>;
-    static wrapCollection<T>( isLogicError: boolean, message : string, objectCollection : Array<T>, total? : number, count? : number, page? : number) : WrappedCollection<T>
+    static wrapCollection<T>( isLogicError: boolean, message : string, objectCollection : Array<T>, options : {total? : number, page? : number, count? : number, devData? : any } ) : WrappedCollection<T>;
+    static wrapCollection<T>( isLogicError: boolean, message : string, objectCollection : Array<T>, options? : {total? : number, page? : number, count? : number, devData? : any }) : WrappedCollection<T>
     {
-        objectCollection = objectCollection || [];
-        total = total || objectCollection.length;
-        count = count || objectCollection.length;
-        page = page || 0;
-
-        return new WrappedCollection(isLogicError, message, objectCollection, total, page, count);
+        return new WrappedCollection(isLogicError, message, objectCollection, options);
     }
 
     static wrapError(errorDescription: string) : WrappedError;
@@ -54,23 +49,31 @@ abstract class WrappedResponse
 
     protected _dataType : string;
 
+    private _devData : any;
+
     //#endregion
 
     //#region Methods
 
-    constructor (isLogicError : boolean, message : string)
+    constructor (devData: any, isLogicError : boolean, message : string)
     {
         this._isLogicError = isLogicError;
         this._message = message;
+        this._devData = devData;
     }
     
     serializeSimpleObject() : any
     {
-        return {
+        let obj : any= {
             isLogicError: this.isLogicError,
             message: this.message,
             info: { type: this._dataType }
         };
+
+        if (this._devData)
+            obj.devData = this._devData;
+
+        return obj;
     };
 
     //#endregion 
@@ -102,10 +105,14 @@ class WrappedObject<T> extends WrappedResponse
     //#region Methods
 
     constructor ( isLogicError : boolean, message : string, data : T );
-    constructor ( isLogicError : boolean, message : string, data : T , isEntity : boolean);
-    constructor ( isLogicError : boolean, message : string, data : T , isEntity? : boolean)
+    constructor ( isLogicError : boolean, message : string, data : T , options : {  isEntity? : boolean, devData? : any });
+    constructor ( isLogicError : boolean, message : string, data : T , options? : {  isEntity? : boolean, devData? : any })
     {
-        super(isLogicError, message);
+        let devData = options != null ? options.devData : null;
+        super(devData, isLogicError, message);
+        
+        let isEntity = options != null && options.isEntity != null ? options.isEntity : false;
+
         this._data = data;
         
         if (isEntity == true)
@@ -147,15 +154,19 @@ class WrappedCollection<T> extends WrappedResponse
 
     //#region Methods
 
-    constructor ( isLogicError : boolean, message : string, data : Array<T>, total : number, page : number, count : number )
+    constructor ( isLogicError : boolean, message : string, data : Array<T> );
+    constructor ( isLogicError : boolean, message : string, data : Array<T>, options : {total? : number, page? : number, count? : number, devData? : any } );
+    constructor ( isLogicError : boolean, message : string, data : Array<T>, options? : {total? : number, page? : number, count? : number, devData? : any } )
     {
-        super(isLogicError, message);
+        let devData = options != null ? options.devData : null;
+        super(devData, isLogicError, message);
 
+        data = data || [];
+        options = options || {};
         this._data = data;
-        this._count = count;
-        this._page = page;
-        this._total = total;
-
+        this._count = options.count || data.length;
+        this._page = options.page || 1;
+        this._total = options.total || null;
         this._dataType = 'Collection';
     }
     
@@ -198,41 +209,39 @@ class WrappedCollection<T> extends WrappedResponse
 }
 
 
-class WrappedError
+class WrappedError extends WrappedResponse
 {
     //#region Properties
 
-    private _errorDescription : string;
     private _errorObject : any;
 
     //#endregion
 
     //#region Methods
 
-    constructor (description : string, error : any)
+    constructor ( description : string, error : any );
+    constructor ( description : string, error : any, options : { devData? : any });
+    constructor ( description : string, error : any, options? : { devData? : any })
     {
-        this._errorDescription = description;
-        this._errorObject = error;
-    }
+    
+        let devData = options != null ? options.devData : null;
+        super(devData, null, description);
 
+        this._errorObject = error;
+        this._dataType = 'Error';
+    }
+    
     serializeSimpleObject() : any
     {
-        return {
-            isLogicError: null,
-            message: this._errorDescription,
-            info: { type: 'ERROR' },
-            data: this._errorObject
-        };
+        var simpleObject = super.serializeSimpleObject();
+        simpleObject.data = this._errorObject;
+        
+        return simpleObject;
     };
 
     //#endregion
 
     //#region Accessors
-
-    get errorDescription ()
-    { return this._errorDescription; }
-    set errorDescription (value)
-    { this._errorObject = value; }
 
     get errorObject ()
     { return this._errorObject; }
