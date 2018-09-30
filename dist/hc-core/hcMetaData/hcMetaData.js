@@ -27,13 +27,11 @@ function DefinedAccessor(params) {
         var entityInfo = defineMetaData(target, CreationType.member);
         var reflectInfo = Reflect.getMetadata('design:type', target, key);
         var info = new AccessorInfo();
-        info.exposed = params.exposed || false;
         info.name = key;
         info.schema = params.schema;
         info.className = target.constructor.name;
         info.type = reflectInfo.name;
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
-        info.readOnly = params.readOnly != null ? params.readOnly : false;
         info.activator = params.activator;
         if (params.alias)
             info.setAlias(params.alias);
@@ -41,6 +39,8 @@ function DefinedAccessor(params) {
             info.serializeAlias = params.serializeAlias;
         if (params.persistentAlias)
             info.persistentAlias = params.persistentAlias;
+        if (params.exposition)
+            info.exposition = params.exposition;
         if (params.persistenceType && params.persistenceType == PersistenceType.Auto && params.schema)
             console.warn(`The Persistence type for ${key} is defined as Auto, so the defined Schema will be ignored`);
         if (reflectInfo.name == 'Object' && params.persistenceType != PersistenceType.Auto)
@@ -219,8 +219,6 @@ class AccessorInfo extends MemberInfo {
     constructor() {
         super();
         this._persistenceType = PersistenceType.Defined;
-        this._exposed = false;
-        this._readOnly = false;
     }
     setAlias(alias) {
         this._persistentAlias = alias;
@@ -228,8 +226,8 @@ class AccessorInfo extends MemberInfo {
     }
     //#endregion
     //#region Accessors
-    get exposed() { return this._exposed; }
-    set exposed(value) { this._exposed = value; }
+    get exposition() { return this._exposition; }
+    set exposition(value) { this._exposition = value; }
     get schema() { return this._schema; }
     set schema(value) { this._schema = value; }
     get persistenceType() { return this._persistenceType; }
@@ -238,8 +236,6 @@ class AccessorInfo extends MemberInfo {
     set serializeAlias(value) { this._serializeAlias = value; }
     get persistentAlias() { return this._persistentAlias; }
     set persistentAlias(value) { this._persistentAlias = value; }
-    get readOnly() { return this._readOnly; }
-    set readOnly(value) { this._readOnly = value; }
     get activator() { return this._activator; }
     set activator(value) { this._activator = value; }
 }
@@ -259,4 +255,10 @@ var PersistenceType;
     PersistenceType[PersistenceType["Auto"] = 2] = "Auto";
 })(PersistenceType || (PersistenceType = {}));
 exports.PersistenceType = PersistenceType;
+var ExpositionType;
+(function (ExpositionType) {
+    ExpositionType["Normal"] = "normal";
+    ExpositionType["ReadOnly"] = "readOnly";
+})(ExpositionType || (ExpositionType = {}));
+exports.ExpositionType = ExpositionType;
 //# sourceMappingURL=hcMetaData.js.map

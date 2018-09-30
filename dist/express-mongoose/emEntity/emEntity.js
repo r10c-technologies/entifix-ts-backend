@@ -23,7 +23,7 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
     }
     serializeExposedAccessors() {
         var simpleObject = {};
-        this.entityInfo.getAccessors().filter(accessor => accessor.exposed).forEach(accessor => {
+        this.entityInfo.getAccessors().filter(accessor => accessor.exposition).forEach(accessor => {
             let nameSerialized = accessor.serializeAlias || accessor.name;
             if (accessor.activator != null)
                 simpleObject[nameSerialized] = this[accessor.name]._id;
@@ -33,20 +33,34 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
         return simpleObject;
     }
     static deserializeAccessors(info, simpleObject) {
-        let persistentValues = {};
-        let tempNonPersintentValues = {};
-        info.getAccessors().forEach(accessor => {
+        let persistent;
+        let nonPersistent;
+        let readOnly;
+        info.getAccessors().filter(accessor => accessor.exposition).forEach(accessor => {
             let exposedName = accessor.serializeAlias || accessor.name;
             let persistentName = accessor.persistentAlias || accessor.name;
-            if (accessor.schema != null || accessor.persistenceType == hcMetaData_1.PersistenceType.Auto)
-                persistentValues[persistentName] = simpleObject[exposedName];
-            else
-                tempNonPersintentValues[persistentName] = simpleObject[exposedName];
+            if (accessor.exposition == hcMetaData_1.ExpositionType.Normal) {
+                let isPersistent = accessor.schema != null || accessor.persistenceType == hcMetaData_1.PersistenceType.Auto;
+                if (isPersistent) {
+                    if (!persistent)
+                        persistent = {};
+                    persistent[persistentName] = simpleObject[exposedName];
+                }
+                else {
+                    if (!nonPersistent)
+                        nonPersistent = {};
+                    nonPersistent[exposedName] = simpleObject[exposedName];
+                }
+            }
+            if (accessor.exposition == hcMetaData_1.ExpositionType.ReadOnly) {
+                if (!readOnly)
+                    readOnly = {};
+                readOnly[exposedName] = simpleObject[exposedName];
+            }
             delete simpleObject[exposedName];
         });
-        let remaining = Object.keys(simpleObject).length > 0 ? simpleObject : null;
-        let nonPersistent = Object.keys(tempNonPersintentValues).length > 0 ? tempNonPersintentValues : null;
-        return { persistentValues: persistentValues, remainingValues: remaining, nonPersistentValues: nonPersistent };
+        let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
+        return { persistent, nonPersistent, readOnly, nonValid };
     }
     save() {
         return new Promise((resolve, reject) => {
@@ -127,32 +141,32 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
     set deferredDeletion(value) { this.deferredDeletion = value; }
 };
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, schema: { type: Date, require: true } }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: Date, require: true } }),
     __metadata("design:type", Date),
     __metadata("design:paramtypes", [Date])
 ], EMEntity.prototype, "created", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, schema: { type: Date, require: false } }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: Date, require: false } }),
     __metadata("design:type", Date),
     __metadata("design:paramtypes", [Date])
 ], EMEntity.prototype, "modified", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, schema: { type: Date, require: false } }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: Date, require: false } }),
     __metadata("design:type", Date),
     __metadata("design:paramtypes", [Date])
 ], EMEntity.prototype, "deleted", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'id' }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'id' }),
     __metadata("design:type", Object),
     __metadata("design:paramtypes", [])
 ], EMEntity.prototype, "_id", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'v' }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'v' }),
     __metadata("design:type", Number),
     __metadata("design:paramtypes", [])
 ], EMEntity.prototype, "__v", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: false, schema: { type: Boolean, require: true } }),
+    hcMetaData_1.DefinedAccessor({ schema: { type: Boolean, require: true } }),
     __metadata("design:type", Boolean),
     __metadata("design:paramtypes", [Boolean])
 ], EMEntity.prototype, "deferredDeletion", null);

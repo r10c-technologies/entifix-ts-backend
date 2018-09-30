@@ -34,13 +34,12 @@ function DefinedEntity( params? : { packageName : string, abstract? : boolean } 
     }
 }
 
-function DefinedAccessor( params? : {   exposed? : boolean, 
+function DefinedAccessor( params? : {   exposition? : ExpositionType, 
                                         schema? : any, 
                                         persistenceType? : PersistenceType, 
                                         alias? : string,
                                         serializeAlias? : string,
                                         persistentAlias? : string,
-                                        readOnly? : boolean ,
                                         activator? : MemberActivator } ) 
 {
 
@@ -51,13 +50,11 @@ function DefinedAccessor( params? : {   exposed? : boolean,
         var reflectInfo = Reflect.getMetadata('design:type', target, key);
         
         var info = new AccessorInfo();
-        info.exposed = params.exposed || false;
         info.name = key;
         info.schema = params.schema;
         info.className = target.constructor.name;
         info.type = reflectInfo.name;
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
-        info.readOnly = params.readOnly != null ?  params.readOnly : false;
         info.activator = params.activator;
         
         if (params.alias)
@@ -66,6 +63,8 @@ function DefinedAccessor( params? : {   exposed? : boolean,
             info.serializeAlias = params.serializeAlias;
         if (params.persistentAlias)
             info.persistentAlias = params.persistentAlias;
+        if (params.exposition)
+            info.exposition = params.exposition;
 
         if (params.persistenceType && params.persistenceType == PersistenceType.Auto && params.schema)
             console.warn(`The Persistence type for ${key} is defined as Auto, so the defined Schema will be ignored`);
@@ -309,6 +308,8 @@ abstract class MemberActivator
     get entityInfo()
     { return this._entityInfo; }
 
+    abstract get resourcePath() : string;
+    abstract get extendRoute () : boolean;
     //#endregion
 
 }
@@ -382,11 +383,10 @@ class AccessorInfo extends MemberInfo
 {
     //#region Properties
 
-    private _exposed : boolean;
+    private _exposition : ExpositionType;
     private _schema : any;
     private _persistenceType : PersistenceType;
     private _serializeAlias : string;
-    private _readOnly : boolean;
     private _activator : MemberActivator;
     private _persistentAlias : string;
 
@@ -399,8 +399,6 @@ class AccessorInfo extends MemberInfo
         super();
 
         this._persistenceType = PersistenceType.Defined;
-        this._exposed = false;
-        this._readOnly = false;
     }
 
     setAlias(alias : string) : void
@@ -413,10 +411,10 @@ class AccessorInfo extends MemberInfo
 
     //#region Accessors
 
-    get exposed () 
-    { return this._exposed; }
-    set exposed (value)
-    { this._exposed = value; }
+    get exposition () 
+    { return this._exposition; }
+    set exposition (value)
+    { this._exposition = value; }
 
     get schema ()
     { return this._schema; }
@@ -437,11 +435,6 @@ class AccessorInfo extends MemberInfo
     { return this._persistentAlias; }
     set persistentAlias( value )
     { this._persistentAlias = value; }
-
-    get readOnly( )
-    { return this._readOnly; }
-    set readOnly( value )
-    { this._readOnly = value; }
 
     get activator( )
     { return this._activator; }
@@ -482,7 +475,14 @@ enum PersistenceType
     Auto = 2
 }
 
-export { 
+enum ExpositionType
+{
+    Normal = 'normal',
+    ReadOnly = 'readOnly'
+}
+
+export {
+    ExpositionType, 
     EntityInfo, 
     Defined, 
     DefinedAccessor, 

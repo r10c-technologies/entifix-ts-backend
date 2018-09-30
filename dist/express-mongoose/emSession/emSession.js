@@ -99,7 +99,14 @@ class EMSession extends hcSession_1.HcSession {
             //     else
             //         reject( this.createError(error, 'Error in update document') );
             // } );
-            document.update(document).then(value => resolve(value), error => reject(this.createError(error, 'Error in update document')));
+            document.update(document).then(value => {
+                model.findById(document.id, (err, doc) => {
+                    if (err)
+                        reject(this.createError(err, 'The document was updated but it could not be reloaded'));
+                    else
+                        resolve(doc);
+                });
+            }, error => reject(this.createError(error, 'Error in update document')));
         });
     }
     listDocuments(entityName, options) {
@@ -166,10 +173,11 @@ class EMSession extends hcSession_1.HcSession {
     }
     getMetadataToExpose(entityName) {
         let info = (this.entitiesInfo.find(e => e.name == entityName).info);
-        return info.getAccessors().filter(accessor => accessor.exposed).map(accessor => {
+        return info.getAccessors().filter(accessor => accessor.exposition).map(accessor => {
             return {
                 name: accessor.name,
                 type: accessor.type,
+                expositionType: accessor.exposition,
                 persistent: (accessor.schema != null || accessor.persistenceType == hcMetaData_1.PersistenceType.Auto)
             };
         });
@@ -189,6 +197,28 @@ class EMSession extends hcSession_1.HcSession {
                 });
                 Promise.all(promises).then(() => resolve(entities), error => reject(error));
             }, error => reject(error));
+        });
+    }
+    listDocumentsByQuery(entityName, mongoFilters) {
+        return new Promise((resolve, reject) => {
+            let filters = { $and: [{ deferredDeletion: { $in: [null, false] } }] };
+            if (mongoFilters instanceof Array)
+                filters.$and = filters.$and.concat(mongoFilters);
+            else
+                filters.$and.push(mongoFilters);
+            this.getModel(entityName).find(filters).then(docs => resolve(docs), err => reject(this.createError(err, 'Error on list documents')));
+        });
+    }
+    listEntitiesByQuery(info, mongoFilters) {
+        return new Promise((resolve, reject) => {
+            this.listDocumentsByQuery(info.name, mongoFilters).then(docsResult => {
+                let entities = new Array();
+                let promises = new Array();
+                docsResult.forEach(docResult => {
+                    promises.push(this.activateEntityInstance(info, docResult).then(entity => { entities.push(entity); }));
+                });
+                Promise.all(promises).then(() => resolve(entities), error => reject(error));
+            });
         });
     }
     enableDevMode() {

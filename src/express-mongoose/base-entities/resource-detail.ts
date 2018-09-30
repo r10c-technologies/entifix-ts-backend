@@ -1,5 +1,5 @@
 import { EMEntity, EntityDocument, IBaseEntity } from '../emEntity/emEntity';
-import { DefinedEntity, DefinedAccessor  } from '../../hc-core/hcMetaData/hcMetaData';
+import { DefinedEntity, DefinedAccessor, ExpositionType  } from '../../hc-core/hcMetaData/hcMetaData';
 
 interface IResourceDetail extends IBaseEntity
 {
@@ -24,13 +24,13 @@ class ResourceDetail extends EMEntity implements IResourceDetail
 
     //#region Accessors (Properties)
 
-    @DefinedAccessor({ exposed: true, schema: { type: String, require: true } })
+    @DefinedAccessor({ exposition: ExpositionType.Normal, schema: { type: String, require: true } })
     get resourceName () : string
     { return (<IResourceDetailModel>this._document).resourceName; }
     set resourceName (value : string)
     { (<IResourceDetailModel>this._document).resourceName = value; }
     
-    @DefinedAccessor({ exposed: true, schema: { type: String, require: true}})
+    @DefinedAccessor({ exposition: ExpositionType.Normal, schema: { type: String, require: true}})
     get apiUrl () : string
     { return (<IResourceDetailModel>this._document).apiUrl; }
     set apiUrl (value : string)

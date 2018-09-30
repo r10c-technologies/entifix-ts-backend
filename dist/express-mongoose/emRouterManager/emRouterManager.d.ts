@@ -13,12 +13,35 @@ declare class EMRouterManager {
         basePath?: string;
         resourceName?: string;
     }): void;
+    exposeEnumeration(name: string, enumerator: any): void;
+    exposeEnumeration(name: string, enumerator: any, options: {
+        basePath?: string;
+        resourceName?: string;
+    }): void;
     getExpositionDetails(): Array<{
         entityName: string;
         resourceName: string;
         basePath: string;
     }>;
+    findController<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string): EMEntityController<TDocument, TEntity>;
     readonly session: EMSession;
     readonly appInstance: express.Application;
 }
-export { EMRouterManager };
+declare class EMSimpleController {
+    private _retrieveMethod;
+    private _retrieveByIdMethod;
+    private _createMethod;
+    private _updateMethod;
+    private _deleteMethod;
+    private _router;
+    private _resourceName;
+    constructor(resourceName: any);
+    createRoutes(): void;
+    readonly router: express.Router;
+    retrieveMethod: (request: express.Request, response: express.Response, next: express.NextFunction) => void;
+    retrieveByIdMethod: (request: express.Request, response: express.Response, next: express.NextFunction) => void;
+    createMethod: (request: express.Request, response: express.Response, next: express.NextFunction) => void;
+    updateMethod: (request: express.Request, response: express.Response, next: express.NextFunction) => void;
+    deleteMethod: (request: express.Request, response: express.Response, next: express.NextFunction) => void;
+}
+export { EMRouterManager, EMSimpleController };

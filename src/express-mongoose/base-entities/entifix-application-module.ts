@@ -1,5 +1,5 @@
 import { IBaseEntity, EntityDocument, EMEntity } from '../emEntity/emEntity';
-import { DefinedEntity, DefinedAccessor } from '../../hc-core/hcMetaData/hcMetaData';
+import { DefinedEntity, DefinedAccessor, ExpositionType } from '../../hc-core/hcMetaData/hcMetaData';
 
 interface IEntifixApplicationModule extends IBaseEntity
 {
@@ -30,25 +30,25 @@ class EntifixApplicationModule extends EMEntity implements IEntifixApplicationMo
 
     //#region Accessors
 
-    @DefinedAccessor({ exposed: true, schema: { type: String, required: true }})
+    @DefinedAccessor({ exposition: ExpositionType.Normal, schema: { type: String, required: true }})
     get name() : string
     { return (<IEntifixApplicationModuleModel>this._document).name; }
     set name(value: string)
     { (<IEntifixApplicationModuleModel>this._document).name = value; }
 
-    @DefinedAccessor({ exposed: true, schema: { type: String }})
+    @DefinedAccessor({ exposition: ExpositionType.Normal, schema: { type: String }})
     get url() : string
     { return (<IEntifixApplicationModuleModel>this._document).url; }
     set url(value: string)
     { (<IEntifixApplicationModuleModel>this._document).url = value; }
 
-    @DefinedAccessor({ exposed: true, schema: { type: String }})
+    @DefinedAccessor({ exposition: ExpositionType.Normal, schema: { type: String }})
     get displayName() : string
     { return (<IEntifixApplicationModuleModel>this._document).displayName; }
     set displayName(value: string)
     { (<IEntifixApplicationModuleModel>this._document).displayName = value; }
 
-    @DefinedAccessor({ exposed: true, schema: { type: Array }})
+    @DefinedAccessor({ exposition: ExpositionType.Normal, schema: { type: Array }})
     get resources() : Array<EntifixResource>
     { return (<IEntifixApplicationModuleModel>this._document).resources; }
     set resources(value: Array<EntifixResource>)

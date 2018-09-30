@@ -1,40 +1,45 @@
 "use strict";
+// import { Entity, EntityMovementFlow } from './hc-core/hcEntity/hcEntity';
+// import { EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType } from './hc-core/hcMetaData/hcMetaData';
+// import { HcSession } from './hc-core/hcSession/hcSession';
+// import { Wrapper, WrappedError, WrappedCollection, WrappedObject } from './hc-core/hcWrapper/hcWrapper';
+// import { EMEntity, IBaseEntity, EntityDocument } from './express-mongoose/emEntity/emEntity';
+// import { EMEntityController } from './express-mongoose/emEntityController/emEntityController';
+// import { EMRouterManager } from './express-mongoose/emRouterManager/emRouterManager';
+// import { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort, ListOptions } from './express-mongoose/emSession/emSession';
+// import { EMResponseWrapper } from './express-mongoose/emWrapper/emWrapper';
+// import { EMMemberActivator } from './express-mongoose/emMetadata/emMetadata';
+// import { ResourceDetail, IResourceDetail, IResourceDetailModel } from './express-mongoose/base-entities/resource-detail';
+// import { EntifixApplication, EntifixAppConfig } from './express-mongoose/base-entities/entifix-application';
+// import { EntifixApplicationModule, EntifixResource, IEntifixApplicationModuleModel } from './express-mongoose/base-entities/entifix-application-module';
+function __export(m) {
+    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
+}
 Object.defineProperty(exports, "__esModule", { value: true });
-const hcEntity_1 = require("./hc-core/hcEntity/hcEntity");
-exports.Entity = hcEntity_1.Entity;
-const hcMetaData_1 = require("./hc-core/hcMetaData/hcMetaData");
-exports.EntityInfo = hcMetaData_1.EntityInfo;
-exports.Defined = hcMetaData_1.Defined;
-exports.DefinedAccessor = hcMetaData_1.DefinedAccessor;
-exports.DefinedEntity = hcMetaData_1.DefinedEntity;
-exports.DefinedMethod = hcMetaData_1.DefinedMethod;
-exports.PersistenceType = hcMetaData_1.PersistenceType;
-const hcSession_1 = require("./hc-core/hcSession/hcSession");
-exports.HcSession = hcSession_1.HcSession;
-const hcWrapper_1 = require("./hc-core/hcWrapper/hcWrapper");
-exports.Wrapper = hcWrapper_1.Wrapper;
-exports.WrappedError = hcWrapper_1.WrappedError;
-exports.WrappedCollection = hcWrapper_1.WrappedCollection;
-exports.WrappedObject = hcWrapper_1.WrappedObject;
-const emEntity_1 = require("./express-mongoose/emEntity/emEntity");
-exports.EMEntity = emEntity_1.EMEntity;
-const emEntityController_1 = require("./express-mongoose/emEntityController/emEntityController");
-exports.EMEntityController = emEntityController_1.EMEntityController;
-const emRouterManager_1 = require("./express-mongoose/emRouterManager/emRouterManager");
-exports.EMRouterManager = emRouterManager_1.EMRouterManager;
-const emSession_1 = require("./express-mongoose/emSession/emSession");
-exports.EMSession = emSession_1.EMSession;
-exports.EMSessionError = emSession_1.EMSessionError;
-exports.FilterType = emSession_1.FilterType;
-exports.SortType = emSession_1.SortType;
-const emWrapper_1 = require("./express-mongoose/emWrapper/emWrapper");
-exports.EMResponseWrapper = emWrapper_1.EMResponseWrapper;
-const emMetadata_1 = require("./express-mongoose/emMetadata/emMetadata");
-exports.EMMemberActivator = emMetadata_1.EMMemberActivator;
-const resource_detail_1 = require("./express-mongoose/base-entities/resource-detail");
-exports.ResourceDetail = resource_detail_1.ResourceDetail;
-const entifix_application_1 = require("./express-mongoose/base-entities/entifix-application");
-exports.EntifixApplication = entifix_application_1.EntifixApplication;
-const entifix_application_module_1 = require("./express-mongoose/base-entities/entifix-application-module");
-exports.EntifixApplicationModule = entifix_application_module_1.EntifixApplicationModule;
+// export {
+//     Entity,EntityMovementFlow,
+//     EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType,
+//     HcSession,
+//     Wrapper, WrappedError, WrappedCollection, WrappedObject,
+//     EMEntity, IBaseEntity, EntityDocument,
+//     EMEntityController,
+//     EMRouterManager, ListOptions, EMMemberActivator,
+//     EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort,
+//     EMResponseWrapper,
+//     ResourceDetail, IResourceDetail, IResourceDetailModel,
+//     EntifixApplication, EntifixApplicationModule, EntifixResource, IEntifixApplicationModuleModel, EntifixAppConfig
+// }
+__export(require("./hc-core/hcEntity/hcEntity"));
+__export(require("./hc-core/hcMetaData/hcMetaData"));
+__export(require("./hc-core/hcSession/hcSession"));
+__export(require("./hc-core/hcWrapper/hcWrapper"));
+__export(require("./express-mongoose/emEntity/emEntity"));
+__export(require("./express-mongoose/emEntityController/emEntityController"));
+__export(require("./express-mongoose/emRouterManager/emRouterManager"));
+__export(require("./express-mongoose/emSession/emSession"));
+__export(require("./express-mongoose/emWrapper/emWrapper"));
+__export(require("./express-mongoose/emMetadata/emMetadata"));
+__export(require("./express-mongoose/base-entities/resource-detail"));
+__export(require("./express-mongoose/base-entities/entifix-application"));
+__export(require("./express-mongoose/base-entities/entifix-application-module"));
 //# sourceMappingURL=index.js.map

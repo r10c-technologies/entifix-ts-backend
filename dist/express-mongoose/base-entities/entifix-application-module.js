@@ -27,22 +27,22 @@ let EntifixApplicationModule = class EntifixApplicationModule extends emEntity_1
     set resources(value) { this._document.resources = value; }
 };
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, schema: { type: String, required: true } }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, schema: { type: String, required: true } }),
     __metadata("design:type", String),
     __metadata("design:paramtypes", [String])
 ], EntifixApplicationModule.prototype, "name", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, schema: { type: String } }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, schema: { type: String } }),
     __metadata("design:type", String),
     __metadata("design:paramtypes", [String])
 ], EntifixApplicationModule.prototype, "url", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, schema: { type: String } }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, schema: { type: String } }),
     __metadata("design:type", String),
     __metadata("design:paramtypes", [String])
 ], EntifixApplicationModule.prototype, "displayName", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, schema: { type: Array } }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, schema: { type: Array } }),
     __metadata("design:type", Array),
     __metadata("design:paramtypes", [Array])
 ], EntifixApplicationModule.prototype, "resources", null);

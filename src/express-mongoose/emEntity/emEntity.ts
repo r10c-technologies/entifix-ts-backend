@@ -2,7 +2,7 @@ import mongoose = require('mongoose');
 
 import { Entity, EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity';
 import { EMSession } from '../emSession/emSession';
-import { DefinedAccessor, DefinedEntity, PersistenceType, EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
+import { DefinedAccessor, DefinedEntity, PersistenceType, EntityInfo, ExpositionType } from '../../hc-core/hcMetaData/hcMetaData';
 import { emitKeypressEvents } from 'readline';
 
 interface EntityDocument extends mongoose.Document
@@ -45,7 +45,7 @@ class EMEntity extends Entity
     {
         var simpleObject : any = {};
         
-        this.entityInfo.getAccessors().filter( accessor => accessor.exposed ).forEach( accessor => {
+        this.entityInfo.getAccessors().filter( accessor => accessor.exposition ).forEach( accessor => {
             let nameSerialized = accessor.serializeAlias || accessor.name;
             if (accessor.activator != null)
                 simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
@@ -56,28 +56,46 @@ class EMEntity extends Entity
         return simpleObject;
     }
 
-    static deserializeAccessors (info : EntityInfo, simpleObject : any) : { persistentValues : any, nonPersistentValues : any, remainingValues : any }
+    static deserializeAccessors (info : EntityInfo, simpleObject : any) : { persistent? : any, nonPersistent? : any, readOnly? : any, nonValid? : any }
     {
-        let persistentValues : any = {};
-        let tempNonPersintentValues : any = {};
+        let persistent : any;
+        let nonPersistent : any;
+        let readOnly : any;
         
-        info.getAccessors().forEach( accessor => {
+        info.getAccessors().filter( accessor => accessor.exposition ).forEach( accessor => {
 
             let exposedName = accessor.serializeAlias || accessor.name;
             let persistentName = accessor.persistentAlias || accessor.name;
 
-            if (accessor.schema != null || accessor.persistenceType == PersistenceType.Auto)
-                persistentValues[persistentName] = simpleObject[exposedName];
-            else
-                tempNonPersintentValues[persistentName] = simpleObject[exposedName];
+            if (accessor.exposition == ExpositionType.Normal)
+            {
+                let isPersistent = accessor.schema != null || accessor.persistenceType == PersistenceType.Auto;
+                if (isPersistent)
+                {
+                    if (!persistent)
+                        persistent = {};
+                    persistent[persistentName] = simpleObject[exposedName];
+                }
+                else
+                {
+                    if (!nonPersistent)
+                        nonPersistent = {};
+                    nonPersistent[exposedName] = simpleObject[exposedName];
+                }
+            }
+            if (accessor.exposition == ExpositionType.ReadOnly)
+            {
+                if (!readOnly)
+                    readOnly = {};
+                readOnly[exposedName] = simpleObject[exposedName];
+            }
 
             delete simpleObject[exposedName];
         });
 
-        let remaining = Object.keys(simpleObject).length > 0 ? simpleObject : null;
-        let nonPersistent = Object.keys(tempNonPersintentValues).length > 0 ? tempNonPersintentValues : null;  
-
-        return { persistentValues: persistentValues, remainingValues: remaining, nonPersistentValues: nonPersistent };
+        let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
+        
+        return { persistent, nonPersistent, readOnly, nonValid };
     }
 
 
@@ -193,33 +211,33 @@ class EMEntity extends Entity
     get session ()
     { return this._session };
 
-    @DefinedAccessor({ exposed: true, schema : { type: Date, require: true } })
+    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : { type: Date, require: true } })
     get created () : Date
     { return this._document.created; }
     set created (value : Date)
     { this._document.created = value; }
 
-    @DefinedAccessor({ exposed: true, schema : {  type: Date, require: false } })
+    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: Date, require: false } })
     get modified () : Date
     { return this._document.modified; }
     set modified (value : Date)
     { this._document.modified = value; }
 
-    @DefinedAccessor({ exposed: true, schema : {  type: Date, require: false } })
+    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: Date, require: false } })
     get deleted () : Date
     { return this._document.deleted; }
     set deleted (value : Date)
     { this._document.deleted = value; }
 
-    @DefinedAccessor({ exposed: true, persistenceType: PersistenceType.Auto, serializeAlias: 'id' })
+    @DefinedAccessor({ exposition: ExpositionType.Normal, persistenceType: PersistenceType.Auto, serializeAlias: 'id' })
     get _id () : any
     { return this._document._id; }
 
-    @DefinedAccessor({ exposed: true, persistenceType: PersistenceType.Auto, serializeAlias: 'v' })
+    @DefinedAccessor({ exposition: ExpositionType.Normal, persistenceType: PersistenceType.Auto, serializeAlias: 'v' })
     get __v () : number
     { return this._document.__v; }
 
-    @DefinedAccessor({ exposed: false, schema : { type: Boolean, require: true} })
+    @DefinedAccessor({ schema : { type: Boolean, require: true} })
     get deferredDeletion() : Boolean
     { return this._document.deferredDeletion; }
     set deferredDeletion( value : Boolean )

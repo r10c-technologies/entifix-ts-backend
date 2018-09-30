@@ -2,6 +2,7 @@ import { EMSession } from '../emSession/emSession';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import express = require('express');
+import { EMRouterManager } from '../emRouterManager/emRouterManager';
 declare class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEntity> {
     private _entityName;
     private _session;
@@ -13,15 +14,16 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     constructor(entityName: string, session: EMSession, resourceName: string);
     retrieve(request: express.Request, response: express.Response): void;
     retrieveById(request: express.Request, response: express.Response): void;
+    retriveByIdOverInstance<TEntityInstanced>(request: express.Request, response: express.Response, instance: TEntityInstanced, path: string): void;
     retriveMetadata(request: express.Request, response: express.Response, next: express.NextFunction): void;
     create(request: express.Request, response: express.Response): void;
     update(request: express.Request, response: express.Response): void;
     delete(request: express.Request, response: express.Response): void;
     private save;
+    createRoutes(routerManager: EMRouterManager): void;
+    checkExtendRoutes(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
+    private validateQueryParams;
     protected validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;
-    private constructRouter;
-    protected defineRoutes(): void;
-    private getQueryParams;
     private readonly entityInfo;
     readonly entityName: string;
     readonly session: EMSession;

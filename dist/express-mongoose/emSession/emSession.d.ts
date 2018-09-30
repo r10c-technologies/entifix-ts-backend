@@ -40,6 +40,8 @@ declare class EMSession extends HcSession {
     findEntity<TEntity extends EMEntity, TModel extends EntityDocument>(info: EntityInfo, id: string): Promise<TEntity>;
     listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string): Promise<Array<TEntity>>;
     listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string, options: ListOptions): Promise<Array<TEntity>>;
+    listDocumentsByQuery<TDocument extends EntityDocument>(entityName: string, mongoFilters: any): Promise<Array<TDocument>>;
+    listEntitiesByQuery<TEntity extends EMEntity, TDocument extends EntityDocument>(info: EntityInfo, mongoFilters: any): Promise<Array<TEntity>>;
     enableDevMode(): void;
     disableDevMode(): void;
     private createError;

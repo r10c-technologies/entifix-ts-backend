@@ -7,13 +7,12 @@ declare function DefinedEntity(params: {
     abstract?: boolean;
 }): any;
 declare function DefinedAccessor(params?: {
-    exposed?: boolean;
+    exposition?: ExpositionType;
     schema?: any;
     persistenceType?: PersistenceType;
     alias?: string;
     serializeAlias?: string;
     persistentAlias?: string;
-    readOnly?: boolean;
     activator?: MemberActivator;
 }): (target: any, key: string, descriptor: PropertyDescriptor) => void;
 declare function DefinedMethod(): (target: any, key: string, descriptor: PropertyDescriptor) => void;
@@ -49,6 +48,8 @@ declare abstract class MemberActivator {
     constructor(info: EntityInfo);
     abstract activateMember(entity: Entity, session: HcSession, accessorInfo: AccessorInfo): Promise<void>;
     readonly entityInfo: EntityInfo;
+    abstract readonly resourcePath: string;
+    abstract readonly extendRoute: boolean;
 }
 declare abstract class MemberInfo {
     private _name;
@@ -65,21 +66,19 @@ declare class PropertyInfo extends MemberInfo {
     constructor();
 }
 declare class AccessorInfo extends MemberInfo {
-    private _exposed;
+    private _exposition;
     private _schema;
     private _persistenceType;
     private _serializeAlias;
-    private _readOnly;
     private _activator;
     private _persistentAlias;
     constructor();
     setAlias(alias: string): void;
-    exposed: boolean;
+    exposition: ExpositionType;
     schema: any;
     persistenceType: PersistenceType;
     serializeAlias: string;
     persistentAlias: string;
-    readOnly: boolean;
     activator: MemberActivator;
 }
 declare class MethodInfo extends MemberInfo {
@@ -92,4 +91,8 @@ declare enum PersistenceType {
     Defined = 1,
     Auto = 2
 }
-export { EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo, MemberActivator };
+declare enum ExpositionType {
+    Normal = "normal",
+    ReadOnly = "readOnly"
+}
+export { ExpositionType, EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo, MemberActivator };

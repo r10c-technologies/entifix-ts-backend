@@ -5,11 +5,12 @@ import { MongooseDocument } from 'mongoose';
 
 //CORE FRAMEWORK
 import { HcSession } from '../../hc-core/hcSession/hcSession';
-import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo} from '../../hc-core/hcMetaData/hcMetaData';
+import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType} from '../../hc-core/hcMetaData/hcMetaData';
 import { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription } from './amqpConnectionDynamic';
 import { EMQueryWrapper } from '../emUtilities/emUtilities';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { Entity } from '../../hc-core/hcEntity/hcEntity';
+import { filter } from 'bluebird';
  
 class EMSession extends HcSession
 {
@@ -179,7 +180,14 @@ class EMSession extends HcSession
             // } );
 
             document.update(document).then( 
-                value => resolve(value),
+                value => {
+                    model.findById(document.id,(err, doc) =>{
+                        if (err)
+                            reject( this.createError(err, 'The document was updated but it could not be reloaded') );
+                        else
+                            resolve(doc);   
+                    });
+                },
                 error => reject( this.createError(error, 'Error in update document') )
             );
         });
@@ -282,10 +290,11 @@ class EMSession extends HcSession
     getMetadataToExpose(entityName : string) : Array<{ name : string, type : string, persistent : boolean}>
     {
         let info = <EntityInfo>(this.entitiesInfo.find( e => e.name == entityName).info);
-        return info.getAccessors().filter(accessor => accessor.exposed).map( accessor => { 
+        return info.getAccessors().filter(accessor => accessor.exposition).map( accessor => { 
             return { 
                 name: accessor.name, 
-                type: accessor.type, 
+                type: accessor.type,
+                expositionType: accessor.exposition, 
                 persistent: (accessor.schema != null || accessor.persistenceType == PersistenceType.Auto ) 
             } 
         });
@@ -323,6 +332,45 @@ class EMSession extends HcSession
                     );
                 },
                 error => reject(error)
+            );
+        }); 
+    }
+
+    listDocumentsByQuery<TDocument extends EntityDocument>(entityName : string, mongoFilters : any) : Promise<Array<TDocument>>
+    {
+        return new Promise<Array<TDocument>>( (resolve, reject) => {
+            let filters = { $and : [ { deferredDeletion: { $in: [null, false] } } ] };
+            
+            if (mongoFilters instanceof Array)
+                filters.$and = filters.$and.concat(mongoFilters);
+            else
+                filters.$and.push( mongoFilters );  
+            
+            this.getModel<TDocument>(entityName).find( filters ).then( 
+                docs => resolve(docs), 
+                err => reject( this.createError(err, 'Error on list documents'))
+            );    
+        });
+    }
+
+    listEntitiesByQuery<TEntity extends EMEntity, TDocument extends EntityDocument>(info : EntityInfo, mongoFilters : any) : Promise<Array<TEntity>>
+    {
+        return new Promise<Array<TEntity>>( (resolve, reject) => {
+            this.listDocumentsByQuery<TDocument>(info.name, mongoFilters).then(
+                docsResult => 
+                { 
+                    let entities = new Array<TEntity>();
+                    let promises = new Array<Promise<void>>();
+
+                    docsResult.forEach( docResult => {
+                        promises.push( this.activateEntityInstance<TEntity, TDocument>(info, docResult).then( entity => { entities.push(entity) }));
+                    });
+
+                    Promise.all(promises).then(
+                        () => resolve(entities),
+                        error => reject(error) 
+                    );
+                }
             );
         }); 
     }

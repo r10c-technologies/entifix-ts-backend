@@ -23,12 +23,12 @@ let ResourceDetail = class ResourceDetail extends emEntity_1.EMEntity {
     set apiUrl(value) { this._document.apiUrl = value; }
 };
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, schema: { type: String, require: true } }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, schema: { type: String, require: true } }),
     __metadata("design:type", String),
     __metadata("design:paramtypes", [String])
 ], ResourceDetail.prototype, "resourceName", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposed: true, schema: { type: String, require: true } }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, schema: { type: String, require: true } }),
     __metadata("design:type", String),
     __metadata("design:paramtypes", [String])
 ], ResourceDetail.prototype, "apiUrl", null);

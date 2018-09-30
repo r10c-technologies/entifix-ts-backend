@@ -5,6 +5,7 @@ const emEntity_1 = require("../emEntity/emEntity");
 const emWrapper_1 = require("../emWrapper/emWrapper");
 const HttpStatus = require("http-status-codes");
 const express = require("express");
+const hcMetaData_1 = require("../../hc-core/hcMetaData/hcMetaData");
 class EMEntityController {
     constructor(entityName, session, resourceName) {
         this._entityName = entityName;
@@ -12,13 +13,13 @@ class EMEntityController {
         this._useEntities = true;
         this._responseWrapper = new emWrapper_1.EMResponseWrapper(session);
         this._resourceName = resourceName || entityName.toLowerCase();
-        this.constructRouter();
+        this._router = express.Router();
     }
     retrieve(request, response) {
         //Manage query params options
-        let queryParamsConversion = this.getQueryParams(request);
+        let queryParamsConversion = this.validateQueryParams(request, response);
         if (queryParamsConversion.error)
-            this.responseWrapper.handledError(response, 'Bad query param', HttpStatus.BAD_REQUEST, { description: queryParamsConversion.message });
+            return;
         let queryParams = queryParamsConversion.queryParams;
         let filterParam = queryParams.filter(qp => qp.paramName == 'filter');
         let filters = filterParam.length > 0 ? filterParam.map(qp => qp) : null;
@@ -39,6 +40,8 @@ class EMEntityController {
             this._session.findEntity(this.entityInfo, request.params._id).then(entityResult => this._responseWrapper.entity(response, entityResult), error => this._responseWrapper.exception(response, error));
         else
             this._session.findDocument(this._entityName, request.params._id).then(docResult => this._responseWrapper.document(response, docResult), error => this._responseWrapper.exception(response, error));
+    }
+    retriveByIdOverInstance(request, response, instance, path) {
     }
     retriveMetadata(request, response, next) {
         this._responseWrapper.object(response, this._session.getMetadataToExpose(this._entityName));
@@ -89,45 +92,10 @@ class EMEntityController {
             }
         });
     }
-    validateDocumentRequest(request, response) {
-        return new Promise((resolve, reject) => {
-            if ((typeof request.body) != 'object')
-                return resolve({ error: 'The data provided is not an object', errorData: request });
-            let parsedRequest = emEntity_1.EMEntity.deserializeAccessors(this.entityInfo, request.body);
-            if (parsedRequest.remainingValues)
-                return resolve({ error: 'There are values that are not part of the resource', errorData: parsedRequest.remainingValues });
-            if (parsedRequest.nonPersistentValues)
-                var devData = [{ message: 'The request has readonly accessors and these are going to be ignored', accessors: parsedRequest.nonPersistentValues }];
-            if (parsedRequest.persistentValues._id) {
-                this._session.findDocument(this._entityName, parsedRequest.persistentValues._id).then(document => {
-                    document.set(parsedRequest.persistentValues);
-                    resolve({ document, devData });
-                }, err => reject(err));
-            }
-            else {
-                let model = this._session.getModel(this._entityName);
-                let document;
-                document = new model(parsedRequest.persistentValues);
-                resolve({ document, devData });
-            }
-        }).then(validation => {
-            if (validation.error) {
-                let details = {
-                    validationError: validation.error,
-                    validationDetails: validation.errorData
-                };
-                this._responseWrapper.handledError(response, 'NOT VALID PAYLOAD FOR THE RESOURCE', HttpStatus.BAD_REQUEST, details);
-                return null;
-            }
-            return validation;
-        }, error => this._responseWrapper.exception(response, error));
-    }
-    constructRouter() {
-        this._router = express.Router();
-        this.defineRoutes();
-    }
-    defineRoutes() {
+    createRoutes(routerManager) {
         // It is important to consider the order of the class methods setted for the HTTP Methods 
+        //Create base routes
+        // this._router.get('/' + this._resourceName + '/:path*', ( request, response, next) => this.checkExtendRoutes(request, response, next, routerManager));
         this._router.get('/' + this._resourceName, (request, response, next) => this.retrieve(request, response));
         this._router.get('/' + this._resourceName + '/metadata', (request, response, next) => this.retriveMetadata(request, response, next));
         this._router.get('/' + this._resourceName + '/:_id', (request, response, next) => this.retrieveById(request, response));
@@ -135,7 +103,25 @@ class EMEntityController {
         this._router.put('/' + this._resourceName, (request, response, next) => this.update(request, response));
         this._router.delete('/' + this._resourceName + '/:_id', (request, response, next) => this.delete(request, response));
     }
-    getQueryParams(request) {
+    checkExtendRoutes(request, response, next, routerManager) {
+        let arrayPath = request.path.split('/');
+        if (arrayPath.length > 1) {
+            let extensionAccessors = this.entityInfo.getAllMembers()
+                .filter(memberInfo => memberInfo instanceof hcMetaData_1.AccessorInfo && memberInfo.activator != null && memberInfo.activator.extendRoute == true)
+                .map(memberInfo => memberInfo);
+            let extensionAccessor = extensionAccessors.find(ea => ea.activator.resourcePath == arrayPath[1]);
+            if (extensionAccessor) {
+                let tempId = arrayPath[0];
+                let controller = routerManager.findController(extensionAccessor.className);
+                //RECURSIVIDAD_PARA_OBTENER_LA_INSTANCIA_DEL_OBJETO_MEDIENTE_LA_RUTA
+            }
+            else
+                next();
+        }
+        else
+            next();
+    }
+    validateQueryParams(request, response) {
         let queryParams = new Array();
         if (request.query != null)
             for (var qp in request.query) {
@@ -174,10 +160,48 @@ class EMEntityController {
                     //...
                     //  break;
                     default:
-                        return { error: true, message: `Query param not allowed "${qp}"` };
+                        let details = { message: `Query param not allowed "${qp}"` };
+                        this._responseWrapper.handledError(response, 'BAD QUERY PARAM', HttpStatus.BAD_REQUEST, details);
+                        return { error: true };
                 }
             }
         return { error: false, queryParams };
+    }
+    validateDocumentRequest(request, response) {
+        return new Promise((resolve, reject) => {
+            if ((typeof request.body) != 'object')
+                return resolve({ error: 'The data provided is not an object', errorData: request });
+            let parsedRequest = emEntity_1.EMEntity.deserializeAccessors(this.entityInfo, request.body);
+            if (parsedRequest.nonValid)
+                return resolve({ error: 'There are non valid values for the resource', errorData: parsedRequest.nonValid });
+            let devData = [];
+            if (parsedRequest.readOnly)
+                devData.push({ message: 'The request has read only accessors and these are going to be ignored', accessors: parsedRequest.readOnly });
+            if (parsedRequest.nonPersistent)
+                devData.push({ message: 'The request has non persistent accessors and these could be ignored', accessors: parsedRequest.nonPersistent });
+            if (parsedRequest.persistent._id) {
+                this._session.findDocument(this._entityName, parsedRequest.persistent._id).then(document => {
+                    document.set(parsedRequest.persistent);
+                    resolve({ document, devData });
+                }, err => reject(err));
+            }
+            else {
+                let model = this._session.getModel(this._entityName);
+                let document;
+                document = new model(parsedRequest.persistent);
+                resolve({ document, devData });
+            }
+        }).then(validation => {
+            if (validation.error) {
+                let details = {
+                    validationError: validation.error,
+                    validationDetails: validation.errorData
+                };
+                this._responseWrapper.handledError(response, 'NOT VALID PAYLOAD FOR THE RESOURCE', HttpStatus.BAD_REQUEST, details);
+                return null;
+            }
+            return validation;
+        }, error => this._responseWrapper.exception(response, error));
     }
     //#endregion
     //#region Accessors (Properties)
