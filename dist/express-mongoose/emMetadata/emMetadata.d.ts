@@ -1,4 +1,4 @@
-import { EntityInfo, MemberActivator, AccessorInfo } from '../../hc-core/hcMetaData/hcMetaData';
+import { EntityInfo, MemberActivator, AccessorInfo, MemberBindingType } from '../../hc-core/hcMetaData/hcMetaData';
 import { Entity } from '../../hc-core/hcEntity/hcEntity';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMSession } from '../emSession/emSession';
@@ -19,8 +19,4 @@ declare class EMMemberActivator<TEntity extends EMEntity, TDocument extends Enti
     readonly extendRoute: boolean;
     readonly resourcePath: string;
 }
-declare enum MemberBindingType {
-    Reference = 1,
-    Snapshot = 2
-}
-export { MemberBindingType, EMMemberActivator };
+export { EMMemberActivator };

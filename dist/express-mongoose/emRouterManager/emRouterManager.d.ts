@@ -18,6 +18,7 @@ declare class EMRouterManager {
         basePath?: string;
         resourceName?: string;
     }): void;
+    resolveRetrievePath(request: express.Request, response: express.Response, construtorType: string, instanceKey: string, expositionType: string, pathOverInstance: Array<string>): void;
     getExpositionDetails(): Array<{
         entityName: string;
         resourceName: string;

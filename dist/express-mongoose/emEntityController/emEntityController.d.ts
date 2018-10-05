@@ -21,6 +21,13 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     delete(request: express.Request, response: express.Response): void;
     private save;
     createRoutes(routerManager: EMRouterManager): void;
+    resolveRetrievePathMethod(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
+    findEntity(id: string): Promise<TEntity>;
+    responseOverInstance(response: express.Response, externalInstance: EMEntity, pathOverInstance: Array<string>): void;
+    private getExtensionAccessors;
+    resolveCreateMethod(): void;
+    resolveUpdateMethod(): void;
+    resolveDeleteMethod(): void;
     checkExtendRoutes(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
     private validateQueryParams;
     protected validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;

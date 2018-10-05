@@ -50,6 +50,7 @@ declare abstract class MemberActivator {
     readonly entityInfo: EntityInfo;
     abstract readonly resourcePath: string;
     abstract readonly extendRoute: boolean;
+    abstract readonly bindingType: MemberBindingType;
 }
 declare abstract class MemberInfo {
     private _name;
@@ -95,4 +96,8 @@ declare enum ExpositionType {
     Normal = "normal",
     ReadOnly = "readOnly"
 }
-export { ExpositionType, EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo, MemberActivator };
+declare enum MemberBindingType {
+    Reference = 1,
+    Snapshot = 2
+}
+export { MemberBindingType, ExpositionType, EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo, MemberActivator };

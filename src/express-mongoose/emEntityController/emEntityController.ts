@@ -5,7 +5,7 @@ import { EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import HttpStatus = require('http-status-codes');
 import express = require('express')
-import { EntityInfo, AccessorInfo } from '../../hc-core/hcMetaData/hcMetaData';
+import { EntityInfo, AccessorInfo, MemberBindingType } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMMemberActivator } from '../..';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 
@@ -183,18 +183,142 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         //Create base routes
         // this._router.get('/' + this._resourceName + '/:path*', ( request, response, next) => this.checkExtendRoutes(request, response, next, routerManager));
         
-        this._router.get('/' + this._resourceName, ( request, response, next )=> this.retrieve(request, response) );
-        this._router.get('/' + this._resourceName + '/metadata', (request, response, next) => this.retriveMetadata(request, response, next) ); 
-        this._router.get('/' + this._resourceName + '/:_id', (request, response, next) => this.retrieveById( request, response ) );
-        this._router.post('/' + this._resourceName, (request, response, next) => this.create(request, response) );
-        this._router.put('/' + this._resourceName, (request, response, next) => this.update(request, response) );
-        this._router.delete('/' + this._resourceName + '/:_id',(request, response, next) => this.delete(request, response ));
+        // this._router.get('/' + this._resourceName, ( request, response, next )=> this.retrieve(request, response) );
+        // this._router.get('/' + this._resourceName + '/metadata', (request, response, next) => this.retriveMetadata(request, response, next) ); 
+        // this._router.get('/' + this._resourceName + '/:_id', (request, response, next) => this.retrieveById( request, response ) );
+        // this._router.post('/' + this._resourceName, (request, response, next) => this.create(request, response) );
+        // this._router.put('/' + this._resourceName, (request, response, next) => this.update(request, response) );
+        // this._router.delete('/' + this._resourceName + '/:_id',(request, response, next) => this.delete(request, response ));
       
+        
+        //METODOS DEPURADOS:
+
+        this._router.get('/' + this._resourceName, ( request, response, next )=> this.retrieve(request, response) );
+        this._router.get('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveRetrievePathMethod(request, response, next, routerManager));
         
 
 
+    }
+
+
+    resolveRetrievePathMethod( request : express.Request, response : express.Response, next : express.NextFunction, routerManager : EMRouterManager ) : void
+    {
+        let arrayPath = request.params.path.split('/');
+        
+        if (arrayPath.length > 1)
+        {
+
+            let construtorType = this._entityName;
+            let instanceKey = arrayPath[0];
+            
+            
+            let expositionType : string;            
+            let pathOverInstance = new Array<string>();
+            let invokeRouterManagerConstruction = false;
+
+            let accesor = this.getExtensionAccessors(expositionType).find( ea => ea.activator.resourcePath == arrayPath[1]);
+
+            if (accesor)
+            {
+                expositionType = accesor.className;
+                pathOverInstance.push(accesor.name);
+
+                let i = 2;
+                while (i < arrayPath.length)
+                {
+                    let newAccessorInPath = this.getExtensionAccessors(accesor.className).find( ea => ea.activator.resourcePath == arrayPath[i] );
+
+                    if (newAccessorInPath)
+                    {   
+                        pathOverInstance.push(newAccessorInPath.name);  
+                        expositionType = newAccessorInPath.className;                        
+
+                        if (accesor.type == 'array' && accesor.activator.bindingType == MemberBindingType.Reference)
+                        {
+                            construtorType = accesor.className;
+                            instanceKey = arrayPath[i-1];
+                            expositionType = newAccessorInPath.className;
+                            pathOverInstance = [ newAccessorInPath.name ];
+                        }
+
+                        accesor = newAccessorInPath;
+                    }
+                    else
+                    {
+                        pathOverInstance.push(arrayPath[i]);
+                    }
+                    
+                    i++;
+                }
+                
+                routerManager.resolveRetrievePath(request, response, construtorType, instanceKey, expositionType, pathOverInstance);
+            }
+            else
+            {
+                next();
+            }
+
+        }
+        else
+        {
+            switch ( arrayPath[0] )
+            {
+                case 'metadata':
+                    this.retriveMetadata(request, response, next);
+                    break;
+
+                default:
+                    this.retrieveById(request, response);
+                    break;
+            }
+        }
+    }
+    
+    findEntity( id : string ) : Promise<TEntity>
+    {
+        return this.session.findEntity<TEntity,TDocument>(this.entityInfo, id );
+    }
+
+    responseOverInstance( response: express.Response, externalInstance : EMEntity, pathOverInstance : Array<string> ) : void
+    {
+        let objectToExpose : any = externalInstance[pathOverInstance[0]];
+
+        for (let i = 1; i < pathOverInstance.length; i++)
+            objectToExpose = objectToExpose[pathOverInstance[i]];
+        
+        if (objectToExpose instanceof Array)
+            this._responseWrapper.entityCollection( response, objectToExpose );
+        else
+            this._responseWrapper.entity(response, objectToExpose);
+    }
+
+    private getExtensionAccessors ( entityName : string ) : Array<AccessorInfo>
+    {
+        return this.session
+                    .getInfo(entityName)
+                    .getAllMembers()
+                    .filter( memberInfo => memberInfo instanceof AccessorInfo && (memberInfo as AccessorInfo).activator != null && (memberInfo as AccessorInfo).activator.extendRoute == true )
+                    .map( memberInfo => memberInfo as AccessorInfo );
+    }
+
+    resolveCreateMethod() : void
+    {
 
     }
+    
+    resolveUpdateMethod() : void
+    {
+
+    }
+
+    resolveDeleteMethod() : void
+    {
+
+    }
+
+
+
+
 
     checkExtendRoutes( request : express.Request, response : express.Response, next : express.NextFunction, routerManager : EMRouterManager) : void
     {        
@@ -210,6 +334,11 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             let extensionAccessor = extensionAccessors.find( ea => ea.activator.resourcePath == arrayPath[1]);
             if (extensionAccessor)
             {
+
+
+
+
+
                 let tempId = arrayPath[0];
                 let controller = routerManager.findController(extensionAccessor.className);
             

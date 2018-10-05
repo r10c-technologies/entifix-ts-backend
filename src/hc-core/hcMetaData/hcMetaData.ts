@@ -310,6 +310,8 @@ abstract class MemberActivator
 
     abstract get resourcePath() : string;
     abstract get extendRoute () : boolean;
+    abstract get bindingType () : MemberBindingType;
+    
     //#endregion
 
 }
@@ -481,7 +483,15 @@ enum ExpositionType
     ReadOnly = 'readOnly'
 }
 
+
+enum MemberBindingType
+{
+    Reference = 1,
+    Snapshot = 2
+}
+
 export {
+    MemberBindingType,
     ExpositionType, 
     EntityInfo, 
     Defined, 

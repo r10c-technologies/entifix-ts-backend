@@ -84,6 +84,14 @@ class EMRouterManager {
         this._routers.push( { entityName : name, controller: newController, basePath }) ;
     }
 
+    resolveRetrievePath(request : express.Request, response : express.Response, construtorType : string, instanceKey : string, expositionType : string, pathOverInstance : Array<string> ) : void
+    {
+        let constructionController = this.findController(construtorType);
+        let expositionController = this.findController(expositionType);
+
+        constructionController.findEntity(instanceKey).then( entity => expositionController.responseOverInstance( response, entity, pathOverInstance ));
+    }
+
     getExpositionDetails() : Array<{ entityName : string, resourceName : string, basePath : string }> 
     {
         return this._routers.map( r => { return { entityName: r.entityName, resourceName: r.controller.resourceName, basePath: r.basePath} } );

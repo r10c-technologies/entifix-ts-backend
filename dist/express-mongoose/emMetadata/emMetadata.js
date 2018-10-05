@@ -10,12 +10,12 @@ class EMMemberActivator extends hcMetaData_1.MemberActivator {
     }
     activateMember(entity, session, accessorInfo) {
         switch (this._bindingType) {
-            case MemberBindingType.Reference:
+            case hcMetaData_1.MemberBindingType.Reference:
                 if (entity[accessorInfo.name] instanceof Array)
                     return this.loadArrayInstanceFromDB(entity, session, accessorInfo);
                 else
                     return this.loadSingleInstanceFromDB(entity, session, accessorInfo);
-            case MemberBindingType.Snapshot:
+            case hcMetaData_1.MemberBindingType.Snapshot:
                 if (entity[accessorInfo.name] instanceof Array)
                     return this.castArrayInstanceInEntity(entity, session, accessorInfo);
                 else
@@ -61,10 +61,4 @@ class EMMemberActivator extends hcMetaData_1.MemberActivator {
     get resourcePath() { return this._resourcePath || this.entityInfo.name.toLowerCase(); }
 }
 exports.EMMemberActivator = EMMemberActivator;
-var MemberBindingType;
-(function (MemberBindingType) {
-    MemberBindingType[MemberBindingType["Reference"] = 1] = "Reference";
-    MemberBindingType[MemberBindingType["Snapshot"] = 2] = "Snapshot";
-})(MemberBindingType || (MemberBindingType = {}));
-exports.MemberBindingType = MemberBindingType;
 //# sourceMappingURL=emMetadata.js.map

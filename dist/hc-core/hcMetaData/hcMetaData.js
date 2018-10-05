@@ -261,4 +261,10 @@ var ExpositionType;
     ExpositionType["ReadOnly"] = "readOnly";
 })(ExpositionType || (ExpositionType = {}));
 exports.ExpositionType = ExpositionType;
+var MemberBindingType;
+(function (MemberBindingType) {
+    MemberBindingType[MemberBindingType["Reference"] = 1] = "Reference";
+    MemberBindingType[MemberBindingType["Snapshot"] = 2] = "Snapshot";
+})(MemberBindingType || (MemberBindingType = {}));
+exports.MemberBindingType = MemberBindingType;
 //# sourceMappingURL=hcMetaData.js.map

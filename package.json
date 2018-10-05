@@ -30,8 +30,6 @@
         "@types/mongoose": "^4.7.25",
         "@types/node": "^8.0.47",
         "@types/redis": "^2.8.6",
-        "gulp": "^3.9.1",
-        "gulp-typescript": "^3.2.3",
         "typescript": "3.0.1"
     }
 }

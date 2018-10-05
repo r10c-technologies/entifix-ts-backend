@@ -36,7 +36,7 @@ class EMRouterManager {
                 arrayToExpose.push({ id: k, value: enumerator[k] });
         });
         newController.retrieveMethod = (req, res, next) => {
-            res.send(hcWrapper_1.Wrapper.wrapObject(false, null, arrayToExpose).serializeSimpleObject());
+            res.send(hcWrapper_1.Wrapper.wrapCollection(false, null, arrayToExpose).serializeSimpleObject());
         };
         newController.retrieveByIdMethod = (req, res, next) => {
             let id = req.params._id;
@@ -46,6 +46,11 @@ class EMRouterManager {
         newController.createRoutes();
         this._appInstance.use('/' + basePath, newController.router);
         this._routers.push({ entityName: name, controller: newController, basePath });
+    }
+    resolveRetrievePath(request, response, construtorType, instanceKey, expositionType, pathOverInstance) {
+        let constructionController = this.findController(construtorType);
+        let expositionController = this.findController(expositionType);
+        constructionController.findEntity(instanceKey).then(entity => expositionController.responseOverInstance(response, entity, pathOverInstance));
     }
     getExpositionDetails() {
         return this._routers.map(r => { return { entityName: r.entityName, resourceName: r.controller.resourceName, basePath: r.basePath }; });
