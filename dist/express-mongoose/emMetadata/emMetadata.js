@@ -26,32 +26,46 @@ class EMMemberActivator extends hcMetaData_1.MemberActivator {
         let doc = entity.getDocument();
         let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
         let id = doc[persistentMember];
-        return session.findEntity(this.entityInfo, id).then(entityMemberInstance => { entity[accessorInfo.name] = entityMemberInstance; });
+        if (id)
+            return session.findEntity(this.entityInfo, id).then(entityMemberInstance => { entity[accessorInfo.name] = entityMemberInstance; });
+        else
+            return Promise.resolve();
     }
     loadArrayInstanceFromDB(entity, session, accessorInfo) {
         let doc = entity.getDocument();
         let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
         let filters = { _id: { $in: doc[persistentMember] } };
-        return session.listEntitiesByQuery(this.entityInfo, filters).then(entities => { entity[accessorInfo.name] = entities; });
+        if (filters._id.$in && filters._id.$in.length > 0)
+            return session.listEntitiesByQuery(this.entityInfo, filters).then(entities => { entity[accessorInfo.name] = entities; });
+        else
+            return Promise.resolve();
     }
     castSingleInstanceInEntity(entity, session, accessorInfo) {
         let doc = entity.getDocument();
         let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
         let docData = doc[persistentMember];
-        let model = session.getModel(this.entityInfo.name);
-        let document = new model(docData);
-        return session.activateEntityInstance(this.entityInfo, document).then(entity => { entity[accessorInfo.name] = entity; });
+        if (docData) {
+            let model = session.getModel(this.entityInfo.name);
+            let document = new model(docData);
+            return session.activateEntityInstance(this.entityInfo, document).then(entity => { entity[accessorInfo.name] = entity; });
+        }
+        else
+            return Promise.resolve();
     }
     castArrayInstanceInEntity(entity, session, accessorInfo) {
         return new Promise((resolve, reject) => {
             let doc = entity.getDocument();
             let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
             let docsData = doc[persistentMember];
-            let model = session.getModel(this.entityInfo.name);
-            let promises = new Array();
-            let entities = new Array();
-            docsData.foreach(d => promises.push(session.activateEntityInstance(this.entityInfo, new model(d)).then(entity => { entities.push(entity); })));
-            Promise.all(promises).then(() => resolve(), error => reject(error));
+            if (docsData) {
+                let model = session.getModel(this.entityInfo.name);
+                let promises = new Array();
+                let entities = new Array();
+                docsData.foreach(d => promises.push(session.activateEntityInstance(this.entityInfo, new model(d)).then(entity => { entities.push(entity); })));
+                Promise.all(promises).then(() => resolve(), error => reject(error));
+            }
+            else
+                resolve();
         });
     }
     //#endregion
@@ -59,6 +73,7 @@ class EMMemberActivator extends hcMetaData_1.MemberActivator {
     get bindingType() { return this._bindingType; }
     get extendRoute() { return this._extendRoute; }
     get resourcePath() { return this._resourcePath || this.entityInfo.name.toLowerCase(); }
+    get referenceType() { return this._bindingType == hcMetaData_1.MemberBindingType.Reference ? 'string' : null; }
 }
 exports.EMMemberActivator = EMMemberActivator;
 //# sourceMappingURL=emMetadata.js.map

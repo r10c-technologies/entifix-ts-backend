@@ -51,7 +51,10 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
         let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
         let id : string = doc[persistentMember];
 
-        return session.findEntity<TEntity, TDocument>(this.entityInfo, id).then( entityMemberInstance => { entity[accessorInfo.name] = entityMemberInstance } );
+        if (id)
+            return session.findEntity<TEntity, TDocument>(this.entityInfo, id).then( entityMemberInstance => { entity[accessorInfo.name] = entityMemberInstance } );
+        else    
+            return Promise.resolve();
     }
 
     private loadArrayInstanceFromDB(entity : EMEntity, session : EMSession, accessorInfo : AccessorInfo) : Promise<void>
@@ -60,7 +63,10 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
         let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
         let filters = { _id: { $in: doc[persistentMember] } };
             
-        return session.listEntitiesByQuery(this.entityInfo, filters).then( entities => { entity[accessorInfo.name] = entities } );
+        if (filters._id.$in && filters._id.$in.length > 0 )
+            return session.listEntitiesByQuery(this.entityInfo, filters).then( entities => { entity[accessorInfo.name] = entities } );
+        else
+            return Promise.resolve();
     }
 
     private castSingleInstanceInEntity(entity : EMEntity, session : EMSession, accessorInfo : AccessorInfo) : Promise<void>
@@ -68,10 +74,16 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
         let doc = entity.getDocument();
         let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
         let docData = doc[persistentMember];
-        let model = session.getModel(this.entityInfo.name);
-        let document = new model(docData) as TDocument;
 
-        return session.activateEntityInstance<TEntity, TDocument>(this.entityInfo, document).then( entity => { entity[accessorInfo.name] = entity });
+        if (docData)
+        {
+            let model = session.getModel(this.entityInfo.name);
+            let document = new model(docData) as TDocument;
+
+            return session.activateEntityInstance<TEntity, TDocument>(this.entityInfo, document).then( entity => { entity[accessorInfo.name] = entity });
+        }
+        else
+            return Promise.resolve();
     }
 
     private castArrayInstanceInEntity(entity : EMEntity, session : EMSession, accessorInfo : AccessorInfo) : Promise<void>
@@ -80,16 +92,22 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
             let doc = entity.getDocument();
             let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
             let docsData = doc[persistentMember];
-            let model = session.getModel(this.entityInfo.name);
-            let promises = new Array<Promise<void>>();
-            let entities = new Array<TEntity>();
+            
+            if (docsData)
+            {
+                let model = session.getModel(this.entityInfo.name);
+                let promises = new Array<Promise<void>>();
+                let entities = new Array<TEntity>();
 
-            docsData.foreach( d => promises.push( session.activateEntityInstance<TEntity, TDocument>(this.entityInfo, new model(d) as TDocument).then( entity => { entities.push(entity) } ) ) );
+                docsData.foreach( d => promises.push( session.activateEntityInstance<TEntity, TDocument>(this.entityInfo, new model(d) as TDocument).then( entity => { entities.push(entity) } ) ) );
 
-            Promise.all(promises).then(
-                () => resolve(),
-                error => reject(error)
-            );
+                Promise.all(promises).then(
+                    () => resolve(),
+                    error => reject(error)
+                );
+            }
+            else
+                resolve();
         });
     }
 
@@ -105,6 +123,9 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
 
     get resourcePath ()
     { return this._resourcePath || this.entityInfo.name.toLowerCase(); }
+
+    get referenceType ( )
+    { return this._bindingType == MemberBindingType.Reference ? 'string' : null; }
 
     //#endregion
 

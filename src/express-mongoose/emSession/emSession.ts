@@ -5,7 +5,7 @@ import { MongooseDocument } from 'mongoose';
 
 //CORE FRAMEWORK
 import { HcSession } from '../../hc-core/hcSession/hcSession';
-import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType} from '../../hc-core/hcMetaData/hcMetaData';
+import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType} from '../../hc-core/hcMetaData/hcMetaData';
 import { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription } from './amqpConnectionDynamic';
 import { EMQueryWrapper } from '../emUtilities/emUtilities';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
@@ -164,32 +164,21 @@ class EMSession extends HcSession
         return new Promise<T>((resolve, reject)=>{        
             let model = this.getModel<T>(entityName);
             this.manageDocumentUpdate(document);
-            
-            // model.findByIdAndUpdate( document._id, document, (error, result) => {
-            // model.findByIdAndUpdate( document._id, { $set: document }, (error, result) => {
-            
-            //     if (!error)
-            //     {
-            //         this.findDocument(entityName, document._id).then(
-            //             res => resolve(<T>res),
-            //             err => reject(err)
-            //         );
-            //     }
-            //     else
-            //         reject( this.createError(error, 'Error in update document') );
-            // } );
 
-            document.update(document).then( 
-                value => {
-                    model.findById(document.id,(err, doc) =>{
+            document.update( document, (error, result) => {
+                if (!error)
+                {
+                    model.findById(document._id,(err, doc) =>{
                         if (err)
                             reject( this.createError(err, 'The document was updated but it could not be reloaded') );
                         else
                             resolve(doc);   
                     });
-                },
-                error => reject( this.createError(error, 'Error in update document') )
-            );
+                }
+                else
+                    reject( this.createError(error, 'Error in update document') );
+            });
+
         });
     }
 
@@ -242,10 +231,17 @@ class EMSession extends HcSession
     findDocument<T extends EntityDocument>(entityName : string, id: string ) : Promise<T>
     {
         return new Promise<T>( (resolve, reject ) => { 
-            this.getModel<T>(entityName).where("deferredDeletion").ne(true).where("_id", id).then( 
-                res => resolve( res != null && res.length > 0 ? res[0] : null ),
-                err => reject ( this.createError(err, 'Error in retrive single document') ) 
-            );
+            this.getModel<T>(entityName).findById ( id.trim(), (err, res) => {
+                if (!err)
+                {
+                    if (res && ( res.deferredDeletion == null || res.deferredDeletion == false ) ) 
+                        resolve( res );
+                    else
+                        resolve( null );
+                }
+                else
+                    reject ( this.createError(err, 'Error in retrive single document') );
+            });
         });
     }
 
@@ -291,11 +287,19 @@ class EMSession extends HcSession
     {
         let info = <EntityInfo>(this.entitiesInfo.find( e => e.name == entityName).info);
         return info.getAccessors().filter(accessor => accessor.exposition).map( accessor => { 
+
+            let name = accessor.serializeAlias || accessor.name;
+            let type = accessor.activator && accessor.activator.bindingType == MemberBindingType.Reference ? accessor.activator.referenceType : accessor.type;
+            let expositionType = accessor.exposition;
+            let navigable = accessor.activator ? accessor.activator.extendRoute : false;
+            let persistent = (accessor.schema != null || accessor.persistenceType == PersistenceType.Auto );  
+
             return { 
-                name: accessor.name, 
-                type: accessor.type,
-                expositionType: accessor.exposition, 
-                persistent: (accessor.schema != null || accessor.persistenceType == PersistenceType.Auto ) 
+                name,
+                type,
+                expositionType, 
+                persistent,
+                navigable 
             } 
         });
     }
@@ -418,8 +422,6 @@ class EMSession extends HcSession
     {        
         let info : EntityInfo = this.entitiesInfo.find( f => f.name == entityName).info;
         
-
-        //Cambio
         let persistentMembers = 
                 info.getAllMembers()
                     .filter( m => (m instanceof AccessorInfo) && ( m.schema != null || m.persistenceType == PersistenceType.Auto) )

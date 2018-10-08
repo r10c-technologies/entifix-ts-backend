@@ -59,6 +59,22 @@ class EntifixApplication {
                 message: this.serviceConfiguration.serviceName + " is working correctly"
             });
         });
+        //Error handler
+        this._expressApp.use((error, request, response, next) => {
+            let data;
+            if (this.serviceConfiguration.devMode) {
+                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred without a Session context. The details were attached" };
+                if (error)
+                    data.errorDetails = {
+                        type: typeof error,
+                        asString: error.toString != null ? error.toString() : null,
+                        serialized: JSON.stringify(error),
+                        message: error.message,
+                        stack: error.stack
+                    };
+            }
+            response.status(500).send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED EXCEPTION', data).serializeSimpleObject());
+        });
         //Protect routes
         let protectRoutes = this.serviceConfiguration.protectRoutes != null ? this.serviceConfiguration.protectRoutes.enable : true;
         let devMode = this.serviceConfiguration.devMode != null ? this.serviceConfiguration.devMode : false;

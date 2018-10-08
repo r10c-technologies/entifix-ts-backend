@@ -31,31 +31,30 @@ class EMEntityController {
         let take = takeParam != null ? parseInt(takeParam.paramValue) : 100; // Retrive limit protector
         //Call the execution of mongo query inside EMSession
         if (this._useEntities)
-            this._session.listEntities(this._entityName, { filters, skip, take, sorting }).then(entityResults => this._responseWrapper.entityCollection(response, entityResults), error => this._responseWrapper.exception(response, error));
+            this._session.listEntities(this._entityName, { filters, skip, take, sorting }).then(entityResults => this._responseWrapper.entityCollection(response, entityResults), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
         else
-            this._session.listDocuments(this._entityName, { filters, skip, take, sorting }).then(docResults => this._responseWrapper.documentCollection(response, docResults), error => this._responseWrapper.exception(response, error));
+            this._session.listDocuments(this._entityName, { filters, skip, take, sorting }).then(docResults => this._responseWrapper.documentCollection(response, docResults), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
     }
-    retrieveById(request, response) {
+    retrieveById(request, response, options) {
+        let paramName = options && options.paramName ? options.paramName : '_id';
         if (this._useEntities)
-            this._session.findEntity(this.entityInfo, request.params._id).then(entityResult => this._responseWrapper.entity(response, entityResult), error => this._responseWrapper.exception(response, error));
+            this._session.findEntity(this.entityInfo, request.params[paramName]).then(entityResult => this._responseWrapper.entity(response, entityResult), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
         else
-            this._session.findDocument(this._entityName, request.params._id).then(docResult => this._responseWrapper.document(response, docResult), error => this._responseWrapper.exception(response, error));
-    }
-    retriveByIdOverInstance(request, response, instance, path) {
+            this._session.findDocument(this._entityName, request.params[paramName]).then(docResult => this._responseWrapper.document(response, docResult), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
     }
     retriveMetadata(request, response, next) {
         this._responseWrapper.object(response, this._session.getMetadataToExpose(this._entityName));
     }
     create(request, response) {
         if (!this._useEntities) {
-            this._session.createDocument(this.entityName, request.body).then(result => this._responseWrapper.document(response, result, { status: HttpStatus.CREATED }), error => this._responseWrapper.exception(response, error));
+            this._session.createDocument(this.entityName, request.body).then(result => this._responseWrapper.document(response, result, { status: HttpStatus.CREATED }), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
         }
         else
             this.save(request, response);
     }
     update(request, response) {
         if (!this._useEntities) {
-            this._session.updateDocument(this._entityName, request.body).then(result => this._responseWrapper.document(response, result, { status: HttpStatus.ACCEPTED }), error => this._responseWrapper.exception(response, error));
+            this._session.updateDocument(this._entityName, request.body).then(result => this._responseWrapper.document(response, result, { status: HttpStatus.ACCEPTED }), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
         }
         else
             this.save(request, response);
@@ -72,10 +71,10 @@ class EMEntityController {
                     else
                         this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
                 });
-            }, error => this._responseWrapper.exception(response, error));
+            }, error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
         }
         else {
-            this._session.findDocument(this._entityName, request.params._id).then(docResult => this._session.deleteDocument(this._entityName, docResult).then(responseOk, responseError), error => this._responseWrapper.exception(response, error));
+            this._session.findDocument(this._entityName, request.params._id).then(docResult => this._session.deleteDocument(this._entityName, docResult).then(responseOk, responseError), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
         }
     }
     save(request, response) {
@@ -87,61 +86,65 @@ class EMEntityController {
                             this._responseWrapper.entity(response, entity, { devData: validation.devData });
                         else
                             this._responseWrapper.logicError(response, movFlow.message, { errorDetails: movFlow.details, devData: validation.devData });
-                    }, error => this._responseWrapper.exception(response, error));
-                }, error => this._responseWrapper.exception(response, error));
+                    }, error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
+                }, error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
             }
-        });
+        }).catch(error => this._responseWrapper.exception(response, error));
     }
     createRoutes(routerManager) {
         // It is important to consider the order of the class methods setted for the HTTP Methods 
-        //Create base routes
-        // this._router.get('/' + this._resourceName + '/:path*', ( request, response, next) => this.checkExtendRoutes(request, response, next, routerManager));
-        // this._router.get('/' + this._resourceName, ( request, response, next )=> this.retrieve(request, response) );
-        // this._router.get('/' + this._resourceName + '/metadata', (request, response, next) => this.retriveMetadata(request, response, next) ); 
-        // this._router.get('/' + this._resourceName + '/:_id', (request, response, next) => this.retrieveById( request, response ) );
-        // this._router.post('/' + this._resourceName, (request, response, next) => this.create(request, response) );
-        // this._router.put('/' + this._resourceName, (request, response, next) => this.update(request, response) );
-        // this._router.delete('/' + this._resourceName + '/:_id',(request, response, next) => this.delete(request, response ));
-        //METODOS DEPURADOS:
         this._router.get('/' + this._resourceName, (request, response, next) => this.retrieve(request, response));
-        this._router.get('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveRetrievePathMethod(request, response, next, routerManager));
+        this._router.get('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexRetrieveMethod(request, response, next, routerManager));
+        this._router.post('/' + this._resourceName, (request, response, next) => this.create(request, response));
+        this._router.post('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexCreateMethod(request, response, next, routerManager));
+        this._router.put('/' + this._resourceName, (request, response, next) => this.update(request, response));
+        this._router.put('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexUpdateMethod(request, response, next, routerManager));
+        this._router.delete('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexDeleteMethod(request, response, next, routerManager));
     }
-    resolveRetrievePathMethod(request, response, next, routerManager) {
-        let arrayPath = request.params.path.split('/');
+    createMappingPath(arrayPath) {
         if (arrayPath.length > 1) {
-            let construtorType = this._entityName;
-            let instanceKey = arrayPath[0];
-            let expositionType;
+            let baseTypeName = this._entityName;
+            let instanceId = arrayPath[0];
+            let endTypeName;
             let pathOverInstance = new Array();
-            let invokeRouterManagerConstruction = false;
-            let accesor = this.getExtensionAccessors(expositionType).find(ea => ea.activator.resourcePath == arrayPath[1]);
+            let accesor = this.getExtensionAccessors(baseTypeName).find(ea => ea.activator.resourcePath == arrayPath[1]);
             if (accesor) {
-                expositionType = accesor.className;
+                endTypeName = accesor.className;
                 pathOverInstance.push(accesor.name);
                 let i = 2;
                 while (i < arrayPath.length) {
                     let newAccessorInPath = this.getExtensionAccessors(accesor.className).find(ea => ea.activator.resourcePath == arrayPath[i]);
                     if (newAccessorInPath) {
                         pathOverInstance.push(newAccessorInPath.name);
-                        expositionType = newAccessorInPath.className;
+                        endTypeName = newAccessorInPath.className;
                         if (accesor.type == 'array' && accesor.activator.bindingType == hcMetaData_1.MemberBindingType.Reference) {
-                            construtorType = accesor.className;
-                            instanceKey = arrayPath[i - 1];
-                            expositionType = newAccessorInPath.className;
+                            baseTypeName = accesor.className;
+                            instanceId = arrayPath[i - 1];
+                            endTypeName = newAccessorInPath.className;
                             pathOverInstance = [newAccessorInPath.name];
                         }
                         accesor = newAccessorInPath;
                     }
-                    else {
+                    else
                         pathOverInstance.push(arrayPath[i]);
-                    }
                     i++;
                 }
-                routerManager.resolveRetrievePath(request, response, construtorType, instanceKey, expositionType, pathOverInstance);
+                return { baseTypeName, instanceId, endTypeName, pathOverInstance };
             }
-            else {
+            else
+                null;
+        }
+        else
+            return null;
+    }
+    resolveComplexRetrieveMethod(request, response, next, routerManager) {
+        let arrayPath = request.params.path.split('/');
+        if (arrayPath.length > 1) {
+            let mappingPath = this.createMappingPath(arrayPath);
+            if (mappingPath)
+                routerManager.resolveComplexCreate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endTypeName, mappingPath.pathOverInstance);
+            else
                 next();
-            }
         }
         else {
             switch (arrayPath[0]) {
@@ -149,22 +152,50 @@ class EMEntityController {
                     this.retriveMetadata(request, response, next);
                     break;
                 default:
-                    this.retrieveById(request, response);
+                    this.retrieveById(request, response, { paramName: 'path' });
                     break;
             }
         }
     }
+    resolveComplexCreateMethod(request, response, next, routerManager) {
+        let arrayPath = request.params.path.split('/');
+        let mappingPath = this.createMappingPath(arrayPath);
+        if (mappingPath)
+            routerManager.resolveComplexCreate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endTypeName, mappingPath.pathOverInstance);
+        else
+            next();
+    }
+    resolveComplexUpdateMethod(request, response, next, routerManager) {
+        let arrayPath = request.params.path.split('/');
+        let mappingPath = this.createMappingPath(arrayPath);
+        if (mappingPath)
+            routerManager.resolveComplexUpdate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endTypeName, mappingPath.pathOverInstance);
+        else
+            next();
+    }
+    resolveComplexDeleteMethod(request, response, next, routerManager) {
+        let arrayPath = request.params.path.split('/');
+        if (arrayPath.length > 1) {
+            let mappingPath = this.createMappingPath(arrayPath);
+            if (mappingPath)
+                routerManager.resolveComplexDelete(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endTypeName, mappingPath.pathOverInstance);
+            else
+                next();
+        }
+        else
+            this.delete(request, response);
+    }
     findEntity(id) {
         return this.session.findEntity(this.entityInfo, id);
     }
-    responseOverInstance(response, externalInstance, pathOverInstance) {
-        let objectToExpose = externalInstance[pathOverInstance[0]];
-        for (let i = 1; i < pathOverInstance.length; i++)
-            objectToExpose = objectToExpose[pathOverInstance[i]];
-        if (objectToExpose instanceof Array)
-            this._responseWrapper.entityCollection(response, objectToExpose);
-        else
-            this._responseWrapper.entity(response, objectToExpose);
+    createInstance(request, response) {
+        return new Promise((resolve, reject) => {
+            this.validateDocumentRequest(request, response).then((validation) => {
+                if (validation) {
+                    this._session.activateEntityInstance(this.entityInfo, validation.document).then(entity => resolve(entity), error => this._responseWrapper.exception(response, error));
+                }
+            });
+        });
     }
     getExtensionAccessors(entityName) {
         return this.session
@@ -172,30 +203,6 @@ class EMEntityController {
             .getAllMembers()
             .filter(memberInfo => memberInfo instanceof hcMetaData_1.AccessorInfo && memberInfo.activator != null && memberInfo.activator.extendRoute == true)
             .map(memberInfo => memberInfo);
-    }
-    resolveCreateMethod() {
-    }
-    resolveUpdateMethod() {
-    }
-    resolveDeleteMethod() {
-    }
-    checkExtendRoutes(request, response, next, routerManager) {
-        let arrayPath = request.path.split('/');
-        if (arrayPath.length > 1) {
-            let extensionAccessors = this.entityInfo.getAllMembers()
-                .filter(memberInfo => memberInfo instanceof hcMetaData_1.AccessorInfo && memberInfo.activator != null && memberInfo.activator.extendRoute == true)
-                .map(memberInfo => memberInfo);
-            let extensionAccessor = extensionAccessors.find(ea => ea.activator.resourcePath == arrayPath[1]);
-            if (extensionAccessor) {
-                let tempId = arrayPath[0];
-                let controller = routerManager.findController(extensionAccessor.className);
-                //RECURSIVIDAD_PARA_OBTENER_LA_INSTANCIA_DEL_OBJETO_MEDIENTE_LA_RUTA
-            }
-            else
-                next();
-        }
-        else
-            next();
     }
     validateQueryParams(request, response) {
         let queryParams = new Array();
@@ -250,13 +257,19 @@ class EMEntityController {
             let parsedRequest = emEntity_1.EMEntity.deserializeAccessors(this.entityInfo, request.body);
             if (parsedRequest.nonValid)
                 return resolve({ error: 'There are non valid values for the resource', errorData: parsedRequest.nonValid });
-            let devData = [];
+            let devData;
+            let addDevData = newDevData => {
+                if (!devData)
+                    devData = new Array();
+                devData.push(newDevData);
+            };
             if (parsedRequest.readOnly)
-                devData.push({ message: 'The request has read only accessors and these are going to be ignored', accessors: parsedRequest.readOnly });
+                addDevData({ message: 'The request has read only accessors and these are going to be ignored', accessors: parsedRequest.readOnly });
             if (parsedRequest.nonPersistent)
-                devData.push({ message: 'The request has non persistent accessors and these could be ignored', accessors: parsedRequest.nonPersistent });
+                addDevData({ message: 'The request has non persistent accessors and these could be ignored', accessors: parsedRequest.nonPersistent });
             if (parsedRequest.persistent._id) {
                 this._session.findDocument(this._entityName, parsedRequest.persistent._id).then(document => {
+                    delete parsedRequest.persistent._id;
                     document.set(parsedRequest.persistent);
                     resolve({ document, devData });
                 }, err => reject(err));

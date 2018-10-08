@@ -18,7 +18,10 @@ declare class EMRouterManager {
         basePath?: string;
         resourceName?: string;
     }): void;
-    resolveRetrievePath(request: express.Request, response: express.Response, construtorType: string, instanceKey: string, expositionType: string, pathOverInstance: Array<string>): void;
+    resolveComplexRetrieve(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionType: string, pathOverInstance: Array<string>): void;
+    resolveComplexCreate(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionType: string, pathOverInstance: Array<string>): void;
+    resolveComplexUpdate(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionType: string, pathOverInstance: Array<string>): void;
+    resolveComplexDelete(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionType: string, pathOverInstance: Array<string>): void;
     getExpositionDetails(): Array<{
         entityName: string;
         resourceName: string;

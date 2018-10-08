@@ -311,6 +311,7 @@ abstract class MemberActivator
     abstract get resourcePath() : string;
     abstract get extendRoute () : boolean;
     abstract get bindingType () : MemberBindingType;
+    abstract get referenceType () : string;
     
     //#endregion
 

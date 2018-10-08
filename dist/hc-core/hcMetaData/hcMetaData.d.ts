@@ -51,6 +51,7 @@ declare abstract class MemberActivator {
     abstract readonly resourcePath: string;
     abstract readonly extendRoute: boolean;
     abstract readonly bindingType: MemberBindingType;
+    abstract readonly referenceType: string;
 }
 declare abstract class MemberInfo {
     private _name;

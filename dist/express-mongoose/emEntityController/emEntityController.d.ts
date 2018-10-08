@@ -14,29 +14,36 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     constructor(entityName: string, session: EMSession, resourceName: string);
     retrieve(request: express.Request, response: express.Response): void;
     retrieveById(request: express.Request, response: express.Response): void;
-    retriveByIdOverInstance<TEntityInstanced>(request: express.Request, response: express.Response, instance: TEntityInstanced, path: string): void;
+    retrieveById(request: express.Request, response: express.Response, options: {
+        paramName?: string;
+    }): void;
     retriveMetadata(request: express.Request, response: express.Response, next: express.NextFunction): void;
     create(request: express.Request, response: express.Response): void;
     update(request: express.Request, response: express.Response): void;
     delete(request: express.Request, response: express.Response): void;
     private save;
     createRoutes(routerManager: EMRouterManager): void;
-    resolveRetrievePathMethod(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
+    createMappingPath(arrayPath: Array<string>): {
+        baseTypeName: string;
+        instanceId: string;
+        endTypeName: string;
+        pathOverInstance: Array<string>;
+    };
+    resolveComplexRetrieveMethod(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
+    resolveComplexCreateMethod(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
+    resolveComplexUpdateMethod(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
+    resolveComplexDeleteMethod(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
     findEntity(id: string): Promise<TEntity>;
-    responseOverInstance(response: express.Response, externalInstance: EMEntity, pathOverInstance: Array<string>): void;
+    createInstance(request: express.Request, response: express.Response): Promise<TEntity>;
     private getExtensionAccessors;
-    resolveCreateMethod(): void;
-    resolveUpdateMethod(): void;
-    resolveDeleteMethod(): void;
-    checkExtendRoutes(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
     private validateQueryParams;
-    protected validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;
+    validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;
     private readonly entityInfo;
     readonly entityName: string;
     readonly session: EMSession;
     useEntities: boolean;
     readonly router: express.Router;
-    protected readonly responseWrapper: EMResponseWrapper<TDocument, TEntity>;
+    readonly responseWrapper: EMResponseWrapper<TDocument, TEntity>;
     readonly resourceName: string;
 }
 interface RequestValidation<TDocument> {

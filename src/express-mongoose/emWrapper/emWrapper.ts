@@ -91,7 +91,7 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
                     
             }                
 
-            response.send( Wrapper.wrapError( 'INTERNAL UNHANDLED ERROR', data).serializeSimpleObject() );   
+            response.send( Wrapper.wrapError( 'INTERNAL UNHANDLED EXCEPTION', data).serializeSimpleObject() );   
         }
         else
         {
@@ -109,7 +109,7 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
                     };
             }                
 
-            response.send( Wrapper.wrapError( 'INTERNAL UNHANDLED ERROR', data).serializeSimpleObject() );
+            response.send( Wrapper.wrapError( 'INTERNAL UNHANDLED EXCEPTION', data).serializeSimpleObject() );
         }
     }
 

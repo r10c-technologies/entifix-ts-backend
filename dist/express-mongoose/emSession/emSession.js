@@ -87,26 +87,57 @@ class EMSession extends hcSession_1.HcSession {
         return new Promise((resolve, reject) => {
             let model = this.getModel(entityName);
             this.manageDocumentUpdate(document);
-            // model.findByIdAndUpdate( document._id, document, (error, result) => {
-            // model.findByIdAndUpdate( document._id, { $set: document }, (error, result) => {
+            document.update(document, (error, result) => {
+                if (!error) {
+                    model.findById(document._id, (err, doc) => {
+                        if (err)
+                            reject(this.createError(err, 'The document was updated but it could not be reloaded'));
+                        else
+                            resolve(doc);
+                    });
+                }
+                else
+                    reject(this.createError(error, 'Error in update document'));
+            });
+            // document.save(, (error, result) => {
             //     if (!error)
             //     {
-            //         this.findDocument(entityName, document._id).then(
-            //             res => resolve(<T>res),
-            //             err => reject(err)
-            //         );
+            //         model.findById(result._id,(err, doc) =>{
+            //             if (err)
+            //                 reject( this.createError(err, 'The document was updated but it could not be reloaded') );
+            //             else
+            //                 resolve(doc);   
+            //         });
             //     }
             //     else
             //         reject( this.createError(error, 'Error in update document') );
-            // } );
-            document.update(document).then(value => {
-                model.findById(document.id, (err, doc) => {
-                    if (err)
-                        reject(this.createError(err, 'The document was updated but it could not be reloaded'));
-                    else
-                        resolve(doc);
-                });
-            }, error => reject(this.createError(error, 'Error in update document')));
+            // });
+            // document.update( document, (error, result) => {
+            //     if (!error)
+            //     {
+            //         model.findById(result._id,(err, doc) =>{
+            //             if (err)
+            //                 reject( this.createError(err, 'The document was updated but it could not be reloaded') );
+            //             else
+            //                 resolve(doc);   
+            //         });
+            //     }
+            //     else
+            //         reject( this.createError(error, 'Error in update document') );
+            // });
+            // model.findByIdAndUpdate( document._id, document, (error, result) => {
+            //     if (!error)
+            //     {
+            //         model.findById(result._id,(err, doc) =>{
+            //             if (err)
+            //                 reject( this.createError(err, 'The document was updated but it could not be reloaded') );
+            //             else
+            //                 resolve(doc);   
+            //         });
+            //     }
+            //     else
+            //         reject( this.createError(error, 'Error in update document') );
+            // });
         });
     }
     listDocuments(entityName, options) {
@@ -143,7 +174,16 @@ class EMSession extends hcSession_1.HcSession {
     }
     findDocument(entityName, id) {
         return new Promise((resolve, reject) => {
-            this.getModel(entityName).where("deferredDeletion").ne(true).where("_id", id).then(res => resolve(res != null && res.length > 0 ? res[0] : null), err => reject(this.createError(err, 'Error in retrive single document')));
+            this.getModel(entityName).findById(id.trim(), (err, res) => {
+                if (!err) {
+                    if (res && (res.deferredDeletion == null || res.deferredDeletion == false))
+                        resolve(res);
+                    else
+                        resolve(null);
+                }
+                else
+                    reject(this.createError(err, 'Error in retrive single document'));
+            });
         });
     }
     deleteDocument(entityName, document) {
@@ -174,11 +214,17 @@ class EMSession extends hcSession_1.HcSession {
     getMetadataToExpose(entityName) {
         let info = (this.entitiesInfo.find(e => e.name == entityName).info);
         return info.getAccessors().filter(accessor => accessor.exposition).map(accessor => {
+            let name = accessor.serializeAlias || accessor.name;
+            let type = accessor.activator && accessor.activator.bindingType == hcMetaData_1.MemberBindingType.Reference ? accessor.activator.referenceType : accessor.type;
+            let expositionType = accessor.exposition;
+            let navigable = accessor.activator ? accessor.activator.extendRoute : false;
+            let persistent = (accessor.schema != null || accessor.persistenceType == hcMetaData_1.PersistenceType.Auto);
             return {
-                name: accessor.name,
-                type: accessor.type,
-                expositionType: accessor.exposition,
-                persistent: (accessor.schema != null || accessor.persistenceType == hcMetaData_1.PersistenceType.Auto)
+                name,
+                type,
+                expositionType,
+                persistent,
+                navigable
             };
         });
     }
@@ -249,7 +295,6 @@ class EMSession extends hcSession_1.HcSession {
     }
     resolveToMongoFilters(entityName, filters) {
         let info = this.entitiesInfo.find(f => f.name == entityName).info;
-        //Cambio
         let persistentMembers = info.getAllMembers()
             .filter(m => (m instanceof hcMetaData_1.AccessorInfo) && (m.schema != null || m.persistenceType == hcMetaData_1.PersistenceType.Auto))
             .map(m => {

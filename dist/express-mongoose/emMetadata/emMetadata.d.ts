@@ -18,5 +18,6 @@ declare class EMMemberActivator<TEntity extends EMEntity, TDocument extends Enti
     readonly bindingType: MemberBindingType;
     readonly extendRoute: boolean;
     readonly resourcePath: string;
+    readonly referenceType: string;
 }
 export { EMMemberActivator };

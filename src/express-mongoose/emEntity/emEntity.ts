@@ -47,7 +47,7 @@ class EMEntity extends Entity
         
         this.entityInfo.getAccessors().filter( accessor => accessor.exposition ).forEach( accessor => {
             let nameSerialized = accessor.serializeAlias || accessor.name;
-            if (accessor.activator != null)
+            if ( accessor.activator != null && this[accessor.name] != null )
                 simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
             else
                 simpleObject[nameSerialized] = this[accessor.name];
@@ -72,22 +72,37 @@ class EMEntity extends Entity
                 let isPersistent = accessor.schema != null || accessor.persistenceType == PersistenceType.Auto;
                 if (isPersistent)
                 {
-                    if (!persistent)
-                        persistent = {};
-                    persistent[persistentName] = simpleObject[exposedName];
+                    let value = simpleObject[exposedName];
+
+                    if (value)
+                    {
+                        if (!persistent)
+                            persistent = {};
+                        persistent[persistentName] = value;
+                    }
                 }
                 else
                 {
-                    if (!nonPersistent)
-                        nonPersistent = {};
-                    nonPersistent[exposedName] = simpleObject[exposedName];
+                    let value = simpleObject[exposedName];
+
+                    if (value)
+                    {
+                        if (!nonPersistent)
+                            nonPersistent = {};
+                        nonPersistent[exposedName] = simpleObject[exposedName];
+                    }
                 }
             }
             if (accessor.exposition == ExpositionType.ReadOnly)
             {
-                if (!readOnly)
-                    readOnly = {};
-                readOnly[exposedName] = simpleObject[exposedName];
+                let value = simpleObject[exposedName];
+
+                if (value)
+                {
+                    if (!readOnly)
+                        readOnly = {};
+                    readOnly[exposedName] = value;
+                }                
             }
 
             delete simpleObject[exposedName];

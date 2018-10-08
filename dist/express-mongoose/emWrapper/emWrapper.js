@@ -51,7 +51,7 @@ class EMResponseWrapper {
                     }
                 }
             }
-            response.send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED ERROR', data).serializeSimpleObject());
+            response.send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED EXCEPTION', data).serializeSimpleObject());
         }
         else {
             let data;
@@ -66,7 +66,7 @@ class EMResponseWrapper {
                         stack: error.stack
                     };
             }
-            response.send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED ERROR', data).serializeSimpleObject());
+            response.send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED EXCEPTION', data).serializeSimpleObject());
         }
     }
     handledError(response, message, status, errorDetails) {

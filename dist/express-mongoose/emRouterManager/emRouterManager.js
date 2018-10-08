@@ -47,10 +47,95 @@ class EMRouterManager {
         this._appInstance.use('/' + basePath, newController.router);
         this._routers.push({ entityName: name, controller: newController, basePath });
     }
-    resolveRetrievePath(request, response, construtorType, instanceKey, expositionType, pathOverInstance) {
+    resolveComplexRetrieve(request, response, construtorType, instanceId, expositionType, pathOverInstance) {
         let constructionController = this.findController(construtorType);
         let expositionController = this.findController(expositionType);
-        constructionController.findEntity(instanceKey).then(entity => expositionController.responseOverInstance(response, entity, pathOverInstance));
+        constructionController.findEntity(instanceId).then(entity => {
+            let objectToExpose = entity[pathOverInstance[0]];
+            for (let i = 1; i < pathOverInstance.length; i++)
+                objectToExpose = objectToExpose[pathOverInstance[i]];
+            if (objectToExpose instanceof Array)
+                expositionController.responseWrapper.entityCollection(response, objectToExpose);
+            else
+                expositionController.responseWrapper.entity(response, objectToExpose);
+        });
+    }
+    resolveComplexCreate(request, response, construtorType, instanceId, expositionType, pathOverInstance) {
+        let constructionController = this.findController(construtorType);
+        let expositionController = this.findController(expositionType);
+        constructionController.findEntity(instanceId).then(baseEntity => {
+            expositionController.createInstance(request, response).then(exEntity => {
+                let objectToExpose = baseEntity[pathOverInstance[0]];
+                let pathTo = pathOverInstance[0];
+                for (let i = 1; i < pathOverInstance.length; i++) {
+                    objectToExpose = objectToExpose[pathOverInstance[i]];
+                    pathTo = pathTo + '.' + pathOverInstance[i];
+                }
+                if (objectToExpose instanceof Array)
+                    baseEntity[pathTo].push(exEntity);
+                else
+                    baseEntity[pathTo] = exEntity;
+                baseEntity.save().then(movFlow => {
+                    if (movFlow.continue)
+                        expositionController.responseWrapper.entity(response, exEntity);
+                    else
+                        expositionController.responseWrapper.logicError(response, movFlow.message);
+                }, error => expositionController.responseWrapper.exception(response, error));
+            });
+        }, error => expositionController.responseWrapper.exception(response, error));
+    }
+    resolveComplexUpdate(request, response, construtorType, instanceId, expositionType, pathOverInstance) {
+        let constructionController = this.findController(construtorType);
+        let expositionController = this.findController(expositionType);
+        constructionController.findEntity(instanceId).then(baseEntity => {
+            expositionController.createInstance(request, response).then(exEntity => {
+                let objectToExpose = baseEntity[pathOverInstance[0]];
+                let pathTo = pathOverInstance[0];
+                for (let i = 1; i < pathOverInstance.length; i++) {
+                    objectToExpose = objectToExpose[pathOverInstance[i]];
+                    pathTo = pathTo + '.' + pathOverInstance[i];
+                }
+                if (objectToExpose instanceof Array) {
+                    let index = baseEntity[pathTo].findIndex(e => e._id == exEntity._id);
+                    baseEntity[pathTo].splice(index, 1);
+                    baseEntity[pathTo].push(exEntity);
+                }
+                else
+                    baseEntity[pathTo] = exEntity;
+                baseEntity.save().then(movFlow => {
+                    if (movFlow.continue)
+                        expositionController.responseWrapper.entity(response, exEntity);
+                    else
+                        expositionController.responseWrapper.logicError(response, movFlow.message);
+                }, error => expositionController.responseWrapper.exception(response, error));
+            });
+        }, error => expositionController.responseWrapper.exception(response, error));
+    }
+    resolveComplexDelete(request, response, construtorType, instanceId, expositionType, pathOverInstance) {
+        let constructionController = this.findController(construtorType);
+        let expositionController = this.findController(expositionType);
+        constructionController.findEntity(instanceId).then(baseEntity => {
+            expositionController.createInstance(request, response).then(exEntity => {
+                let objectToExpose = baseEntity[pathOverInstance[0]];
+                let pathTo = pathOverInstance[0];
+                for (let i = 1; i < pathOverInstance.length; i++) {
+                    objectToExpose = objectToExpose[pathOverInstance[i]];
+                    pathTo = pathTo + '.' + pathOverInstance[i];
+                }
+                if (objectToExpose instanceof Array) {
+                    let index = baseEntity[pathTo].findIndex(e => e._id == exEntity._id);
+                    baseEntity[pathTo].splice(index, 1);
+                }
+                else
+                    baseEntity[pathTo] = exEntity;
+                baseEntity.save().then(movFlow => {
+                    if (movFlow.continue)
+                        expositionController.responseWrapper.entity(response, exEntity);
+                    else
+                        expositionController.responseWrapper.logicError(response, movFlow.message);
+                }, error => expositionController.responseWrapper.exception(response, error));
+            });
+        }, error => expositionController.responseWrapper.exception(response, error));
     }
     getExpositionDetails() {
         return this._routers.map(r => { return { entityName: r.entityName, resourceName: r.controller.resourceName, basePath: r.basePath }; });
