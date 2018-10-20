@@ -80,7 +80,7 @@ class EMEntityController {
     save(request, response) {
         this.validateDocumentRequest(request, response).then((validation) => {
             if (validation) {
-                this._session.activateEntityInstance(this.entityInfo, validation.document).then(entity => {
+                this._session.activateEntityInstance(this.entityInfo, validation.document, { changes: validation.changes }).then(entity => {
                     entity.save().then(movFlow => {
                         if (movFlow.continue)
                             this._responseWrapper.entity(response, entity, { devData: validation.devData });
@@ -101,26 +101,31 @@ class EMEntityController {
         this._router.put('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexUpdateMethod(request, response, next, routerManager));
         this._router.delete('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexDeleteMethod(request, response, next, routerManager));
     }
+    getArrayPath(request) {
+        let arrayPath = request.path.split('/');
+        arrayPath.splice(0, 2);
+        return arrayPath;
+    }
     createMappingPath(arrayPath) {
         if (arrayPath.length > 1) {
             let baseTypeName = this._entityName;
             let instanceId = arrayPath[0];
-            let endTypeName;
+            let endAccessorInfo;
             let pathOverInstance = new Array();
             let accesor = this.getExtensionAccessors(baseTypeName).find(ea => ea.activator.resourcePath == arrayPath[1]);
             if (accesor) {
-                endTypeName = accesor.className;
+                endAccessorInfo = accesor;
                 pathOverInstance.push(accesor.name);
                 let i = 2;
                 while (i < arrayPath.length) {
                     let newAccessorInPath = this.getExtensionAccessors(accesor.className).find(ea => ea.activator.resourcePath == arrayPath[i]);
                     if (newAccessorInPath) {
                         pathOverInstance.push(newAccessorInPath.name);
-                        endTypeName = newAccessorInPath.className;
-                        if (accesor.type == 'array' && accesor.activator.bindingType == hcMetaData_1.MemberBindingType.Reference) {
+                        endAccessorInfo = newAccessorInPath;
+                        if (accesor.type == 'Array' && accesor.activator.bindingType == hcMetaData_1.MemberBindingType.Reference) {
                             baseTypeName = accesor.className;
                             instanceId = arrayPath[i - 1];
-                            endTypeName = newAccessorInPath.className;
+                            endAccessorInfo = newAccessorInPath;
                             pathOverInstance = [newAccessorInPath.name];
                         }
                         accesor = newAccessorInPath;
@@ -129,7 +134,7 @@ class EMEntityController {
                         pathOverInstance.push(arrayPath[i]);
                     i++;
                 }
-                return { baseTypeName, instanceId, endTypeName, pathOverInstance };
+                return { baseTypeName, instanceId, endAccessorInfo, pathOverInstance };
             }
             else
                 null;
@@ -138,11 +143,11 @@ class EMEntityController {
             return null;
     }
     resolveComplexRetrieveMethod(request, response, next, routerManager) {
-        let arrayPath = request.params.path.split('/');
+        let arrayPath = this.getArrayPath(request);
         if (arrayPath.length > 1) {
             let mappingPath = this.createMappingPath(arrayPath);
             if (mappingPath)
-                routerManager.resolveComplexCreate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endTypeName, mappingPath.pathOverInstance);
+                routerManager.resolveComplexRetrieve(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
             else
                 next();
         }
@@ -158,27 +163,27 @@ class EMEntityController {
         }
     }
     resolveComplexCreateMethod(request, response, next, routerManager) {
-        let arrayPath = request.params.path.split('/');
+        let arrayPath = this.getArrayPath(request);
         let mappingPath = this.createMappingPath(arrayPath);
         if (mappingPath)
-            routerManager.resolveComplexCreate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endTypeName, mappingPath.pathOverInstance);
+            routerManager.resolveComplexCreate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
         else
             next();
     }
     resolveComplexUpdateMethod(request, response, next, routerManager) {
-        let arrayPath = request.params.path.split('/');
+        let arrayPath = this.getArrayPath(request);
         let mappingPath = this.createMappingPath(arrayPath);
         if (mappingPath)
-            routerManager.resolveComplexUpdate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endTypeName, mappingPath.pathOverInstance);
+            routerManager.resolveComplexUpdate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
         else
             next();
     }
     resolveComplexDeleteMethod(request, response, next, routerManager) {
-        let arrayPath = request.params.path.split('/');
+        let arrayPath = this.getArrayPath(request);
         if (arrayPath.length > 1) {
             let mappingPath = this.createMappingPath(arrayPath);
             if (mappingPath)
-                routerManager.resolveComplexDelete(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endTypeName, mappingPath.pathOverInstance);
+                routerManager.resolveComplexDelete(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
             else
                 next();
         }
@@ -270,8 +275,18 @@ class EMEntityController {
             if (parsedRequest.persistent._id) {
                 this._session.findDocument(this._entityName, parsedRequest.persistent._id).then(document => {
                     delete parsedRequest.persistent._id;
+                    let changes;
+                    for (let p in parsedRequest.persistent) {
+                        let oldValue = document[p];
+                        let newValue = parsedRequest.persistent[p];
+                        if (oldValue != newValue) {
+                            if (!changes)
+                                changes = [];
+                            changes.push({ property: p, oldValue, newValue });
+                        }
+                    }
                     document.set(parsedRequest.persistent);
-                    resolve({ document, devData });
+                    resolve({ document, devData, changes });
                 }, err => reject(err));
             }
             else {

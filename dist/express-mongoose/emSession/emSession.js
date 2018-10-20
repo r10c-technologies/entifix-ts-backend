@@ -99,45 +99,6 @@ class EMSession extends hcSession_1.HcSession {
                 else
                     reject(this.createError(error, 'Error in update document'));
             });
-            // document.save(, (error, result) => {
-            //     if (!error)
-            //     {
-            //         model.findById(result._id,(err, doc) =>{
-            //             if (err)
-            //                 reject( this.createError(err, 'The document was updated but it could not be reloaded') );
-            //             else
-            //                 resolve(doc);   
-            //         });
-            //     }
-            //     else
-            //         reject( this.createError(error, 'Error in update document') );
-            // });
-            // document.update( document, (error, result) => {
-            //     if (!error)
-            //     {
-            //         model.findById(result._id,(err, doc) =>{
-            //             if (err)
-            //                 reject( this.createError(err, 'The document was updated but it could not be reloaded') );
-            //             else
-            //                 resolve(doc);   
-            //         });
-            //     }
-            //     else
-            //         reject( this.createError(error, 'Error in update document') );
-            // });
-            // model.findByIdAndUpdate( document._id, document, (error, result) => {
-            //     if (!error)
-            //     {
-            //         model.findById(result._id,(err, doc) =>{
-            //             if (err)
-            //                 reject( this.createError(err, 'The document was updated but it could not be reloaded') );
-            //             else
-            //                 resolve(doc);   
-            //         });
-            //     }
-            //     else
-            //         reject( this.createError(error, 'Error in update document') );
-            // });
         });
     }
     listDocuments(entityName, options) {
@@ -198,14 +159,53 @@ class EMSession extends hcSession_1.HcSession {
             });
         });
     }
-    activateEntityInstance(info, document) {
+    activateEntityInstance(info, document, options) {
         return new Promise((resolve, reject) => {
+            let changes = options && options.changes ? options.changes : [];
             let baseInstace = this.entitiesInfo.find(a => a.name == info.name).activateType(document);
+            // let entityAccessors = info.getAccessors().filter( a => a.activator != null && ( a.type == "Array" ? baseInstace[a.name] != null && baseInstace[a.name].length > 0 : baseInstace[a.name] != null ) );
             let entityAccessors = info.getAccessors().filter(a => a.activator != null);
-            if (entityAccessors.length > 0) {
+            let currentEA = entityAccessors.filter(ea => {
+                let persistentName = ea.persistentAlias || ea.name;
+                if (ea.type == 'Array')
+                    return document[persistentName] != null && document[persistentName].length > 0;
+                else
+                    return document[persistentName] != null;
+            });
+            let previousEA = entityAccessors.filter(ea => {
+                let persistetName = ea.persistentAlias || ea.name;
+                let c = changes.find(c => c.property == persistetName);
+                if (c)
+                    return c.oldValue != null;
+                else
+                    return false;
+            });
+            if (previousEA.length > 0 || currentEA.length > 0) {
                 let promises = [];
-                entityAccessors.forEach(entityAccessor => promises.push(entityAccessor.activator.activateMember(baseInstace, this, entityAccessor)));
-                Promise.all(promises).then(() => resolve(baseInstace), error => reject(this.createError(error, 'Error in create instance of a member')));
+                entityAccessors.forEach(entityAccessor => {
+                    let oldValue;
+                    if (options && options.changes) {
+                        let c = options.changes.find(c => c.property == (entityAccessor.persistentAlias || entityAccessor.name));
+                        if (c)
+                            oldValue = c.oldValue;
+                    }
+                    promises.push(entityAccessor.activator.activateMember(baseInstace, this, entityAccessor, { oldValue }).then(change => {
+                        if (options && options.changes && options.changes.length > 0) {
+                            let nameToMatch = entityAccessor.persistentAlias || entityAccessor.name;
+                            let ch = options.changes.find(ch => ch.property == nameToMatch);
+                            if (ch) {
+                                ch.oldValue = change.oldValue;
+                                ch.newValue = change.newValue;
+                                ch.property = entityAccessor.name;
+                            }
+                        }
+                    }));
+                });
+                Promise.all(promises).then(() => {
+                    if (options && options.changes)
+                        baseInstace.instancedChanges = options.changes;
+                    resolve(baseInstace);
+                }, error => reject(this.createError(error, 'Error in create instance of a member')));
             }
             else
                 resolve(baseInstace);

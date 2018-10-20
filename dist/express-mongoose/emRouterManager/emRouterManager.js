@@ -47,32 +47,36 @@ class EMRouterManager {
         this._appInstance.use('/' + basePath, newController.router);
         this._routers.push({ entityName: name, controller: newController, basePath });
     }
-    resolveComplexRetrieve(request, response, construtorType, instanceId, expositionType, pathOverInstance) {
+    resolveComplexRetrieve(request, response, construtorType, instanceId, expositionAccessorInfo, pathOverInstance) {
         let constructionController = this.findController(construtorType);
-        let expositionController = this.findController(expositionType);
         constructionController.findEntity(instanceId).then(entity => {
             let objectToExpose = entity[pathOverInstance[0]];
             for (let i = 1; i < pathOverInstance.length; i++)
-                objectToExpose = objectToExpose[pathOverInstance[i]];
-            if (objectToExpose instanceof Array)
+                objectToExpose = objectToExpose ? objectToExpose[pathOverInstance[i]] : null;
+            let expositionType = expositionAccessorInfo.activator.entityInfo.name;
+            let expositionController = this.findController(expositionType);
+            if (expositionAccessorInfo.type == 'Array')
                 expositionController.responseWrapper.entityCollection(response, objectToExpose);
             else
                 expositionController.responseWrapper.entity(response, objectToExpose);
         });
     }
-    resolveComplexCreate(request, response, construtorType, instanceId, expositionType, pathOverInstance) {
+    resolveComplexCreate(request, response, construtorType, instanceId, expositionAccessorInfo, pathOverInstance) {
         let constructionController = this.findController(construtorType);
-        let expositionController = this.findController(expositionType);
+        let expositionController = this.findController(expositionAccessorInfo.activator.entityInfo.name);
         constructionController.findEntity(instanceId).then(baseEntity => {
             expositionController.createInstance(request, response).then(exEntity => {
                 let objectToExpose = baseEntity[pathOverInstance[0]];
                 let pathTo = pathOverInstance[0];
                 for (let i = 1; i < pathOverInstance.length; i++) {
-                    objectToExpose = objectToExpose[pathOverInstance[i]];
+                    objectToExpose = objectToExpose ? objectToExpose[pathOverInstance[i]] : null;
                     pathTo = pathTo + '.' + pathOverInstance[i];
                 }
-                if (objectToExpose instanceof Array)
+                if (expositionAccessorInfo.type == 'Array') {
+                    if (baseEntity[pathTo] == null)
+                        baseEntity[pathTo] = [];
                     baseEntity[pathTo].push(exEntity);
+                }
                 else
                     baseEntity[pathTo] = exEntity;
                 baseEntity.save().then(movFlow => {
@@ -84,18 +88,18 @@ class EMRouterManager {
             });
         }, error => expositionController.responseWrapper.exception(response, error));
     }
-    resolveComplexUpdate(request, response, construtorType, instanceId, expositionType, pathOverInstance) {
+    resolveComplexUpdate(request, response, construtorType, instanceId, expositionAccessorInfo, pathOverInstance) {
         let constructionController = this.findController(construtorType);
-        let expositionController = this.findController(expositionType);
+        let expositionController = this.findController(expositionAccessorInfo.activator.entityInfo.name);
         constructionController.findEntity(instanceId).then(baseEntity => {
             expositionController.createInstance(request, response).then(exEntity => {
                 let objectToExpose = baseEntity[pathOverInstance[0]];
                 let pathTo = pathOverInstance[0];
                 for (let i = 1; i < pathOverInstance.length; i++) {
-                    objectToExpose = objectToExpose[pathOverInstance[i]];
+                    objectToExpose = objectToExpose ? objectToExpose[pathOverInstance[i]] : null;
                     pathTo = pathTo + '.' + pathOverInstance[i];
                 }
-                if (objectToExpose instanceof Array) {
+                if (expositionAccessorInfo.type == 'Array') {
                     let index = baseEntity[pathTo].findIndex(e => e._id == exEntity._id);
                     baseEntity[pathTo].splice(index, 1);
                     baseEntity[pathTo].push(exEntity);
@@ -111,9 +115,9 @@ class EMRouterManager {
             });
         }, error => expositionController.responseWrapper.exception(response, error));
     }
-    resolveComplexDelete(request, response, construtorType, instanceId, expositionType, pathOverInstance) {
+    resolveComplexDelete(request, response, construtorType, instanceId, expositionAccessorInfo, pathOverInstance) {
         let constructionController = this.findController(construtorType);
-        let expositionController = this.findController(expositionType);
+        let expositionController = this.findController(expositionAccessorInfo.activator.entityInfo.name);
         constructionController.findEntity(instanceId).then(baseEntity => {
             expositionController.createInstance(request, response).then(exEntity => {
                 let objectToExpose = baseEntity[pathOverInstance[0]];
@@ -122,7 +126,7 @@ class EMRouterManager {
                     objectToExpose = objectToExpose[pathOverInstance[i]];
                     pathTo = pathTo + '.' + pathOverInstance[i];
                 }
-                if (objectToExpose instanceof Array) {
+                if (expositionAccessorInfo.type == 'Array') {
                     let index = baseEntity[pathTo].findIndex(e => e._id == exEntity._id);
                     baseEntity[pathTo].splice(index, 1);
                 }

@@ -6,66 +6,121 @@ class EMMemberActivator extends hcMetaData_1.MemberActivator {
         super(entityInfo);
         this._bindingType = bindingType;
         this._extendRoute = extendRoute;
-        this._resourcePath = options != null && options.resourcePath != null ? options.resourcePath : null;
+        this._resourcePath = options != null && options.resourcePath != null ? options.resourcePath : entityInfo.name.toLowerCase();
     }
-    activateMember(entity, session, accessorInfo) {
+    activateMember(entity, session, accessorInfo, options) {
         switch (this._bindingType) {
             case hcMetaData_1.MemberBindingType.Reference:
-                if (entity[accessorInfo.name] instanceof Array)
-                    return this.loadArrayInstanceFromDB(entity, session, accessorInfo);
+                if (accessorInfo.type == 'Array')
+                    return this.loadArrayInstanceFromDB(entity, session, accessorInfo, options);
                 else
-                    return this.loadSingleInstanceFromDB(entity, session, accessorInfo);
+                    return this.loadSingleInstanceFromDB(entity, session, accessorInfo, options);
             case hcMetaData_1.MemberBindingType.Snapshot:
-                if (entity[accessorInfo.name] instanceof Array)
-                    return this.castArrayInstanceInEntity(entity, session, accessorInfo);
+                if (accessorInfo.type == 'Array')
+                    return this.castArrayInstanceInEntity(entity, session, accessorInfo, options);
                 else
-                    return this.castSingleInstanceInEntity(entity, session, accessorInfo);
+                    return this.castSingleInstanceInEntity(entity, session, accessorInfo, options);
         }
     }
-    loadSingleInstanceFromDB(entity, session, accessorInfo) {
-        let doc = entity.getDocument();
-        let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
-        let id = doc[persistentMember];
-        if (id)
-            return session.findEntity(this.entityInfo, id).then(entityMemberInstance => { entity[accessorInfo.name] = entityMemberInstance; });
-        else
-            return Promise.resolve();
+    loadSingleInstanceFromDB(baseEntity, session, accessorInfo, options) {
+        return new Promise((resolve, reject) => {
+            let doc = baseEntity.getDocument();
+            let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
+            let id = doc[persistentMember];
+            let oldValue;
+            let newValue;
+            let promises = new Array();
+            if (id)
+                promises.push(session.findEntity(this.entityInfo, id).then(entity => {
+                    baseEntity[accessorInfo.name] = entity;
+                    newValue = entity;
+                }));
+            if (options && options.oldValue)
+                promises.push(session.findEntity(this.entityInfo, options.oldValue).then(entity => {
+                    oldValue = entity;
+                }));
+            Promise.all(promises).then(() => { resolve({ oldValue, newValue }); }, error => reject(error)).catch(error => reject(error));
+        });
     }
-    loadArrayInstanceFromDB(entity, session, accessorInfo) {
-        let doc = entity.getDocument();
-        let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
-        let filters = { _id: { $in: doc[persistentMember] } };
-        if (filters._id.$in && filters._id.$in.length > 0)
-            return session.listEntitiesByQuery(this.entityInfo, filters).then(entities => { entity[accessorInfo.name] = entities; });
-        else
-            return Promise.resolve();
+    loadArrayInstanceFromDB(baseEntity, session, accessorInfo, options) {
+        return new Promise((resolve, reject) => {
+            let doc = baseEntity.getDocument();
+            let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
+            let promises = new Array();
+            let oldValue;
+            let newValue;
+            let filters = { _id: { $in: doc[persistentMember] } };
+            if (filters._id.$in && filters._id.$in.length > 0)
+                promises.push(session.listEntitiesByQuery(this.entityInfo, filters).then(entities => {
+                    baseEntity[accessorInfo.name] = entities;
+                }));
+            if (options && options.oldValue)
+                promises.push(session.listEntitiesByQuery(this.entityInfo, { _id: { $in: options.oldValue } }).then(entities => {
+                    baseEntity[accessorInfo.name] = entities;
+                }));
+            Promise.all(promises).then(() => { resolve({ oldValue, newValue }); }, error => reject(error)).catch(error => reject(error));
+        });
     }
-    castSingleInstanceInEntity(entity, session, accessorInfo) {
-        let doc = entity.getDocument();
-        let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
-        let docData = doc[persistentMember];
-        if (docData) {
-            let model = session.getModel(this.entityInfo.name);
-            let document = new model(docData);
-            return session.activateEntityInstance(this.entityInfo, document).then(entity => { entity[accessorInfo.name] = entity; });
-        }
-        else
-            return Promise.resolve();
+    castSingleInstanceInEntity(baseEntity, session, accessorInfo, options) {
+        return new Promise((resolve, reject) => {
+            let doc = baseEntity.getDocument();
+            let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
+            let docData = doc[persistentMember];
+            let promises = new Array();
+            let oldValue;
+            let newValue;
+            if (docData) {
+                let model = session.getModel(this.entityInfo.name);
+                let document = new model(docData);
+                promises.push(session.activateEntityInstance(this.entityInfo, document).then(entity => {
+                    baseEntity[accessorInfo.name] = entity;
+                    newValue = entity;
+                }));
+            }
+            if (options && options.oldValue) {
+                let model = session.getModel(this.entityInfo.name);
+                let document = new model(options.oldValue);
+                promises.push(session.activateEntityInstance(this.entityInfo, document).then(entity => {
+                    oldValue = entity;
+                }));
+            }
+            Promise.all(promises).then(() => { resolve({ oldValue, newValue }); }, error => reject(error)).catch(error => reject(error));
+        });
     }
-    castArrayInstanceInEntity(entity, session, accessorInfo) {
+    castArrayInstanceInEntity(entity, session, accessorInfo, options) {
         return new Promise((resolve, reject) => {
             let doc = entity.getDocument();
             let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
             let docsData = doc[persistentMember];
-            if (docsData) {
+            let promises = new Array();
+            let oldValue;
+            let newValue;
+            if (docsData && docsData.length > 0) {
                 let model = session.getModel(this.entityInfo.name);
                 let promises = new Array();
-                let entities = new Array();
-                docsData.foreach(d => promises.push(session.activateEntityInstance(this.entityInfo, new model(d)).then(entity => { entities.push(entity); })));
-                Promise.all(promises).then(() => resolve(), error => reject(error));
+                newValue = new Array();
+                for (let i = 0; i < docsData.length; i++) {
+                    let asModel = new model(docsData[i]);
+                    promises.push(session.activateEntityInstance(this.entityInfo, asModel).then(entity => {
+                        newValue.push(entity);
+                    }));
+                }
             }
-            else
-                resolve();
+            if (options && options.oldValue && options.oldValue.length > 0) {
+                let model = session.getModel(this.entityInfo.name);
+                let promises = new Array();
+                oldValue = new Array();
+                for (let i = 0; i < docsData.length; i++) {
+                    let asModel = new model(docsData[i]);
+                    promises.push(session.activateEntityInstance(this.entityInfo, asModel).then(entity => {
+                        oldValue.push(entity);
+                    }));
+                }
+            }
+            Promise.all(promises).then(() => {
+                entity[accessorInfo.name] = newValue;
+                resolve({ oldValue, newValue });
+            }, error => reject(error)).catch(error => reject(error));
         });
     }
     //#endregion

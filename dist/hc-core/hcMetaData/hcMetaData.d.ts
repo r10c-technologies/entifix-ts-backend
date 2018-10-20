@@ -46,7 +46,12 @@ declare class EntityInfo {
 declare abstract class MemberActivator {
     private _entityInfo;
     constructor(info: EntityInfo);
-    abstract activateMember(entity: Entity, session: HcSession, accessorInfo: AccessorInfo): Promise<void>;
+    abstract activateMember(entity: Entity, session: HcSession, accessorInfo: AccessorInfo, options?: {
+        oldValue?: any;
+    }): Promise<{
+        oldValue?: any;
+        newValue: any;
+    }>;
     readonly entityInfo: EntityInfo;
     abstract readonly resourcePath: string;
     abstract readonly extendRoute: boolean;

@@ -2,7 +2,7 @@ import mongoose = require('mongoose');
 
 import { Entity, EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity';
 import { EMSession } from '../emSession/emSession';
-import { DefinedAccessor, DefinedEntity, PersistenceType, EntityInfo, ExpositionType } from '../../hc-core/hcMetaData/hcMetaData';
+import { DefinedAccessor, DefinedEntity, PersistenceType, EntityInfo, ExpositionType, MemberBindingType } from '../../hc-core/hcMetaData/hcMetaData';
 import { emitKeypressEvents } from 'readline';
 
 interface EntityDocument extends mongoose.Document
@@ -22,6 +22,8 @@ class EMEntity extends Entity
     protected _document : EntityDocument;
     private _session : EMSession;
     
+    private _instancedChanges : Array<{property: string, oldValue: any, newValue: any}>;
+
     //#endregion
 
 
@@ -74,7 +76,7 @@ class EMEntity extends Entity
                 {
                     let value = simpleObject[exposedName];
 
-                    if (value)
+                    if (value != null)
                     {
                         if (!persistent)
                             persistent = {};
@@ -113,7 +115,6 @@ class EMEntity extends Entity
         return { persistent, nonPersistent, readOnly, nonValid };
     }
 
-
     save() : Promise<EntityMovementFlow>
     {
         return new Promise<EntityMovementFlow>( (resolve, reject) => 
@@ -122,7 +123,9 @@ class EMEntity extends Entity
                 movFlow => 
                 {
                     if (movFlow.continue)
-                    {                        
+                    {
+                        this.syncActibableAccessors();
+                        
                         if (this._document.isNew)
                         {
                             this._session.createDocument(this.entityInfo.name, this._document).then(
@@ -218,6 +221,14 @@ class EMEntity extends Entity
         return this._document;
     }
 
+    private syncActibableAccessors() : void
+    {
+        this.entityInfo.getAccessors().filter( a => a.activator != null && (a.type == 'Array' || a.activator.bindingType == MemberBindingType.Snapshot) ).forEach( accessor => {
+            let thisObject = this;
+            thisObject[accessor.name] = thisObject[accessor.name];
+        });
+    }
+
     //#endregion
 
 
@@ -257,6 +268,18 @@ class EMEntity extends Entity
     { return this._document.deferredDeletion; }
     set deferredDeletion( value : Boolean )
     { this.deferredDeletion = value; }
+
+    get instancedChanges() 
+    { 
+        if (!this._instancedChanges)
+            this._instancedChanges = [];
+        return this._instancedChanges; 
+    }
+    set instancedChanges(value)
+    { this._instancedChanges = value; }
+
+    get isNew()
+    { return this._document.isNew; }
 
     //#endregion
 }

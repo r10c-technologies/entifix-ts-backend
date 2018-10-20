@@ -2,6 +2,7 @@ import express = require('express');
 import { EMSession } from '../emSession/emSession';
 import { EMEntityController } from '../emEntityController/emEntityController';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
+import { AccessorInfo } from '../../hc-core/hcMetaData/hcMetaData';
 declare class EMRouterManager {
     private _session;
     private _appInstance;
@@ -18,10 +19,10 @@ declare class EMRouterManager {
         basePath?: string;
         resourceName?: string;
     }): void;
-    resolveComplexRetrieve(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionType: string, pathOverInstance: Array<string>): void;
-    resolveComplexCreate(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionType: string, pathOverInstance: Array<string>): void;
-    resolveComplexUpdate(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionType: string, pathOverInstance: Array<string>): void;
-    resolveComplexDelete(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionType: string, pathOverInstance: Array<string>): void;
+    resolveComplexRetrieve(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
+    resolveComplexCreate(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
+    resolveComplexUpdate(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
+    resolveComplexDelete(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
     getExpositionDetails(): Array<{
         entityName: string;
         resourceName: string;

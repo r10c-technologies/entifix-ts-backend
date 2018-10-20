@@ -11,6 +11,7 @@ interface EntityDocument extends mongoose.Document {
 declare class EMEntity extends Entity {
     protected _document: EntityDocument;
     private _session;
+    private _instancedChanges;
     constructor(session: EMSession);
     constructor(session: EMSession, document: EntityDocument);
     serializeExposedAccessors(): any;
@@ -28,6 +29,7 @@ declare class EMEntity extends Entity {
     protected onDeleted(): void;
     static getSchema(): any;
     getDocument(): EntityDocument;
+    private syncActibableAccessors;
     readonly session: EMSession;
     created: Date;
     modified: Date;
@@ -35,6 +37,12 @@ declare class EMEntity extends Entity {
     readonly _id: any;
     readonly __v: number;
     deferredDeletion: Boolean;
+    instancedChanges: {
+        property: string;
+        oldValue: any;
+        newValue: any;
+    }[];
+    readonly isNew: boolean;
 }
 interface IBaseEntity {
     created: Date;

@@ -8,6 +8,7 @@ import express = require('express')
 import { EntityInfo, AccessorInfo, MemberBindingType } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMMemberActivator } from '../..';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
+import { parse } from 'path';
 
 class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEntity>
 {
@@ -157,7 +158,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         this.validateDocumentRequest(request, response).then( (validation : RequestValidation<TDocument> ) => {
             if (validation)
             {
-                this._session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, validation.document ).then(
+                this._session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, validation.document, { changes: validation.changes } ).then(
                     entity => {
                         entity.save().then(
                             movFlow => {
@@ -191,22 +192,28 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     }
 
 
+    private getArrayPath( request : express.Request) : Array<string>
+    {
+        let arrayPath = request.path.split('/');
+        arrayPath.splice(0,2);
+        return arrayPath;
+    }
 
-    createMappingPath(arrayPath : Array<string>) : { baseTypeName : string, instanceId : string , endTypeName : string, pathOverInstance : Array<string> } 
+    createMappingPath(arrayPath : Array<string>) : { baseTypeName : string, instanceId : string , endAccessorInfo : AccessorInfo, pathOverInstance : Array<string> } 
     {
         if (arrayPath.length > 1)
         {
             let baseTypeName = this._entityName;
             let instanceId = arrayPath[0];
                
-            let endTypeName : string;            
+            let endAccessorInfo : AccessorInfo;            
             let pathOverInstance = new Array<string>();
             
             let accesor = this.getExtensionAccessors(baseTypeName).find( ea => ea.activator.resourcePath == arrayPath[1]);
 
             if (accesor)
             {
-                endTypeName = accesor.className;
+                endAccessorInfo = accesor;
                 pathOverInstance.push(accesor.name);
 
                 let i = 2;
@@ -217,13 +224,13 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                     if (newAccessorInPath)
                     {   
                         pathOverInstance.push(newAccessorInPath.name);  
-                        endTypeName = newAccessorInPath.className;                        
+                        endAccessorInfo = newAccessorInPath;
 
-                        if (accesor.type == 'array' && accesor.activator.bindingType == MemberBindingType.Reference)
+                        if (accesor.type == 'Array' && accesor.activator.bindingType == MemberBindingType.Reference)
                         {
                             baseTypeName = accesor.className;
                             instanceId = arrayPath[i-1];
-                            endTypeName = newAccessorInPath.className;
+                            endAccessorInfo =newAccessorInPath;
                             pathOverInstance = [ newAccessorInPath.name ];
                         }
 
@@ -235,7 +242,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                     i++;
                 }
                 
-                return { baseTypeName, instanceId, endTypeName, pathOverInstance };
+                return { baseTypeName, instanceId, endAccessorInfo, pathOverInstance };
             }
             else
                 null;
@@ -248,14 +255,14 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     resolveComplexRetrieveMethod( request : express.Request, response : express.Response, next : express.NextFunction, routerManager : EMRouterManager ) : void
     {
-        let arrayPath = request.params.path.split('/');
-        
+        let arrayPath = this.getArrayPath(request);
+
         if (arrayPath.length > 1)
         {
             let mappingPath = this.createMappingPath(arrayPath);
 
             if (mappingPath)
-                routerManager.resolveComplexCreate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endTypeName, mappingPath.pathOverInstance);
+                routerManager.resolveComplexRetrieve(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
             else
                 next();            
         }
@@ -276,36 +283,36 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     resolveComplexCreateMethod( request : express.Request, response : express.Response, next : express.NextFunction, routerManager : EMRouterManager ) : void
     {
-        let arrayPath = request.params.path.split('/');
+        let arrayPath = this.getArrayPath(request);
         let mappingPath = this.createMappingPath(arrayPath);
 
         if (mappingPath)
-            routerManager.resolveComplexCreate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endTypeName, mappingPath.pathOverInstance);
+            routerManager.resolveComplexCreate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
         else
             next();            
     }
 
     resolveComplexUpdateMethod( request : express.Request, response : express.Response, next : express.NextFunction, routerManager : EMRouterManager ) : void
     {
-        let arrayPath = request.params.path.split('/');
+        let arrayPath = this.getArrayPath(request);
         let mappingPath = this.createMappingPath(arrayPath);
 
         if (mappingPath)
-            routerManager.resolveComplexUpdate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endTypeName, mappingPath.pathOverInstance);
+            routerManager.resolveComplexUpdate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
         else
             next();            
     }
 
     resolveComplexDeleteMethod( request : express.Request, response : express.Response, next : express.NextFunction, routerManager : EMRouterManager ) : void
     {
-        let arrayPath = request.params.path.split('/');
+        let arrayPath = this.getArrayPath(request);
         
         if (arrayPath.length > 1)
         {
             let mappingPath = this.createMappingPath(arrayPath);
 
             if (mappingPath)
-                routerManager.resolveComplexDelete(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endTypeName, mappingPath.pathOverInstance);
+                routerManager.resolveComplexDelete(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
             else
                 next();            
         }
@@ -419,8 +426,6 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             if (parsedRequest.nonValid)
                 return resolve({ error: 'There are non valid values for the resource', errorData: parsedRequest.nonValid });
             
-            
-            
             let devData : Array<any>;
             let addDevData = newDevData => {
                 if (!devData)
@@ -438,9 +443,26 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             {
                 this._session.findDocument<TDocument>(this._entityName, parsedRequest.persistent._id).then(
                     document => {
+
                         delete parsedRequest.persistent._id;
+
+                        let changes : Array<{property:string, oldValue:any, newValue:any}>;
+                        for ( let p in parsedRequest.persistent)
+                        {
+                            let oldValue = document[p];
+                            let newValue = parsedRequest.persistent[p];
+                            
+                            if (oldValue != newValue)
+                            {
+                                if (!changes)
+                                    changes = [];
+
+                                changes.push( { property: p, oldValue, newValue } );
+                            }                                
+                        }
+
                         document.set(parsedRequest.persistent);
-                        resolve( { document, devData } );
+                        resolve( { document, devData, changes } );
                     },
                     err => reject(err)
                 );
@@ -480,7 +502,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     //#region Accessors (Properties)
 
     
-    private get entityInfo()
+    get entityInfo()
     {
         return this._session.getInfo(this._entityName);
     }
@@ -651,7 +673,8 @@ interface RequestValidation<TDocument>
     error? : string; 
     errorData? : any;
     devData? : any; 
+    changes?: Array<{ property: string, oldValue : any, newValue : any }>
 }
 
 
-export { EMEntityController }
+export { EMEntityController, RequestValidation }

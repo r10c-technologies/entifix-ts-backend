@@ -10,7 +10,12 @@ declare class EMMemberActivator<TEntity extends EMEntity, TDocument extends Enti
     constructor(entityInfo: EntityInfo, bindingType: MemberBindingType, extendRoute: boolean, options: {
         resourcePath?: string;
     });
-    activateMember(entity: Entity, session: EMSession, accessorInfo: AccessorInfo): Promise<void>;
+    activateMember(entity: Entity, session: EMSession, accessorInfo: AccessorInfo, options?: {
+        oldValue?: any;
+    }): Promise<{
+        oldValue?: any;
+        newValue: any;
+    }>;
     private loadSingleInstanceFromDB;
     private loadArrayInstanceFromDB;
     private castSingleInstanceInEntity;

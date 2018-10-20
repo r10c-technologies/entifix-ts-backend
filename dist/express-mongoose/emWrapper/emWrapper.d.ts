@@ -3,7 +3,7 @@ import express = require('express');
 import { EMEntity } from '../emEntity/emEntity';
 import { EMSession } from '../emSession/emSession';
 declare class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EMEntity> {
-    private session;
+    private _session;
     constructor(session: EMSession);
     object(response: express.Response, object: any): any;
     object(response: express.Response, object: any, options: {

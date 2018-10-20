@@ -43,7 +43,7 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
                 let isPersistent = accessor.schema != null || accessor.persistenceType == hcMetaData_1.PersistenceType.Auto;
                 if (isPersistent) {
                     let value = simpleObject[exposedName];
-                    if (value) {
+                    if (value != null) {
                         if (!persistent)
                             persistent = {};
                         persistent[persistentName] = value;
@@ -75,6 +75,7 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
         return new Promise((resolve, reject) => {
             this.onSaving().then(movFlow => {
                 if (movFlow.continue) {
+                    this.syncActibableAccessors();
                     if (this._document.isNew) {
                         this._session.createDocument(this.entityInfo.name, this._document).then(documentCreated => {
                             this._document = documentCreated;
@@ -134,6 +135,12 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
     getDocument() {
         return this._document;
     }
+    syncActibableAccessors() {
+        this.entityInfo.getAccessors().filter(a => a.activator != null && (a.type == 'Array' || a.activator.bindingType == hcMetaData_1.MemberBindingType.Snapshot)).forEach(accessor => {
+            let thisObject = this;
+            thisObject[accessor.name] = thisObject[accessor.name];
+        });
+    }
     //#endregion
     //#region Accessors
     get session() { return this._session; }
@@ -148,6 +155,13 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
     get __v() { return this._document.__v; }
     get deferredDeletion() { return this._document.deferredDeletion; }
     set deferredDeletion(value) { this.deferredDeletion = value; }
+    get instancedChanges() {
+        if (!this._instancedChanges)
+            this._instancedChanges = [];
+        return this._instancedChanges;
+    }
+    set instancedChanges(value) { this._instancedChanges = value; }
+    get isNew() { return this._document.isNew; }
 };
 __decorate([
     hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: Date, require: true } }),

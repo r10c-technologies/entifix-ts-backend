@@ -6,19 +6,20 @@ import { EMSessionError } from '../emSession/emSession';
 import { EMEntity } from '../emEntity/emEntity';
 import { EMSession } from '../emSession/emSession';
 import HttpStatus = require('http-status-codes');
-import { resolveNs } from 'dns';
 
 class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EMEntity>
 {
     //#region Properties
-    
+
+    private _session : EMSession;
+
     //#endregion
 
     //#region Methods
 
-    constructor( private session : EMSession)
+    constructor( session : EMSession)
     {
-
+        this._session = session;
     }
 
     object( response : express.Response, object : any);
@@ -44,7 +45,8 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
     entity( response : express.Response, entity : TEntity, options? : { devData? : any })
     {
         let devData = options != null ? options.devData : null;
-        response.send( Wrapper.wrapObject(false, null, entity.serializeExposedAccessors(), { isEntity: true, devData } ).serializeSimpleObject() );
+        let serializedEntity = entity ? entity.serializeExposedAccessors() : {};
+        response.send( Wrapper.wrapObject(false, null, serializedEntity, { isEntity: true, devData } ).serializeSimpleObject() );
     }
 
     documentCollection( response : express.Response, documents : Array<TDocument>);
@@ -60,7 +62,8 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
     entityCollection( response : express.Response, entities : Array<TEntity>, options? : { devData? : any } )
     {
         let devData = options != null ? options.devData : null;
-        response.send( Wrapper.wrapCollection(false, null, entities.map(a => a.serializeExposedAccessors()), { devData } ).serializeSimpleObject() );
+        let serializedEntities = entities ? entities.map(a => a.serializeExposedAccessors()) : [];
+        response.send( Wrapper.wrapCollection(false, null, serializedEntities, { devData } ).serializeSimpleObject() );
     }
 
     exception( response: express.Response, error : any)
@@ -71,7 +74,7 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
             let e = <EMSessionError>error;
 
             let data : any;
-            if (this.session.isDevMode)
+            if (this._session.isDevMode)
             {
                 data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was ocurred in the Service's Session"};
                 if (error)
@@ -96,7 +99,7 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
         else
         {
             let data : any;
-            if (this.session.isDevMode)
+            if (this._session.isDevMode)
             {
                 data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred in a known context. The details were attached"};
                 if (error)

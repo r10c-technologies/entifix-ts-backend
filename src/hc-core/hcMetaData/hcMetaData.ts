@@ -299,8 +299,8 @@ abstract class MemberActivator
         this._entityInfo = info;
     }
 
-    abstract activateMember( entity : Entity, session : HcSession, accessorInfo : AccessorInfo ) : Promise<void>;
-    
+    abstract activateMember( entity : Entity, session : HcSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
+        
     //#endregion
 
     //#region Accessors

@@ -2,6 +2,7 @@ import { EMSession } from '../emSession/emSession';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import express = require('express');
+import { EntityInfo, AccessorInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 declare class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEntity> {
     private _entityName;
@@ -23,10 +24,11 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     delete(request: express.Request, response: express.Response): void;
     private save;
     createRoutes(routerManager: EMRouterManager): void;
+    private getArrayPath;
     createMappingPath(arrayPath: Array<string>): {
         baseTypeName: string;
         instanceId: string;
-        endTypeName: string;
+        endAccessorInfo: AccessorInfo;
         pathOverInstance: Array<string>;
     };
     resolveComplexRetrieveMethod(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
@@ -38,7 +40,7 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     private getExtensionAccessors;
     private validateQueryParams;
     validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;
-    private readonly entityInfo;
+    readonly entityInfo: EntityInfo;
     readonly entityName: string;
     readonly session: EMSession;
     useEntities: boolean;
@@ -51,5 +53,10 @@ interface RequestValidation<TDocument> {
     error?: string;
     errorData?: any;
     devData?: any;
+    changes?: Array<{
+        property: string;
+        oldValue: any;
+        newValue: any;
+    }>;
 }
-export { EMEntityController };
+export { EMEntityController, RequestValidation };
