@@ -74,20 +74,16 @@ class EMEntity extends Entity
                 let isPersistent = accessor.schema != null || accessor.persistenceType == PersistenceType.Auto;
                 if (isPersistent)
                 {
-                    let value = simpleObject[exposedName];
-
-                    if (value != null)
+                    if ((simpleObject as Object).hasOwnProperty(exposedName))
                     {
                         if (!persistent)
                             persistent = {};
-                        persistent[persistentName] = value;
+                        persistent[persistentName] = simpleObject[exposedName];
                     }
                 }
                 else
                 {
-                    let value = simpleObject[exposedName];
-
-                    if (value)
+                    if ((simpleObject as Object).hasOwnProperty(exposedName))
                     {
                         if (!nonPersistent)
                             nonPersistent = {};
@@ -97,13 +93,11 @@ class EMEntity extends Entity
             }
             if (accessor.exposition == ExpositionType.ReadOnly)
             {
-                let value = simpleObject[exposedName];
-
-                if (value)
+                if ((simpleObject as Object).hasOwnProperty(exposedName))
                 {
                     if (!readOnly)
                         readOnly = {};
-                    readOnly[exposedName] = value;
+                    readOnly[exposedName] = simpleObject[exposedName];
                 }                
             }
 

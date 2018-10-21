@@ -76,6 +76,7 @@ class WrappedCollection extends WrappedResponse {
         this._count = options.count || data.length;
         this._page = options.page || 1;
         this._total = options.total || null;
+        this._take = options.take || null;
         this._dataType = 'Collection';
     }
     serializeSimpleObject() {
@@ -84,6 +85,7 @@ class WrappedCollection extends WrappedResponse {
         simpleObject.info.total = this.total;
         simpleObject.info.page = this.page;
         simpleObject.info.count = this.count;
+        simpleObject.info.take = this.take;
         return simpleObject;
     }
     //#endregion
@@ -96,6 +98,8 @@ class WrappedCollection extends WrappedResponse {
     set count(value) { this._count = value; }
     get page() { return this._page; }
     set page(value) { this._page = value; }
+    get take() { return this._take; }
+    set take(value) { this._take = value; }
 }
 exports.WrappedCollection = WrappedCollection;
 class WrappedError extends WrappedResponse {

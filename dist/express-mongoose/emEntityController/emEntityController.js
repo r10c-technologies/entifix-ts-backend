@@ -31,9 +31,17 @@ class EMEntityController {
         let take = takeParam != null ? parseInt(takeParam.paramValue) : 100; // Retrive limit protector
         //Call the execution of mongo query inside EMSession
         if (this._useEntities)
-            this._session.listEntities(this._entityName, { filters, skip, take, sorting }).then(entityResults => this._responseWrapper.entityCollection(response, entityResults), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
+            this._session.listEntities(this._entityName, { filters, skip, take, sorting }).then(results => {
+                let det = results.details || {};
+                let options = { total: det.total, skip: det.skip, take: det.take };
+                this._responseWrapper.entityCollection(response, results.entities, options);
+            }, error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
         else
-            this._session.listDocuments(this._entityName, { filters, skip, take, sorting }).then(docResults => this._responseWrapper.documentCollection(response, docResults), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
+            this._session.listDocuments(this._entityName, { filters, skip, take, sorting }).then(results => {
+                let det = results.details || {};
+                let options = { total: det.total, skip: det.skip, take: det.take };
+                this._responseWrapper.documentCollection(response, results.docs, options);
+            }, error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
     }
     retrieveById(request, response, options) {
         let paramName = options && options.paramName ? options.paramName : '_id';
@@ -370,7 +378,10 @@ class Filter extends QueryParam {
         let splitted = this._paramValue.split('|');
         this._property = splitted[0];
         this._operator = splitted[1];
-        this._value = splitted[2];
+        if (splitted[2] == 'null' || splitted[2] == 'undefined')
+            this._value = null;
+        else
+            this._value = splitted[2];
     }
     //#endregion
     //#region Accessors

@@ -20,8 +20,8 @@ class Wrapper
     }
 
     static wrapCollection<T>( isLogicError: boolean, message : string, objectCollection : Array<T>) : WrappedCollection<T>;
-    static wrapCollection<T>( isLogicError: boolean, message : string, objectCollection : Array<T>, options : {total? : number, page? : number, count? : number, devData? : any } ) : WrappedCollection<T>;
-    static wrapCollection<T>( isLogicError: boolean, message : string, objectCollection : Array<T>, options? : {total? : number, page? : number, count? : number, devData? : any }) : WrappedCollection<T>
+    static wrapCollection<T>( isLogicError: boolean, message : string, objectCollection : Array<T>, options : {total? : number, page? : number, count? : number, devData? : any, take? : number } ) : WrappedCollection<T>;
+    static wrapCollection<T>( isLogicError: boolean, message : string, objectCollection : Array<T>, options? : {total? : number, page? : number, count? : number, devData? : any, take? : number }) : WrappedCollection<T>
     {
         return new WrappedCollection(isLogicError, message, objectCollection, options);
     }
@@ -149,14 +149,15 @@ class WrappedCollection<T> extends WrappedResponse
    private _total : number;
    private _page : number;
    private _count : number;
+   private _take : number;
 
    //#endregion
 
     //#region Methods
 
     constructor ( isLogicError : boolean, message : string, data : Array<T> );
-    constructor ( isLogicError : boolean, message : string, data : Array<T>, options : {total? : number, page? : number, count? : number, devData? : any } );
-    constructor ( isLogicError : boolean, message : string, data : Array<T>, options? : {total? : number, page? : number, count? : number, devData? : any } )
+    constructor ( isLogicError : boolean, message : string, data : Array<T>, options : {total? : number, page? : number, count? : number, devData? : any, take? : number } );
+    constructor ( isLogicError : boolean, message : string, data : Array<T>, options? : {total? : number, page? : number, count? : number, devData? : any, take? : number } )
     {
         let devData = options != null ? options.devData : null;
         super(devData, isLogicError, message);
@@ -167,6 +168,7 @@ class WrappedCollection<T> extends WrappedResponse
         this._count = options.count || data.length;
         this._page = options.page || 1;
         this._total = options.total || null;
+        this._take = options.take || null;
         this._dataType = 'Collection';
     }
     
@@ -177,7 +179,8 @@ class WrappedCollection<T> extends WrappedResponse
         simpleObject.info.total = this.total;
         simpleObject.info.page = this.page;
         simpleObject.info.count = this.count;
-        
+        simpleObject.info.take = this.take;
+
         return simpleObject
     }
 
@@ -204,6 +207,12 @@ class WrappedCollection<T> extends WrappedResponse
     { return this._page; }
     set page (value)
     { this._page = value; }
+
+    get take ()
+    { return this._take; }
+    set take (value)
+    { this._take = value; }
+
 
     //#endregion 
 }

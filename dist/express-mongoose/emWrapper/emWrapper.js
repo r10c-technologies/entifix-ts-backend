@@ -25,34 +25,61 @@ class EMResponseWrapper {
     }
     documentCollection(response, documents, options) {
         let devData = options != null ? options.devData : null;
-        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, documents, { devData }).serializeSimpleObject());
+        let count = documents ? documents.length : 0;
+        let total = options && options.total ? options.total : count;
+        let take = options && options.take ? options.take : count;
+        let page;
+        if (take > 0)
+            page = Math.trunc(total / take) + 1;
+        else
+            page = 1;
+        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, documents, { devData, total, page, count, take }).serializeSimpleObject());
     }
     entityCollection(response, entities, options) {
         let devData = options != null ? options.devData : null;
+        let count = entities ? entities.length : 0;
+        let total = options && options.total ? options.total : count;
+        let take = options && options.take ? options.take : count;
+        let page;
+        if (take > 0)
+            page = Math.trunc(total / take) + 1;
+        else
+            page = 1;
         let serializedEntities = entities ? entities.map(a => a.serializeExposedAccessors()) : [];
-        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, serializedEntities, { devData }).serializeSimpleObject());
+        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, serializedEntities, { devData, total, page, count, take }).serializeSimpleObject());
     }
     exception(response, error) {
         response.statusCode = 500;
         if (error instanceof emSession_1.EMSessionError) {
             let e = error;
-            let data;
-            if (this._session.isDevMode) {
-                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was ocurred in the Service's Session" };
-                if (error) {
-                    data.errorDetails = { sessionMessage: e.message };
-                    if (e.error) {
-                        data.errorDetails.sessionError = {
-                            type: typeof e.error,
-                            asString: e.error.toString != null ? e.error.toString() : null,
-                            serialized: JSON.stringify(e.error),
-                            message: e.error.message,
-                            stack: e.error.stack
-                        };
+            if (e.isHandled) {
+                response.statusCode = e.code;
+                let errorData = e.error || {};
+                if (!errorData.serviceStatus)
+                    errorData.serviceStatus = 'Developer mode is enabled.';
+                if (!errorData.helper)
+                    errorData.helper = "The error was ocurred on the Service's Session";
+                response.send(hcWrapper_1.Wrapper.wrapError(e.message.toUpperCase(), errorData).serializeSimpleObject());
+            }
+            else {
+                let data;
+                if (this._session.isDevMode) {
+                    data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was ocurred on the Service's Session" };
+                    if (error) {
+                        data.errorDetails = { sessionMessage: e.message };
+                        if (e.error) {
+                            data.errorDetails.sessionError = {
+                                type: typeof e.error,
+                                asString: e.error.toString != null ? e.error.toString() : null,
+                                serialized: JSON.stringify(e.error),
+                                message: e.error.message,
+                                stack: e.error.stack
+                            };
+                        }
                     }
                 }
+                response.send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED EXCEPTION', data).serializeSimpleObject());
             }
-            response.send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED EXCEPTION', data).serializeSimpleObject());
         }
         else {
             let data;

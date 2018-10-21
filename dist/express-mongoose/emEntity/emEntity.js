@@ -42,16 +42,14 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
             if (accessor.exposition == hcMetaData_1.ExpositionType.Normal) {
                 let isPersistent = accessor.schema != null || accessor.persistenceType == hcMetaData_1.PersistenceType.Auto;
                 if (isPersistent) {
-                    let value = simpleObject[exposedName];
-                    if (value != null) {
+                    if (simpleObject.hasOwnProperty(exposedName)) {
                         if (!persistent)
                             persistent = {};
-                        persistent[persistentName] = value;
+                        persistent[persistentName] = simpleObject[exposedName];
                     }
                 }
                 else {
-                    let value = simpleObject[exposedName];
-                    if (value) {
+                    if (simpleObject.hasOwnProperty(exposedName)) {
                         if (!nonPersistent)
                             nonPersistent = {};
                         nonPersistent[exposedName] = simpleObject[exposedName];
@@ -59,11 +57,10 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
                 }
             }
             if (accessor.exposition == hcMetaData_1.ExpositionType.ReadOnly) {
-                let value = simpleObject[exposedName];
-                if (value) {
+                if (simpleObject.hasOwnProperty(exposedName)) {
                     if (!readOnly)
                         readOnly = {};
-                    readOnly[exposedName] = value;
+                    readOnly[exposedName] = simpleObject[exposedName];
                 }
             }
             delete simpleObject[exposedName];

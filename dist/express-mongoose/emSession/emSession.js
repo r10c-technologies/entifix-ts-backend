@@ -111,26 +111,72 @@ class EMSession extends hcSession_1.HcSession {
             let mongoFilters = options != null && options.mongoFilters ? options.mongoFilters : null;
             if (!mongoFilters)
                 mongoFilters = this.resolveToMongoFilters(entityName, options != null && options.filters != null ? options.filters : null);
-            if (mongoFilters.error)
-                reject(this.createError(null, mongoFilters.message));
+            if (mongoFilters.error) {
+                let errorData = {
+                    helper: 'Error ocurred on filters validation',
+                    details: mongoFilters.message
+                };
+                let error = this.createError(errorData, null);
+                error.setAsHandledError(400, 'Bad Query Param');
+                reject(error);
+            }
             let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
-            if (mongoSorting != null && mongoSorting.error)
-                reject(this.createError(null, mongoSorting.message));
+            if (mongoSorting != null && mongoSorting.error) {
+                let errorData = {
+                    helper: 'Error ocurred on sorting params validation',
+                    details: mongoFilters.message
+                };
+                let error = this.createError(errorData, null);
+                error.setAsHandledError(400, 'Bad Query Param');
+                reject(error);
+            }
             //CREATE QUERY =====>>>>>
             let query = this.getModel(entityName).find(mongoFilters.filters);
+            let countQuery = query.skip(0);
             if (mongoSorting != null && mongoSorting.sorting != null)
                 query = query.sort(mongoSorting.sorting);
             if (skip > 0)
                 query = query.skip(skip);
             if (take != null)
                 query = query.limit(take);
-            //EXECUTE QUERY =====>>>>>
-            query.exec((error, result) => {
-                if (!error)
-                    resolve(result);
+            //EXECUTE QUERIES =====>>>>>
+            let results;
+            let count;
+            let lastError;
+            let listResolved = false, countResolved = false, fullResolved = false;
+            query.exec((err, resultQuery) => {
+                if (!err)
+                    results = resultQuery;
                 else
-                    reject(this.createError(error, 'Error in retrive docments'));
+                    lastError = err;
+                listResolved = true;
+                if (listResolved && countResolved)
+                    resolvePromise();
             });
+            countQuery.count((err, resultCount) => {
+                if (!err)
+                    count = resultCount;
+                else
+                    lastError = err;
+                countResolved = true;
+                if (listResolved && countResolved)
+                    resolvePromise();
+            });
+            var resolvePromise = () => {
+                if (!fullResolved) {
+                    fullResolved = true;
+                    if (!lastError) {
+                        let details = { total: count };
+                        if (skip > 0)
+                            details.skip = skip;
+                        if (take != null)
+                            details.take = take;
+                        resolve({ docs: results, details });
+                    }
+                    else
+                        reject(lastError);
+                }
+            };
         });
     }
     findDocument(entityName, id) {
@@ -235,13 +281,13 @@ class EMSession extends hcSession_1.HcSession {
     }
     listEntities(entityName, options) {
         return new Promise((resolve, reject) => {
-            this.listDocuments(entityName, options).then(docsResult => {
+            this.listDocuments(entityName, options).then(results => {
                 let entities = new Array();
                 let promises = new Array();
-                docsResult.forEach(docResult => {
+                results.docs.forEach(docResult => {
                     promises.push(this.activateEntityInstance(this.getInfo(entityName), docResult).then(entity => { entities.push(entity); }));
                 });
-                Promise.all(promises).then(() => resolve(entities), error => reject(error));
+                Promise.all(promises).then(() => resolve({ entities, details: results.details }), error => reject(error));
             }, error => reject(error));
         });
     }
@@ -342,21 +388,30 @@ class EMSession extends hcSession_1.HcSession {
         }
         return { error: false, filters: mongoFilters };
     }
-    parseMongoFilter(f, propertyType, persistentName) {
+    parseMongoFilter(sessionFilter, propertyType, persistentName) {
         //Check and convert the filter value 
         let valueFilter; //value to mongo query
         switch (propertyType) {
             case 'Number':
-                if (isNaN(f.value))
+                if (isNaN(sessionFilter.value))
                     return { err: true, message: `The value for a filter in the property "${persistentName}" must be a number` };
                 else
-                    valueFilter = parseInt(f.value);
+                    valueFilter = parseInt(sessionFilter.value);
+                break;
+            case 'Date':
+                let tempTimeStamp = Date.parse(sessionFilter.value);
+                if (isNaN(tempTimeStamp) == false)
+                    valueFilter = new Date(tempTimeStamp);
+                else
+                    return { err: true, message: `The value for a filter in the property "${persistentName}" must be a date` };
                 break;
             default:
-                valueFilter = f.value;
+                valueFilter = sessionFilter.value;
         }
         ;
         //Set the table of conversions for filters and mongo filters 
+        //Value modifiers        
+        let likeModifier = value => { return '.*' + value + '.*'; };
         let configConvesions = [
             { operators: ['=', 'eq'] },
             { operators: ['<>', 'ne'], mongoOperator: '$ne' },
@@ -364,11 +419,11 @@ class EMSession extends hcSession_1.HcSession {
             { operators: ['<=', 'lte'], mongoOperator: '$lte', filterTypes: ['Number', 'Date'] },
             { operators: ['>', 'gt'], mongoOperator: '$gt', filterTypes: ['Number', 'Date'] },
             { operators: ['<', 'lt'], mongoOperator: '$lt', filterTypes: ['Number', 'Date'] },
-            { operators: ['lk'], mongoOperator: '$regex', filterTypes: ['String'], valueModifier: (v) => { return '.*' + v + '.*'; } }
+            { operators: ['lk'], mongoOperator: '$regex', filterTypes: ['String'], valueModifier: likeModifier }
         ];
         //Make the conversion 
         let confIndex = -1;
-        let conf = configConvesions.find(cc => cc.operators.find(o => o == f.operator) != null);
+        let conf = configConvesions.find(cc => cc.operators.find(o => o == sessionFilter.operator) != null);
         if (conf != null) {
             valueFilter = conf.valueModifier != null ? conf.valueModifier(valueFilter) : valueFilter;
             if (conf.filterTypes == null || (conf.filterTypes != null && conf.filterTypes.find(at => at == propertyType) != null)) {
@@ -380,10 +435,10 @@ class EMSession extends hcSession_1.HcSession {
                 return { err: false, value };
             }
             else
-                return { err: true, message: `It is not possible to apply the the operator "${f.operator}" to the property "${persistentName}" because it is of type "${propertyType}"` };
+                return { err: true, message: `It is not possible to apply the the operator "${sessionFilter.operator}" to the property "${persistentName}" because it is of type "${propertyType}"` };
         }
         else
-            return { err: true, message: `Not valid operator ${f.operator} for filtering` };
+            return { err: true, message: `Not valid operator ${sessionFilter.operator} for filtering` };
     }
     resolveToMongoSorting(entityName, sorting) {
         if (sorting != null && sorting.length > 0) {
@@ -441,10 +496,24 @@ class EMSession extends hcSession_1.HcSession {
 }
 exports.EMSession = EMSession;
 class EMSessionError {
+    //#endregion
+    //#region Methods
     constructor(error, message) {
-        this.error = error;
-        this.message = message;
+        this._error = error;
+        this._message = message;
+        this._code = 500;
     }
+    setAsHandledError(code, message) {
+        this._code = code;
+        this._message = message;
+        this._isHandled = true;
+    }
+    //#endregion
+    //#region Accessors
+    get error() { return this._error; }
+    get message() { return this._message; }
+    get code() { return this._code; }
+    get isHandled() { return this._isHandled; }
 }
 exports.EMSessionError = EMSessionError;
 var FilterType;

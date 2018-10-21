@@ -11,6 +11,7 @@ declare class Wrapper {
         page?: number;
         count?: number;
         devData?: any;
+        take?: number;
     }): WrappedCollection<T>;
     static wrapError(errorDescription: string): WrappedError;
     static wrapError(errorDescription: string, error: any): WrappedError;
@@ -40,18 +41,21 @@ declare class WrappedCollection<T> extends WrappedResponse {
     private _total;
     private _page;
     private _count;
+    private _take;
     constructor(isLogicError: boolean, message: string, data: Array<T>);
     constructor(isLogicError: boolean, message: string, data: Array<T>, options: {
         total?: number;
         page?: number;
         count?: number;
         devData?: any;
+        take?: number;
     });
     serializeSimpleObject(): any;
     data: T[];
     total: number;
     count: number;
     page: number;
+    take: number;
 }
 declare class WrappedError extends WrappedResponse {
     private _errorObject;

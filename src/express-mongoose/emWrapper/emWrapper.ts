@@ -50,20 +50,41 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
     }
 
     documentCollection( response : express.Response, documents : Array<TDocument>);
-    documentCollection( response : express.Response, documents : Array<TDocument>, options : { devData? : any });
-    documentCollection( response : express.Response, documents : Array<TDocument>, options? : { devData? : any })
+    documentCollection( response : express.Response, documents : Array<TDocument>, options : { devData? : any, total?: number, skip?: number, take? : number } );
+    documentCollection( response : express.Response, documents : Array<TDocument>, options? : { devData? : any, total?: number, skip?: number, take? : number } )
     {
         let devData = options != null ? options.devData : null;
-        response.send( Wrapper.wrapCollection(false, null, documents, { devData }).serializeSimpleObject() );
+        let count = documents ? documents.length : 0;
+        let total = options && options.total ? options.total : count;
+        let take = options && options.take ? options.take : count;
+
+        let page : number;
+        if (take > 0)
+            page = Math.trunc(total / take) + 1;
+        else
+            page = 1;
+
+        response.send( Wrapper.wrapCollection(false, null, documents, { devData, total, page, count, take }).serializeSimpleObject() );
     }
 
     entityCollection( response : express.Response, entities : Array<TEntity>);
-    entityCollection( response : express.Response, entities : Array<TEntity>, options : { devData? : any });
-    entityCollection( response : express.Response, entities : Array<TEntity>, options? : { devData? : any } )
+    entityCollection( response : express.Response, entities : Array<TEntity>, options : { devData? : any, total?: number, skip?: number, take? : number } );
+    entityCollection( response : express.Response, entities : Array<TEntity>, options? : { devData? : any, total?: number, skip?: number, take? : number } )
     {
         let devData = options != null ? options.devData : null;
+        let count = entities ? entities.length : 0;
+        let total = options && options.total ? options.total : count;
+        let take = options && options.take ? options.take : count;
+        let page : number;
+
+        if (take > 0)
+            page = Math.trunc(total / take) + 1;
+        else
+            page = 1;
+
         let serializedEntities = entities ? entities.map(a => a.serializeExposedAccessors()) : [];
-        response.send( Wrapper.wrapCollection(false, null, serializedEntities, { devData } ).serializeSimpleObject() );
+        
+        response.send( Wrapper.wrapCollection(false, null, serializedEntities, { devData, total, page, count, take } ).serializeSimpleObject() );
     }
 
     exception( response: express.Response, error : any)
@@ -73,28 +94,44 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
         {
             let e = <EMSessionError>error;
 
-            let data : any;
-            if (this._session.isDevMode)
+            if (e.isHandled)
             {
-                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was ocurred in the Service's Session"};
-                if (error)
-                {
-                    data.errorDetails = { sessionMessage: e.message };
-                    if (e.error)
-                    {
-                        data.errorDetails.sessionError = { 
-                            type: typeof e.error,
-                            asString: e.error.toString != null ? e.error.toString() : null,
-                            serialized: JSON.stringify(e.error),
-                            message: e.error.message,
-                            stack: e.error.stack
-                        } 
-                    }
-                }
-                    
-            }                
+                response.statusCode = e.code;
+                
+                let errorData : any = e.error || {};
 
-            response.send( Wrapper.wrapError( 'INTERNAL UNHANDLED EXCEPTION', data).serializeSimpleObject() );   
+                if (!errorData.serviceStatus)
+                    errorData.serviceStatus = 'Developer mode is enabled.';
+                
+                if (!errorData.helper)
+                    errorData.helper = "The error was ocurred on the Service's Session";
+                
+                response.send( Wrapper.wrapError( e.message.toUpperCase() , errorData).serializeSimpleObject() );
+            }
+            else
+            {
+                let data : any;
+                if (this._session.isDevMode)
+                {
+                    data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was ocurred on the Service's Session"};
+                    if (error)
+                    {
+                        data.errorDetails = { sessionMessage: e.message };
+                        if (e.error)
+                        {
+                            data.errorDetails.sessionError = { 
+                                type: typeof e.error,
+                                asString: e.error.toString != null ? e.error.toString() : null,
+                                serialized: JSON.stringify(e.error),
+                                message: e.error.message,
+                                stack: e.error.stack
+                            } 
+                        }
+                    }
+                        
+                }   
+                response.send( Wrapper.wrapError( 'INTERNAL UNHANDLED EXCEPTION', data).serializeSimpleObject() );
+            }   
         }
         else
         {

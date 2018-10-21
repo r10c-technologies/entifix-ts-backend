@@ -22,10 +22,16 @@ declare class EMResponseWrapper<TDocument extends mongoose.Document, TEntity ext
     documentCollection(response: express.Response, documents: Array<TDocument>): any;
     documentCollection(response: express.Response, documents: Array<TDocument>, options: {
         devData?: any;
+        total?: number;
+        skip?: number;
+        take?: number;
     }): any;
     entityCollection(response: express.Response, entities: Array<TEntity>): any;
     entityCollection(response: express.Response, entities: Array<TEntity>, options: {
         devData?: any;
+        total?: number;
+        skip?: number;
+        take?: number;
     }): any;
     exception(response: express.Response, error: any): void;
     handledError(response: express.Response, message: string, status: number): void;

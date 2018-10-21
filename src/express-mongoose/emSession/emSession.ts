@@ -183,11 +183,11 @@ class EMSession extends HcSession
     }
 
 
-    listDocuments<T extends EntityDocument>(entityName: string) : Promise<Array<T>>;
-    listDocuments<T extends EntityDocument>(entityName: string, options : ListOptions ) : Promise<Array<T>>;
-    listDocuments<T extends EntityDocument>(entityName: string, options? : ListOptions ) : Promise<Array<T>>
+    listDocuments<T extends EntityDocument>(entityName: string) : Promise<ListDocsResultDetails<T>>;
+    listDocuments<T extends EntityDocument>(entityName: string, options : ListOptions ) : Promise<ListDocsResultDetails<T>>;
+    listDocuments<T extends EntityDocument>(entityName: string, options? : ListOptions ) : Promise<ListDocsResultDetails<T>>
     {        
-        return new Promise<Array<T>>((resolve, reject)=>{
+        return new Promise<ListDocsResultDetails<T>>((resolve, reject)=>{
 
             //PREPARE QUERY PARAMETERS =====>>>>>           
             let skip = options != null && options.skip != null ? options.skip : 0;
@@ -199,15 +199,34 @@ class EMSession extends HcSession
             if (!mongoFilters)
             mongoFilters = this.resolveToMongoFilters(entityName, options != null && options.filters != null ? options.filters : null);
             if (mongoFilters.error)
-                reject( this.createError( null, mongoFilters.message ));
+            {
+                let errorData = {
+                    helper: 'Error ocurred on filters validation',
+                    details: mongoFilters.message
+                }
+                let error = this.createError( errorData, null );
+                error.setAsHandledError(400, 'Bad Query Param');
+
+                reject( error );
+            }
             
             let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
             if ( mongoSorting != null && mongoSorting.error)
-                reject( this.createError( null, mongoSorting.message ));
-            
+            {
+                let errorData = {
+                    helper: 'Error ocurred on sorting params validation',
+                    details: mongoFilters.message
+                }
 
+                let error = this.createError( errorData, null );
+                error.setAsHandledError(400, 'Bad Query Param');
+                
+                reject( error );
+            }                
+            
             //CREATE QUERY =====>>>>>
             let query = this.getModel<T>(entityName).find( mongoFilters.filters );
+            let countQuery = query.skip(0);
 
             if (mongoSorting != null && mongoSorting.sorting != null)
                 query = query.sort( mongoSorting.sorting );
@@ -216,15 +235,52 @@ class EMSession extends HcSession
                 query = query.skip(skip);
             if (take != null)
                 query = query.limit(take);
+                        
+            //EXECUTE QUERIES =====>>>>>
+            let results : Array<T>;
+            let count : number;
+            let lastError : any;
+            let listResolved = false, countResolved = false, fullResolved = false;
             
-
-            //EXECUTE QUERY =====>>>>>
-            query.exec(( error, result ) => {
-                if (!error)
-                    resolve(result);   
+            query.exec( ( err, resultQuery) => { 
+                if (!err)
+                    results = resultQuery;
                 else
-                     reject( this.createError(error, 'Error in retrive docments') );                
+                    lastError = err;
+
+                listResolved = true;
+                if (listResolved && countResolved)
+                    resolvePromise();
             });
+
+            countQuery.count((err, resultCount) => {
+                if (!err)
+                    count = resultCount;
+                else
+                    lastError = err;
+
+                countResolved = true;
+                if (listResolved && countResolved)
+                    resolvePromise();
+            });
+
+            var resolvePromise = () => {
+                if (!fullResolved)
+                {
+                    fullResolved = true;
+                    if (!lastError)
+                    {
+                        let details : any = { total: count };
+                        if (skip > 0 ) details.skip = skip;
+                        if (take != null ) details.take = take;
+
+                        resolve( { docs: results, details } )
+                    }
+                    else
+                        reject( lastError );                    
+                }                
+            };
+
         }); 
     }
 
@@ -368,23 +424,23 @@ class EMSession extends HcSession
         });
     }
 
-    listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string) : Promise<Array<TEntity>>;
-    listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string, options : ListOptions ) : Promise<Array<TEntity>>;
-    listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string, options? : ListOptions ) : Promise<Array<TEntity>>
+    listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string) : Promise<ListEntitiesResultDetails<TEntity>>;
+    listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string, options : ListOptions ) : Promise<ListEntitiesResultDetails<TEntity>>;
+    listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string, options? : ListOptions ) : Promise<ListEntitiesResultDetails<TEntity>>
     {        
-        return new Promise<Array<TEntity>>((resolve, reject)=>{
+        return new Promise<ListEntitiesResultDetails<TEntity>>((resolve, reject)=>{
             this.listDocuments<TDocument>(entityName, options).then(
-                docsResult => 
+                results => 
                 { 
                     let entities = new Array<TEntity>();
                     let promises = new Array<Promise<void>>();
 
-                    docsResult.forEach( docResult => {
+                    results.docs.forEach( docResult => {
                         promises.push( this.activateEntityInstance<TEntity, TDocument>(this.getInfo(entityName), docResult).then( entity => { entities.push(entity) }));
                     });
 
                     Promise.all(promises).then(
-                        () => resolve(entities),
+                        () => resolve({ entities, details: results.details }),
                         error => reject(error) 
                     );
                 },
@@ -542,24 +598,36 @@ class EMSession extends HcSession
         return { error: false, filters: mongoFilters };
     }
 
-    private parseMongoFilter( f : EMSessionFilter, propertyType : string, persistentName : string ) : { err : boolean, value?: any, message? : string }
+    private parseMongoFilter( sessionFilter : EMSessionFilter, propertyType : string, persistentName : string ) : { err : boolean, value?: any, message? : string }
     {           
         //Check and convert the filter value 
         let valueFilter : any; //value to mongo query
         switch(propertyType)
         {
             case 'Number':
-                if ( isNaN(f.value as any) )
+                if ( isNaN(sessionFilter.value as any) )
                     return { err: true, message: `The value for a filter in the property "${persistentName}" must be a number` };
                 else
-                    valueFilter = parseInt(f.value);
+                    valueFilter = parseInt(sessionFilter.value);
+                break;
+
+            case 'Date':
+                let tempTimeStamp = Date.parse(sessionFilter.value);
+                if (isNaN(tempTimeStamp) == false) 
+                    valueFilter = new Date(tempTimeStamp);
+                else
+                    return { err: true, message: `The value for a filter in the property "${persistentName}" must be a date` };
                 break;
 
             default:
-                valueFilter = f.value;
+                valueFilter = sessionFilter.value;
         };
 
         //Set the table of conversions for filters and mongo filters 
+        
+        //Value modifiers        
+        let likeModifier = value => { return  '.*' + value + '.*'}
+        
         let configConvesions : Array<{ operators : Array<string>, mongoOperator?: string, filterTypes?: Array<string>, valueModifier? : (v) => any }> =
         [
             { operators: ['=', 'eq'] },
@@ -568,13 +636,13 @@ class EMSession extends HcSession
             { operators: ['<=', 'lte'], mongoOperator: '$lte', filterTypes: ['Number', 'Date'] },
             { operators: ['>', 'gt'], mongoOperator: '$gt', filterTypes: ['Number', 'Date'] },
             { operators: ['<', 'lt'], mongoOperator: '$lt', filterTypes: ['Number', 'Date'] },
-            { operators: ['lk'], mongoOperator: '$regex', filterTypes: ['String'], valueModifier: (v) => { return  '.*' + v + '.*'} }
+            { operators: ['lk'], mongoOperator: '$regex', filterTypes: ['String'], valueModifier: likeModifier }
         ];
 
         //Make the conversion 
         let confIndex = -1;
         
-        let conf = configConvesions.find( cc => cc.operators.find( o  => o == f.operator) != null);
+        let conf = configConvesions.find( cc => cc.operators.find( o  => o == sessionFilter.operator) != null);
         if (conf != null)
         {
             valueFilter = conf.valueModifier != null ? conf.valueModifier(valueFilter) : valueFilter;
@@ -591,10 +659,10 @@ class EMSession extends HcSession
                 return { err: false, value };
             }                
             else
-                return { err: true, message: `It is not possible to apply the the operator "${f.operator}" to the property "${persistentName}" because it is of type "${propertyType}"` };
+                return { err: true, message: `It is not possible to apply the the operator "${sessionFilter.operator}" to the property "${persistentName}" because it is of type "${propertyType}"` };
         }
         else
-            return { err: true, message: `Not valid operator ${f.operator} for filtering`};
+            return { err: true, message: `Not valid operator ${sessionFilter.operator} for filtering`};
     }
 
     private resolveToMongoSorting (entityName : string, sorting? : Array<EMSessionSort>) : { error : boolean, sorting?: any, message? : string }
@@ -700,8 +768,50 @@ class EMSession extends HcSession
 
 class EMSessionError
 {
-    constructor (public error : any, public message : string )
-    { }
+    //#region Properties
+
+    private _code : number;
+    private _error : any;
+    private _message: string;
+    private _isHandled : boolean;
+
+    //#endregion
+
+    //#region Methods
+    
+    constructor (error : any, message : string ) 
+    { 
+        this._error = error;
+        this._message = message;
+
+        this._code = 500;
+    }    
+
+    setAsHandledError( code : number, message : string) : void
+    {
+        this._code = code;
+        this._message = message;
+
+        this._isHandled = true;
+    }
+
+    //#endregion
+
+    //#region Accessors
+    
+    get error()
+    { return this._error; }
+    
+    get message()
+    { return this._message; }
+    
+    get code()
+    { return this._code; }
+    
+    get isHandled()
+    { return this._isHandled; }
+    
+    //#endregion
 }
 
 interface EMSessionFilter
@@ -737,6 +847,18 @@ interface ListOptions
     take? : number, 
     sorting? : Array<EMSessionSort>,
     mongoFilters? : any 
+}
+
+interface ListDocsResultDetails<TDoc extends EntityDocument>
+{ 
+    docs:  Array<TDoc>,
+    details? : { total?: number, skip?: number, take?: number }
+}
+
+interface ListEntitiesResultDetails<TEntity extends EMEntity>
+{ 
+    entities: Array<TEntity>
+    details? : { total?: number, skip?: number, take?: number }
 }
 
 export { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort, ListOptions }
