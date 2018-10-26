@@ -6,6 +6,7 @@ import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
 import { AccessorInfo } from '../../hc-core/hcMetaData/hcMetaData';
+import { EMServiceSession } from '../emServiceSession/emServiceSession';
 
 class IExpositionDetail
 {
@@ -18,8 +19,8 @@ class EMRouterManager {
     
     //#regrion Properties (Fields)
     
-    private _session : EMSession;
-    private _appInstance : express.Application;
+    private _serviceSession : EMServiceSession;
+    private _expressAppInstance : express.Application;
     private _routers : Array<IExpositionDetail>;
 
     //#endregion
@@ -27,10 +28,10 @@ class EMRouterManager {
 
     //#regrion Methods
     
-    constructor (session : EMSession, appInstance : express.Application)
+    constructor (serviceSession : EMServiceSession, exrpressAppInstance : express.Application)
     {
-        this._session = session;
-        this._appInstance = appInstance;
+        this._serviceSession = serviceSession;
+        this._expressAppInstance = exrpressAppInstance;
         this._routers = new Array<IExpositionDetail>();
     }
 
@@ -50,7 +51,7 @@ class EMRouterManager {
         
         entityController.createRoutes(this);
         this._routers.push( { entityName : entityName, controller : entityController, basePath } );
-        this._appInstance.use('/' + basePath, entityController.router);
+        this._expressAppInstance.use('/' + basePath, entityController.router);
     }
 
     exposeEnumeration( name: string, enumerator : any ) : void;
@@ -81,7 +82,7 @@ class EMRouterManager {
         }
 
         newController.createRoutes();
-        this._appInstance.use('/'+ basePath, newController.router);
+        this._expressAppInstance.use('/'+ basePath, newController.router);
         this._routers.push( { entityName : name, controller: newController, basePath }) ;
     }
 
@@ -232,14 +233,14 @@ class EMRouterManager {
 
     //#regrion Accessors (Properties)
     
-    get session () : EMSession
+    get serviceSession () : EMServiceSession
     {
-        return this._session;
+        return this._serviceSession;
     }
 
-    get appInstance () : express.Application
+    get expressAppInstance () : express.Application
     {
-        return this._appInstance;
+        return this._expressAppInstance;
     }
 
     //#endregion

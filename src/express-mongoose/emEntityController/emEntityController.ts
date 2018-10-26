@@ -15,11 +15,10 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     //#region Properties (Fields)
 
     private _entityName : string;
-    private _session : EMSession;
     private _responseWrapper : EMResponseWrapper<TDocument, TEntity>;
     private _useEntities : boolean;
     private _resourceName : string;
-
+    private _routerManager : EMRouterManager;
     protected _router : express.Router;
     
     //#endregion
@@ -27,338 +26,251 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     //#region Methods
 
-    constructor ( entityName : string, session : EMSession);
-    constructor ( entityName : string, session : EMSession, resourceName : string);
-    constructor ( entityName : string, session : EMSession, resourceName? : string)
+
+    //#region construction methods
+    
+    constructor ( entityName : string, routerManager : EMRouterManager );
+    constructor ( entityName : string, routerManager : EMRouterManager, options : { resourceName? : string } );
+    constructor ( entityName : string, routerManager : EMRouterManager, options? : { resourceName? : string } )
     {
         this._entityName = entityName;
-        this._session = session;
+        this._routerManager = routerManager;
         this._useEntities = true;
         this._responseWrapper = new EMResponseWrapper(session);
-        this._resourceName = resourceName || entityName.toLowerCase();
+        this._resourceName = options && options.resourceName ?  options.resourceName : entityName.toLowerCase();
 
         this._router = express.Router();
+        this.createRoutes();
     }
 
-    retrieve ( request : express.Request, response : express.Response) : void
+    private createRoutes( ) : void
     {
-        //Manage query params options
-        let queryParamsConversion = this.validateQueryParams(request, response);
-
-        if(queryParamsConversion.error)
-            return;
-            
-        let queryParams = queryParamsConversion.queryParams;
+        // It is important to consider the order of the class methods setted for the HTTP Methods 
+        this._router.get('/' + this._resourceName, ( request, response, next )=> this.retrieve(request, response) );
+        this._router.get('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveComplexRetrieveMethod(request, response, next));
         
-        let filterParam = queryParams.filter( qp => qp.paramName == 'filter');
-        let filters = filterParam.length > 0 ? filterParam.map( qp => <Filter>qp) : null; 
+        this._router.post('/' + this._resourceName, (request, response, next) => this.create(request, response) );
+        this._router.post('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveComplexCreateMethod(request, response, next));
         
-        let sortParam = queryParams.filter( qp => qp.paramName == 'sort');
-        let sorting = sortParam.length > 0 ? sortParam.map( qp => qp as Sort ) : null;
+        this._router.put('/' + this._resourceName, (request, response, next) => this.update(request, response) );
+        this._router.put('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveComplexUpdateMethod(request, response, next));
+        
+        this._router.delete('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveComplexDeleteMethod(request, response, next));
+    }
 
-        let skipParam = queryParams.find( qp => qp.paramName == 'skip');
-        let skip = skipParam != null ? parseInt(skipParam.paramValue) : null;
 
-        let takeParam = queryParams.find( qp => qp.paramName == 'take');
-        let take = takeParam != null ? parseInt(takeParam.paramValue) : 100; // Retrive limit protector
+    //#endregion
 
-        //Call the execution of mongo query inside EMSession
-        if (this._useEntities)
-            this._session.listEntities<TEntity, TDocument>(this._entityName, { filters, skip, take, sorting } ).then(
-                results => { 
-                    let det = results.details || {};
-                    let options = { total : det.total, skip : det.skip, take : det.take };
-                    this._responseWrapper.entityCollection(response, results.entities, options );
-                },
-                error => this._responseWrapper.exception(response, error)
-            ).catch( error => this._responseWrapper.exception( response, error) );
-        else
-            this._session.listDocuments<TDocument>(this._entityName, { filters, skip, take, sorting } ).then(
-                results => { 
-                    let det = results.details || {};
-                    let options = { total : det.total, skip : det.skip, take : det.take };
-                    this._responseWrapper.documentCollection(response, results.docs, options );
-                },
-                error => this._responseWrapper.exception(response, error)
-            ).catch( error => this._responseWrapper.exception( response, error) );
+    
+    //#region On request/response session  methods
+    
+    retrieve ( request : express.Request, response : express.Response ) : void
+    {
+        this.createSession(request, response).then( 
+            session => { if (session) {
+
+                //Manage query params options
+                let queryParamsConversion = this.validateQueryParams(request, response);
+
+                if(queryParamsConversion.error)
+                {
+                    this._responseWrapper.handledError( response, 'BAD QUERY PARAM', 400, { details: queryParamsConversion.error } );
+                    return;
+                }            
+                
+                let queryParams = queryParamsConversion.queryParams;
+                
+                let filterParam = queryParams.filter( qp => qp.paramName == 'filter');
+                let filters = filterParam.length > 0 ? filterParam.map( qp => <Filter>qp) : null; 
+                
+                let sortParam = queryParams.filter( qp => qp.paramName == 'sort');
+                let sorting = sortParam.length > 0 ? sortParam.map( qp => qp as Sort ) : null;
+
+                let skipParam = queryParams.find( qp => qp.paramName == 'skip');
+                let skip = skipParam != null ? parseInt(skipParam.paramValue) : null;
+
+                let takeParam = queryParams.find( qp => qp.paramName == 'take');
+                let take = takeParam != null ? parseInt(takeParam.paramValue) : 100; // Retrive limit protector
+
+                //Call the execution of mongo query inside EMSession
+                if (this._useEntities)
+                    session.listEntities<TEntity, TDocument>(this._entityName, { filters, skip, take, sorting } ).then(
+                        results => { 
+                            let det = results.details || {};
+                            let options = { total : det.total, skip : det.skip, take : det.take };
+                            this._responseWrapper.entityCollection(response, results.entities, options );
+                        },
+                        error => this._responseWrapper.exception(response, error)
+                    ).catch( error => this._responseWrapper.exception( response, error) );
+                else
+                    this.session.listDocuments<TDocument>(this._entityName, { filters, skip, take, sorting } ).then(
+                        results => { 
+                            let det = results.details || {};
+                            let options = { total : det.total, skip : det.skip, take : det.take };
+                            this._responseWrapper.documentCollection(response, results.docs, options );
+                        },
+                        error => this._responseWrapper.exception(response, error)
+                    ).catch( error => this._responseWrapper.exception( response, error) );
+
+            }}
+        );
     }
 
     retrieveById ( request : express.Request, response : express.Response ) : void
     retrieveById ( request : express.Request, response : express.Response, options : { paramName? : string } ) : void
     retrieveById ( request : express.Request, response : express.Response, options? : { paramName? : string } ) : void
     {
-        let paramName = options && options.paramName ? options.paramName : '_id';
+        this.createSession(request, response).then( 
+            session => { if (session) {
 
-        if (this._useEntities)
-            this._session.findEntity<TEntity, TDocument>(this.entityInfo, request.params[paramName]).then(
-                entityResult => this._responseWrapper.entity(response, entityResult),
-                error => this._responseWrapper.exception(response, error)
-            ).catch( error => this._responseWrapper.exception( response, error) );            
-        else
-            this._session.findDocument<TDocument>(this._entityName, request.params[paramName]).then(
-                docResult => this._responseWrapper.document(response, docResult),
-                error => this._responseWrapper.exception(response, error)
-            ).catch( error => this._responseWrapper.exception( response, error) ); 
+            let paramName = options && options.paramName ? options.paramName : '_id';
+
+            if (this._useEntities)
+                this.session.findEntity<TEntity, TDocument>(this.entityInfo, request.params[paramName]).then(
+                    entityResult => this._responseWrapper.entity(response, entityResult),
+                    error => this._responseWrapper.exception(response, error)
+                ).catch( error => this._responseWrapper.exception( response, error) );            
+            else
+                this.session.findDocument<TDocument>(this._entityName, request.params[paramName]).then(
+                    docResult => this._responseWrapper.document(response, docResult),
+                    error => this._responseWrapper.exception(response, error)
+                ).catch( error => this._responseWrapper.exception( response, error) ); 
+            
+            }}
+        );
     }
 
     retriveMetadata( request : express.Request, response : express.Response, next : express.NextFunction)
     {
-        this._responseWrapper.object(response, this._session.getMetadataToExpose(this._entityName));
+        this.createSession(request, response).then( 
+            session => { if (session) {
+
+                this._responseWrapper.object(response, this.session.getMetadataToExpose(this._entityName));
+            
+            }}
+        );
     }
 
     create ( request : express.Request, response : express.Response ) : void
     {
-        if (!this._useEntities)
-        {
-            this._session.createDocument(this.entityName, <TDocument>request.body).then(
-                result => this._responseWrapper.document(response, result, { status: HttpStatus.CREATED }),
-                error => this._responseWrapper.exception(response, error)
-            ).catch( error => this._responseWrapper.exception( response, error) );
-        }
-        else
-            this.save(request, response);
+        this.createSession(request, response).then( 
+            session => { if (session) {
+
+                if (!this._useEntities)
+                {
+                    this._session.createDocument(this.entityName, <TDocument>request.body).then(
+                        result => this._responseWrapper.document(response, result, { status: HttpStatus.CREATED }),
+                        error => this._responseWrapper.exception(response, error)
+                    ).catch( error => this._responseWrapper.exception( response, error) );
+                }
+                else
+                    this.save(session);
+
+            }}
+        );
     }
 
     update ( request : express.Request, response : express.Response ) : void
     {
-        if (!this._useEntities)
-        {
-            this._session.updateDocument(this._entityName, <TDocument>request.body).then(
-                result => this._responseWrapper.document(response, result, { status: HttpStatus.ACCEPTED }),
-                error => this._responseWrapper.exception(response, error)
-            ).catch( error => this._responseWrapper.exception( response, error) );
-        }
-        else
-             this.save(request, response);
+        this.createSession(request, response).then( 
+            session => { if (session) {
+
+                if (!this._useEntities)
+                {
+                    session.updateDocument(this._entityName, <TDocument>request.body).then(
+                        result => this._responseWrapper.document(response, result, { status: HttpStatus.ACCEPTED }),
+                        error => this._responseWrapper.exception(response, error)
+                    ).catch( error => this._responseWrapper.exception( response, error) );
+                }
+                else
+                    this.save(session);
+            }}
+        );
     }
 
     delete ( request : express.Request, response : express.Response ) : void
     {
-        let id = request.params._id;
-        let responseOk = () => this._responseWrapper.object( response, {'Delete status': 'register deleted '} );
-        let responseError = error => this._responseWrapper.exception(response, responseError);
+        this.createSession(request, response).then( 
+            session => { if (session) {
 
-        if (this._useEntities)
-        {   
-            this._session.findEntity(this.entityInfo, id).then(
-                entity => {
-                    entity.delete().then( movFlow => {
-                        if (movFlow.continue)
-                            responseOk();
-                        else
-                            this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
-                    })
-                },
-                error => this._responseWrapper.exception( response, error)    
-            ).catch( error => this._responseWrapper.exception( response, error) );
-        }
-        else
-        {
-            this._session.findDocument<TDocument>(this._entityName, request.params._id).then(
-                docResult => this._session.deleteDocument(this._entityName, docResult).then( responseOk, responseError ),
-                error => this._responseWrapper.exception(response, error)            
-            ).catch( error => this._responseWrapper.exception( response, error) );
-        }
+                let id = request.params._id;
+                let responseOk = () => this._responseWrapper.object( response, {'Delete status': 'register deleted '} );
+                let responseError = error => this._responseWrapper.exception(response, responseError);
+
+                if (this._useEntities)
+                {   
+                    session.findEntity(this.entityInfo, id).then(
+                        entity => {
+                            entity.delete().then( movFlow => {
+                                if (movFlow.continue)
+                                    responseOk();
+                                else
+                                    this._responseWrapper.logicError(response, movFlow.message, movFlow.details);
+                            })
+                        },
+                        error => this._responseWrapper.exception( response, error)    
+                    ).catch( error => this._responseWrapper.exception( response, error) );
+                }
+                else
+                {
+                    session.findDocument<TDocument>(this._entityName, request.params._id).then(
+                        docResult => session.deleteDocument(this._entityName, docResult).then( responseOk, responseError ),
+                        error => this._responseWrapper.exception(response, error)            
+                    ).catch( error => this._responseWrapper.exception( response, error) );
+                }
+            }}
+        );
     }
-
-    private save( request : express.Request, response : express.Response) : void
+        
+    private save( session : EMSession ) : void
     {
-        this.validateDocumentRequest(request, response).then( (validation : RequestValidation<TDocument> ) => {
+        this.validateDocumentRequest(session.request, session.response).then( (validation : RequestValidation<TDocument> ) => {
             if (validation)
             {
-                this._session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, validation.document, { changes: validation.changes } ).then(
+                session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, validation.document, { changes: validation.changes } ).then(
                     entity => {
                         entity.save().then(
                             movFlow => {
                                 if (movFlow.continue)
-                                    this._responseWrapper.entity(response, entity, { devData: validation.devData });
+                                    this._responseWrapper.entity(session.response, entity, { devData: validation.devData });
                                 else
-                                    this._responseWrapper.logicError(response, movFlow.message, { errorDetails: movFlow.details,  devData: validation.devData });         
+                                    this._responseWrapper.logicError(session.response, movFlow.message, { errorDetails: movFlow.details,  devData: validation.devData });         
                             },
-                            error => this._responseWrapper.exception(response, error)
-                        ).catch( error => this._responseWrapper.exception( response, error) );
+                            error => this._responseWrapper.exception(session.response, error)
+                        ).catch( error => this._responseWrapper.exception(session.response, error) );
                     },
-                    error => this._responseWrapper.exception( response, error)
-                ).catch( error => this._responseWrapper.exception( response, error) );
+                    error => this._responseWrapper.exception(session.response, error)
+                ).catch( error => this._responseWrapper.exception(session.response, error) );
             }
-        }).catch( error => this._responseWrapper.exception( response, error) );
+        }).catch( error => this._responseWrapper.exception(session.response, error) );
     }
 
-    createRoutes( routerManager : EMRouterManager) : void
-    {
-        // It is important to consider the order of the class methods setted for the HTTP Methods 
-        this._router.get('/' + this._resourceName, ( request, response, next )=> this.retrieve(request, response) );
-        this._router.get('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveComplexRetrieveMethod(request, response, next, routerManager));
-        
-        this._router.post('/' + this._resourceName, (request, response, next) => this.create(request, response) );
-        this._router.post('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveComplexCreateMethod(request, response, next, routerManager));
-        
-        this._router.put('/' + this._resourceName, (request, response, next) => this.update(request, response) );
-        this._router.put('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveComplexUpdateMethod(request, response, next, routerManager));
-        
-        this._router.delete('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveComplexDeleteMethod(request, response, next, routerManager));
-    }
+    //#endregion
 
 
-    private getArrayPath( request : express.Request) : Array<string>
+    //#region Utility methods
+    
+    private createSession( request : express.Request, response : express.Response ) : Promise<EMSession | void>
     {
-        let arrayPath = request.path.split('/');
-        arrayPath.splice(0,2);
-        return arrayPath;
-    }
+        let responseWithException = error => {
+            let e = this._routerManager.serviceSession.createError( error, 'Error on create session for the request' );
+            this._responseWrapper.exception( response, e );
+        }
 
-    createMappingPath(arrayPath : Array<string>) : { baseTypeName : string, instanceId : string , endAccessorInfo : AccessorInfo, pathOverInstance : Array<string> } 
-    {
-        if (arrayPath.length > 1)
-        {
-            let baseTypeName = this._entityName;
-            let instanceId = arrayPath[0];
-               
-            let endAccessorInfo : AccessorInfo;            
-            let pathOverInstance = new Array<string>();
+        return new Promise<EMSession>( (resolve, reject ) => {
             
-            let accesor = this.getExtensionAccessors(baseTypeName).find( ea => ea.activator.resourcePath == arrayPath[1]);
+            let newSession = new EMSession( this._routerManager.serviceSession, request, response );
 
-            if (accesor)
-            {
-                endAccessorInfo = accesor;
-                pathOverInstance.push(accesor.name);
+            resolve( newSession );
 
-                let i = 2;
-                while (i < arrayPath.length)
-                {
-                    let newAccessorInPath = this.getExtensionAccessors(accesor.className).find( ea => ea.activator.resourcePath == arrayPath[i] );
-
-                    if (newAccessorInPath)
-                    {   
-                        pathOverInstance.push(newAccessorInPath.name);  
-                        endAccessorInfo = newAccessorInPath;
-
-                        if (accesor.type == 'Array' && accesor.activator.bindingType == MemberBindingType.Reference)
-                        {
-                            baseTypeName = accesor.className;
-                            instanceId = arrayPath[i-1];
-                            endAccessorInfo =newAccessorInPath;
-                            pathOverInstance = [ newAccessorInPath.name ];
-                        }
-
-                        accesor = newAccessorInPath;
-                    }
-                    else
-                        pathOverInstance.push(arrayPath[i]);
-                    
-                    i++;
-                }
-                
-                return { baseTypeName, instanceId, endAccessorInfo, pathOverInstance };
-            }
-            else
-                null;
-
-        }
-        else
-            return null;
-    }
-
-
-    resolveComplexRetrieveMethod( request : express.Request, response : express.Response, next : express.NextFunction, routerManager : EMRouterManager ) : void
-    {
-        let arrayPath = this.getArrayPath(request);
-
-        if (arrayPath.length > 1)
-        {
-            let mappingPath = this.createMappingPath(arrayPath);
-
-            if (mappingPath)
-                routerManager.resolveComplexRetrieve(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
-            else
-                next();            
-        }
-        else
-        {
-            switch ( arrayPath[0] )
-            {
-                case 'metadata':
-                    this.retriveMetadata(request, response, next);
-                    break;
-
-                default:
-                    this.retrieveById(request, response, { paramName: 'path' });
-                    break;
-            }
-        }
-    }
-
-    resolveComplexCreateMethod( request : express.Request, response : express.Response, next : express.NextFunction, routerManager : EMRouterManager ) : void
-    {
-        let arrayPath = this.getArrayPath(request);
-        let mappingPath = this.createMappingPath(arrayPath);
-
-        if (mappingPath)
-            routerManager.resolveComplexCreate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
-        else
-            next();            
-    }
-
-    resolveComplexUpdateMethod( request : express.Request, response : express.Response, next : express.NextFunction, routerManager : EMRouterManager ) : void
-    {
-        let arrayPath = this.getArrayPath(request);
-        let mappingPath = this.createMappingPath(arrayPath);
-
-        if (mappingPath)
-            routerManager.resolveComplexUpdate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
-        else
-            next();            
-    }
-
-    resolveComplexDeleteMethod( request : express.Request, response : express.Response, next : express.NextFunction, routerManager : EMRouterManager ) : void
-    {
-        let arrayPath = this.getArrayPath(request);
-        
-        if (arrayPath.length > 1)
-        {
-            let mappingPath = this.createMappingPath(arrayPath);
-
-            if (mappingPath)
-                routerManager.resolveComplexDelete(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
-            else
-                next();            
-        }
-        else
-            this.delete(request, response);
-    }
-
-
-    findEntity( id : string ) : Promise<TEntity>
-    {
-        return this.session.findEntity<TEntity,TDocument>(this.entityInfo, id );
-    }
-
-    createInstance( request : express.Request, response : express.Response ) : Promise<TEntity>
-    {
-        return new Promise<TEntity>( (resolve, reject) => {
-            this.validateDocumentRequest(request, response).then( (validation : RequestValidation<TDocument> ) => {
-                if (validation)
-                {
-                    this._session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, validation.document ).then(
-                        entity => resolve(entity),
-                        error => this._responseWrapper.exception(response, error)
-                    );
-                }
-            });
-        });
-    }
-
-    private getExtensionAccessors ( entityName : string ) : Array<AccessorInfo>
-    {
-        return this.session
-                    .getInfo(entityName)
-                    .getAllMembers()
-                    .filter( memberInfo => memberInfo instanceof AccessorInfo && (memberInfo as AccessorInfo).activator != null && (memberInfo as AccessorInfo).activator.extendRoute == true )
-                    .map( memberInfo => memberInfo as AccessorInfo );
+        })
+        .then(
+            session => session,
+            error => responseWithException(error)
+        )        
+        .catch( error => responseWithException(error) );
     }
     
-
     private validateQueryParams( request : express.Request, response : express.Response ) : { queryParams?: Array<QueryParam>, error : boolean }
     {
         let queryParams = new Array<QueryParam>();
@@ -502,8 +414,172 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         );
     }    
 
+    //#endregion
+    
+    
+    //#region On complex request/response session methods
+
+    private getArrayPath( request : express.Request) : Array<string>
+    {
+        let arrayPath = request.path.split('/');
+        arrayPath.splice(0,2);
+        return arrayPath;
+    }
+
+    createMappingPath(arrayPath : Array<string>) : { baseTypeName : string, instanceId : string , endAccessorInfo : AccessorInfo, pathOverInstance : Array<string> } 
+    {
+        if (arrayPath.length > 1)
+        {
+            let baseTypeName = this._entityName;
+            let instanceId = arrayPath[0];
+               
+            let endAccessorInfo : AccessorInfo;            
+            let pathOverInstance = new Array<string>();
+            
+            let accesor = this.getExtensionAccessors(baseTypeName).find( ea => ea.activator.resourcePath == arrayPath[1]);
+
+            if (accesor)
+            {
+                endAccessorInfo = accesor;
+                pathOverInstance.push(accesor.name);
+
+                let i = 2;
+                while (i < arrayPath.length)
+                {
+                    let newAccessorInPath = this.getExtensionAccessors(accesor.className).find( ea => ea.activator.resourcePath == arrayPath[i] );
+
+                    if (newAccessorInPath)
+                    {   
+                        pathOverInstance.push(newAccessorInPath.name);  
+                        endAccessorInfo = newAccessorInPath;
+
+                        if (accesor.type == 'Array' && accesor.activator.bindingType == MemberBindingType.Reference)
+                        {
+                            baseTypeName = accesor.className;
+                            instanceId = arrayPath[i-1];
+                            endAccessorInfo =newAccessorInPath;
+                            pathOverInstance = [ newAccessorInPath.name ];
+                        }
+
+                        accesor = newAccessorInPath;
+                    }
+                    else
+                        pathOverInstance.push(arrayPath[i]);
+                    
+                    i++;
+                }
+                
+                return { baseTypeName, instanceId, endAccessorInfo, pathOverInstance };
+            }
+            else
+                null;
+
+        }
+        else
+            return null;
+    }
 
 
+    resolveComplexRetrieveMethod( request : express.Request, response : express.Response, next : express.NextFunction, routerManager : EMRouterManager ) : void
+    {
+        let arrayPath = this.getArrayPath(request);
+
+        if (arrayPath.length > 1)
+        {
+            let mappingPath = this.createMappingPath(arrayPath);
+
+            if (mappingPath)
+                routerManager.resolveComplexRetrieve(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
+            else
+                next();            
+        }
+        else
+        {
+            switch ( arrayPath[0] )
+            {
+                case 'metadata':
+                    this.retriveMetadata(request, response, next);
+                    break;
+
+                default:
+                    this.retrieveById(request, response, { paramName: 'path' });
+                    break;
+            }
+        }
+    }
+
+    resolveComplexCreateMethod( request : express.Request, response : express.Response, next : express.NextFunction ) : void
+    {
+        let arrayPath = this.getArrayPath(request);
+        let mappingPath = this.createMappingPath(arrayPath);
+
+        if (mappingPath)
+            this._routerManager.resolveComplexCreate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
+        else
+            next();            
+    }
+
+    resolveComplexUpdateMethod( request : express.Request, response : express.Response, next : express.NextFunction ) : void
+    {
+        let arrayPath = this.getArrayPath(request);
+        let mappingPath = this.createMappingPath(arrayPath);
+
+        if (mappingPath)
+            this._routerManager.resolveComplexUpdate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
+        else
+            next();            
+    }
+
+    resolveComplexDeleteMethod( request : express.Request, response : express.Response, next : express.NextFunction ) : void
+    {
+        let arrayPath = this.getArrayPath(request);
+        
+        if (arrayPath.length > 1)
+        {
+            let mappingPath = this.createMappingPath(arrayPath);
+
+            if (mappingPath)
+                this._routerManager.resolveComplexDelete(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
+            else
+                next();            
+        }
+        else
+            this.delete(request, response);
+    }
+
+
+    findEntity(session : EMSession, id : string ) : Promise<TEntity>
+    {
+        return session.findEntity<TEntity,TDocument>(this.entityInfo, id );
+    }
+
+    createInstance( session : EMSession ) : Promise<TEntity>
+    {
+        return new Promise<TEntity>( (resolve, reject) => {
+            this.validateDocumentRequest(session.request, session.response).then( (validation : RequestValidation<TDocument> ) => {
+                if (validation)
+                {
+                    session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, validation.document ).then(
+                        entity => resolve(entity),
+                        error => this._responseWrapper.exception(session.response, error)
+                    );
+                }
+            });
+        });
+    }
+
+    private getExtensionAccessors ( entityName : string ) : Array<AccessorInfo>
+    {
+        return this.session
+                    .getInfo(entityName)
+                    .getAllMembers()
+                    .filter( memberInfo => memberInfo instanceof AccessorInfo && (memberInfo as AccessorInfo).activator != null && (memberInfo as AccessorInfo).activator.extendRoute == true )
+                    .map( memberInfo => memberInfo as AccessorInfo );
+    }
+
+    //#endregion
+
+    
     //#endregion
 
 
@@ -517,9 +593,8 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     get entityName ()
     { return this._entityName; }
-    get session ()
-    { return this. _session; }
-
+    
+    
     get useEntities ()
     { return this._useEntities; }
     set useEntities (value)

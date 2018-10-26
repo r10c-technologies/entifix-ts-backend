@@ -8,10 +8,10 @@ import crypto = require ('crypto');
  
 
 //Core Framework
-import { EMSession } from '../emSession/emSession';
 import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EntifixApplicationModule, IEntifixApplicationModuleModel } from './entifix-application-module';
+import { EMServiceSession } from '../emServiceSession/emServiceSession';
 
 interface EntifixAppConfig
 { 
@@ -33,7 +33,7 @@ abstract class EntifixApplication
     //#region Properties
 
     private _expressApp : express.Application;
-    private _session : EMSession;
+    private _serviceSession : EMServiceSession;
     private _routerManager : EMRouterManager;
 
     private _authChannel : amqp.Channel;
@@ -51,12 +51,12 @@ abstract class EntifixApplication
         //Create express instance app that is going to be used in the Http Server
         this.createExpressApp(port);
         
-        //Create an connect the entifix session.
+        //Create and connect the entifix session.
         //This function is async and it is possbile to override "onSessionCreated" method to modify the behavior when the session will be ready.
         // By default "onSessionCreated" do:
         // 1 => invoke "registerEntities" and "exposeEntities" methods. 
         // 2 => If the AMQP Service is enabled, the service will connect to broker depending of configurations. Main Service listen for modules atached, and no main service atach itself as a module.
-        this.createEntifixSession();
+        this.createServiceSession();
         
         //Sync functions for express middleware
         //Authentication, Cors, Healthcheck...
@@ -78,17 +78,17 @@ abstract class EntifixApplication
         this._expressApp.set('port', port);
     }
 
-    private createEntifixSession( ) : void
+    private createServiceSession( ) : void
     {
-        this._session = new EMSession( this.serviceConfiguration.mongoService, this.serviceConfiguration.amqpService );
+        this._serviceSession = new EMServiceSession(this.serviceConfiguration.mongoService, this.serviceConfiguration.amqpService );
         this.configSessionAMQPConneciton();
         if (this.serviceConfiguration.devMode)
-            this._session.enableDevMode();
+            this._serviceSession.enableDevMode();
 
-        this._session.connect().then( ()=> this.onSessionCreated() );
+        this._serviceSession.connect().then( ()=> this.onServiceSessionCreated() );
     }
 
-    private createMiddlewareFunctions() : void
+    protected createMiddlewareFunctions() : void
     {
         //JSON parser
         this._expressApp.use( bodyParser.json() );
@@ -137,7 +137,7 @@ abstract class EntifixApplication
         let protectRoutes = this.serviceConfiguration.protectRoutes != null ? this.serviceConfiguration.protectRoutes.enable : true;
         let devMode = this.serviceConfiguration.devMode != null ? this.serviceConfiguration.devMode : false; 
         if (!protectRoutes && devMode)
-            this._session.throwInfo('Routes unprotected');
+            this._serviceSession.throwInfo('Routes unprotected');
         else
             this.protectRoutes();         
     }
@@ -174,17 +174,20 @@ abstract class EntifixApplication
         });
     } 
 
-    protected onSessionCreated() : void
+    protected onServiceSessionCreated() : void
     {
         this.registerEntities();
+     
+        if (this.serviceConfiguration.devMode)
+            this._serviceSession.createDeveloperModels();
         
-        this._routerManager = new EMRouterManager( this._session, this._expressApp ); 
+        this._routerManager = new EMRouterManager( this._serviceSession, this._expressApp ); 
         this.exposeEntities();
 
         if ( this.serviceConfiguration.amqpService)
         {
             if (this.isMainService)
-                this._session.brokerChannel.consume( 'modules_to_atach', message => this.saveModuleAtached(message));
+                this._serviceSession.brokerChannel.consume( 'modules_to_atach', message => this.saveModuleAtached(message));
              else
                 this.atachModule( 'main_events', 'auth.module_atach' );
                 
@@ -195,7 +198,7 @@ abstract class EntifixApplication
         {
             this._authCacheClient = redis.createClient({ host: this.serviceConfiguration.authCacheService, port : this.serviceConfiguration.authCacheServicePort });
 
-            this._authCacheClient.on( "error ", err => this._session.throwException(err));
+            this._authCacheClient.on( "error ", err => this._serviceSession.throwException(err));
         }
     }
 
@@ -203,12 +206,12 @@ abstract class EntifixApplication
     {
         if (this.serviceConfiguration.amqpService)
         {
-            this._session.amqpExchangesDescription = [ 
+            this._serviceSession.amqpExchangesDescription = [ 
                 { name: 'main_events', type: 'topic', durable: false }
             ];
             
             if (this.isMainService)
-                this._session.amqpQueueBindsDescription = [ { name: 'modules_to_atach', exchangeName: 'main_events', routingKey: 'auth.module_atach', exclusive: true  } ];
+                this._serviceSession.amqpQueueBindsDescription = [ { name: 'modules_to_atach', exchangeName: 'main_events', routingKey: 'auth.module_atach', exclusive: true  } ];
         }
     }
 
@@ -225,14 +228,14 @@ abstract class EntifixApplication
                         let newModule = new EntifixApplicationModule(this._session);
                         newModule.name = moduleAtached.serviceModuleName;
                         newModule.resources = moduleAtached.resources;
-                        newModule.save().then( () => this._session.brokerChannel.ack(message) );
+                        newModule.save().then( () => this._serviceSession.brokerChannel.ack(message) );
                     }
                     else
                     {
                         let module = new EntifixApplicationModule(this._session, res[0]);
                         module.name = moduleAtached.serviceModuleName;
                         module.resources = moduleAtached.resources;
-                        module.save().then( () => this._session.brokerChannel.ack(message) );
+                        module.save().then( () => this._serviceSession.brokerChannel.ack(message) );
                     }
                 }
             }
@@ -251,7 +254,7 @@ abstract class EntifixApplication
 
     protected createRPCAuthorizationDynamic( ) : void
     {
-        this._session.brokerConnection.createChannel( ( err, authChannel) => {
+        this._serviceSession.brokerConnection.createChannel( ( err, authChannel) => {
             if (!err)
             {
                 this._authChannel = authChannel;
@@ -287,12 +290,12 @@ abstract class EntifixApplication
                         if (!err)
                             this._assertAuthQueue = assertedQueue;
                         else
-                            this._session.throwException("Cannot create Auth Queue");
+                            this._serviceSession.throwException("Cannot create Auth Queue");
                     });
                 }
             }
             else
-                this._session.throwException('Cannot create authorization channel');
+                this._serviceSession.throwException('Cannot create authorization channel');
         });
     }
 
@@ -408,10 +411,6 @@ abstract class EntifixApplication
     {
         return this.serviceConfiguration.isMainService != null ? this.serviceConfiguration.isMainService : false;
     }
-
-    protected get session()
-    { return this._session; }
-
     public get expressApp()
     { return this._expressApp }
 

@@ -5,7 +5,6 @@ abstract class HcSession
 {
     //#region Properties (Fields)
 
-    private _entitiesInfo : any[];
     
     //#endregion
 
@@ -13,17 +12,6 @@ abstract class HcSession
 
     //#region Methods
 
-    constructor ()
-    {
-        this._entitiesInfo = [];
-    }
-
-    abstract connect( ) : Promise<void>;
-    
-    protected addEntityInfo(entityInfo : any) : void
-    {
-        this.entitiesInfo.push(entityInfo);
-    }
 
     //#endregion
 
@@ -31,10 +19,6 @@ abstract class HcSession
 
     //#region Accessors (Properties)
 
-    get entitiesInfo () : any[]
-    {
-        return this._entitiesInfo;
-    }
     
     //#endregion
    

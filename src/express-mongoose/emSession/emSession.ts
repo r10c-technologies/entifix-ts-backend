@@ -1,156 +1,54 @@
 //CORE DEPENDENCIES
 import mongoose = require('mongoose');
 import amqp = require('amqplib/callback_api');
-import { MongooseDocument } from 'mongoose';
+import express = require ('express');
 
 //CORE FRAMEWORK
 import { HcSession } from '../../hc-core/hcSession/hcSession';
 import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType} from '../../hc-core/hcMetaData/hcMetaData';
-import { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription } from './amqpConnectionDynamic';
-import { EMQueryWrapper } from '../emUtilities/emUtilities';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
-import { Entity } from '../../hc-core/hcEntity/hcEntity';
-import { filter } from 'bluebird';
- 
+import { EMServiceSession } from '../emServiceSession/emServiceSession'; 
+
 class EMSession extends HcSession
 {
     //#region Properties (Fields)
 
-    //Connection instances
-    private _mongooseInstance : any;
-    private _mongooseConnection : mongoose.Connection;
-    private _brokerConnection : amqp.Connection;
-    private _brokerChannel : amqp.Channel;
-        
-    //Configuraion properties
-    private _urlMongoConnection : string;
-    private _urlAmqpConnection : string;
-    private _periodAmqpRetry;
-    private _limitAmqpRetry;
-    private _amqpExchangesDescription : Array<ExchangeDescription>;
-    private _amqpQueueBindsDescription : Array<QueueBindDescription>;
-    
-    // App Development
-    private _devMode : boolean;
-    
+    private _serviceSession: EMServiceSession;
+    private _request : express.Request;
+    private _response : express.Response;
+
+    private _systemOwner : string;
+
     //#endregion
 
 
 
     //#region Methods
 
-    constructor (mongoService : string);
-    constructor (mongoService : string, amqpService : string);
-    constructor (mongoService : string, amqpService? : string)
+    constructor( serviceSession : EMServiceSession, request : express.Request, response : express.Response )
     {
         super();
+    
+        this._serviceSession = serviceSession;
+        this._request = request;
+        this._response = response;
 
-        //Mongo Configuration
-        this._urlMongoConnection = 'mongodb://' + mongoService;
-
-        //AMQP Configuration
-        if (amqpService)
-        {
-            this._urlAmqpConnection = 'amqp://' + amqpService;
-        
-            //defaluts
-            this._limitAmqpRetry = 10;
-            this._periodAmqpRetry = 2000;
-        }
-    }
-
-
-    connect( ) : Promise<void>
-    {
-        let connectDb = () => { this._mongooseConnection = mongoose.createConnection(this._urlMongoConnection) };
-
-        if (this._urlAmqpConnection)
-        {
-            connectDb();
-            return this.atachToBroker();
-        }
-        else
-            return new Promise<void>( (resolve, reject) => {
-                connectDb();
-                resolve();
-            });
-            
     }
     
-    private atachToBroker () : Promise<void>
-    {        
-        return new Promise<void>( (resolve, reject) => {
-            AMQPConnectionDynamic.connect(this._urlAmqpConnection, { period: this._periodAmqpRetry, limit: this._limitAmqpRetry}).then(
-                connection => {
-                    this._brokerConnection = connection;
-                    AMQPConnectionDynamic.createExchangeAndQueues( connection, this._amqpExchangesDescription, this._amqpQueueBindsDescription ).then(
-                        channel => {
-                            this._brokerChannel = channel;
-                            resolve();
-                        },
-                        error => reject(error)
-                    );
-                }, 
-                error => reject(error)
-            );
-        });
-    }
-
-    
-
     getModel<T extends EntityDocument >(entityName : string) : mongoose.Model<T>
     {
-        return <mongoose.Model<T>>(this.entitiesInfo.find( e => e.name == entityName ).model);
-    }
-    
-    getInfo(entityName : string) : EntityInfo
-    {
-        return this.entitiesInfo.find( info => info.name == entityName ).info as EntityInfo;   
+        return this._serviceSession.getModel(entityName, this._systemOwner);
     }
 
-
-    //registerEntity<TDocument extends mongoose.Document, TEntity extends EMEntity>(entityName: string, structureSchema : Object, type: { new( session: EMSession, document : EntityDocument ) : TEntity} ) : void
-    registerEntity<TDocument extends mongoose.Document, TEntity extends EMEntity>( type: { new( session: EMSession, document : EntityDocument ) : TEntity }, entityInfo : EntityInfo ) : void
+    getInfo(entityName : string ) : EntityInfo
     {
-        //var info : EntityInfo = (<any>type).entityInfo; 
-        var structureSchema = entityInfo.getCompleteSchema();
-        var entityName = entityInfo.name;
+        return this._serviceSession.getInfo(entityName);
+    }
         
-        if (this.entitiesInfo.filter( e => e.name == entityName ).length == 0)
-        {
-            var schema : mongoose.Schema;
-            var model : mongoose.Model<TDocument>;
-            
-            //schema = <mongoose.Schema>( this._mongooseInstance.Schema(structureSchema) );
-            schema = new mongoose.Schema(structureSchema);
-            model = this._mongooseConnection.model<TDocument>(entityName, schema);
-            
-            this.addEntityInfo( 
-                { 
-                    name: entityName,
-                    info: entityInfo, 
-                    schema: schema, 
-                    model: model, 
-                    activateType: (d : EntityDocument) => {
-                        return new type(this, d);
-                    }
-                }
-            );
-        }
-        else
-            console.warn('Attempt to duplicate entity already registered: ' + entityName );
-    }
-
     createDocument<T extends EntityDocument>(entityName: string, document: T ) : Promise<T>
     {   
         return new Promise<T>((resolve, reject)=>{
-            // let model = this.getModel<T>(entityName);
             this.manageDocumentCreation(document);
-            // model.create(document).then( 
-            //     value => resolve(value), 
-            //     error => reject( this.createError(error, 'Error in create document' ))
-            // );
-
             document.save().then(
                 value => resolve(value), 
                 error => reject( this.createError(error, 'Error in create document' ))
@@ -325,7 +223,11 @@ class EMSession extends HcSession
 
             let changes = options && options.changes ? options.changes : [];
 
-            let baseInstace = <TEntity>this.entitiesInfo.find(a => a.name == info.name).activateType(document);
+            let baseInstace = this.
+            
+            <TEntity>this.entitiesInfo.find(a => a.name == info.name).activateType(document);
+
+            
 
             // let entityAccessors = info.getAccessors().filter( a => a.activator != null && ( a.type == "Array" ? baseInstace[a.name] != null && baseInstace[a.name].length > 0 : baseInstace[a.name] != null ) );
             let entityAccessors = info.getAccessors().filter( a => a.activator != null );
@@ -486,16 +388,6 @@ class EMSession extends HcSession
                 }
             );
         }); 
-    }
-
-    enableDevMode () : void
-    {
-        this._devMode = true;
-    }
-
-    disableDevMode () : void
-    {
-        this._devMode = false;
     }
 
     private createError(error : any, message : string)
@@ -706,10 +598,7 @@ class EMSession extends HcSession
     
     throwException (message : string) : void
     {
-        if (this._devMode)
-            console.error('DEV-MODE: ' + message);
-        else
-            throw new Error(message);
+        this._serviceSession.throwException( message );
     }
     
     throwInfo(message : string) : void;
@@ -717,13 +606,8 @@ class EMSession extends HcSession
     throwInfo(message : string, warnDevMode? : boolean) : void
     {
         warnDevMode = warnDevMode != null ? warnDevMode : true;
-
-        if (warnDevMode && this._devMode)
-            console.warn('DEV-MODE: ' + message);
-        else
-            console.info(message);
+        this._serviceSession.throwInfo( message, warnDevMode );
     }
-
 
     //#endregion
 
@@ -731,86 +615,13 @@ class EMSession extends HcSession
 
     //#region Accessors (Properties)
 
-    get isDevMode()
-    { return this._devMode; }
+    get request ()
+    { return this._request; }
 
-    get periodAmqpRetry ()
-    { return this._periodAmqpRetry; }
-    set periodAmqpRetry (value)
-    { this._periodAmqpRetry = value; }
+    get response()
+    { return this.response; }
 
-    get limitAmqpRetry ()
-    { return this._limitAmqpRetry; }
-    set limitAmqpRetry (value)
-    { this._limitAmqpRetry = value; }
 
-    get mongooseConnection()
-    { return this._mongooseConnection; }
-
-    get brokerConnection()
-    { return this._brokerConnection; }
-
-    get brokerChannel()
-    { return this._brokerChannel; }
-
-    get amqpExchangesDescription ()
-    { return this._amqpExchangesDescription; }
-    set amqpExchangesDescription (value)
-    { this._amqpExchangesDescription = value; }
-
-    get amqpQueueBindsDescription ()
-    { return this._amqpQueueBindsDescription; }
-    set amqpQueueBindsDescription (value)
-    { this._amqpQueueBindsDescription = value; }
-
-    //#endregion
-}
-
-class EMSessionError
-{
-    //#region Properties
-
-    private _code : number;
-    private _error : any;
-    private _message: string;
-    private _isHandled : boolean;
-
-    //#endregion
-
-    //#region Methods
-    
-    constructor (error : any, message : string ) 
-    { 
-        this._error = error;
-        this._message = message;
-
-        this._code = 500;
-    }    
-
-    setAsHandledError( code : number, message : string) : void
-    {
-        this._code = code;
-        this._message = message;
-
-        this._isHandled = true;
-    }
-
-    //#endregion
-
-    //#region Accessors
-    
-    get error()
-    { return this._error; }
-    
-    get message()
-    { return this._message; }
-    
-    get code()
-    { return this._code; }
-    
-    get isHandled()
-    { return this._isHandled; }
-    
     //#endregion
 }
 
