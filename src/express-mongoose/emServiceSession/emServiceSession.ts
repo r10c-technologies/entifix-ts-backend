@@ -6,7 +6,7 @@ import amqp = require('amqplib/callback_api');
 import { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription } from '../emServiceSession/amqpConnectionDynamic';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType} from '../../hc-core/hcMetaData/hcMetaData';
-
+import { EMSession } from '../emSession/emSession';
 
 class EMServiceSession
 {
@@ -33,7 +33,7 @@ class EMServiceSession
         info: EntityInfo, 
         schema: any, 
         models: Array<{ systemOwner: string, model: any}>, 
-        activateType: (d : EntityDocument) => any, 
+        activateType: (s : EMSession, d : EntityDocument) => any, 
         modelActivator : any
     }>;
 
@@ -146,8 +146,8 @@ class EMServiceSession
                 info: entityInfo, 
                 schema: schema, 
                 models: [], 
-                activateType: (d : EntityDocument) => {
-                    return new type(this, d);
+                activateType: (s : EMSession, d : EntityDocument) => {
+                    return new type(s, d);
                 },
                 modelActivator: new ModelActivator<TDocument>()
             });
@@ -222,7 +222,7 @@ class EMServiceSession
 
     //#region Accessors
 
-    protected get entitiesInfo ()
+    get entitiesInfo ()
     { return this._entitiesInfo; }
    
     get isDevMode()

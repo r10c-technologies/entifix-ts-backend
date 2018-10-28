@@ -1,1 +1,1 @@
-{"version":3,"file":"hcSession.js","sourceRoot":"","sources":["../../../src/hc-core/hcSession/hcSession.ts"],"names":[],"mappings":";;AAGA,MAAe,SAAS;IAMpB,YAAY;IAIZ,iBAAiB;IAEjB;QAEI,IAAI,CAAC,aAAa,GAAG,EAAE,CAAC;IAC5B,CAAC;IAIS,aAAa,CAAC,UAAgB;QAEpC,IAAI,CAAC,YAAY,CAAC,IAAI,CAAC,UAAU,CAAC,CAAC;IACvC,CAAC;IAED,YAAY;IAIZ,gCAAgC;IAEhC,IAAI,YAAY;QAEZ,OAAO,IAAI,CAAC,aAAa,CAAC;IAC9B,CAAC;CAIJ;AAEQ,8BAAS"}
+{"version":3,"file":"hcSession.js","sourceRoot":"","sources":["../../../src/hc-core/hcSession/hcSession.ts"],"names":[],"mappings":";;AAGA,MAAe,SAAS;CAqBvB;AAEQ,8BAAS"}

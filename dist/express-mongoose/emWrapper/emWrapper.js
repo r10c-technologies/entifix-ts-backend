@@ -1,13 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const hcWrapper_1 = require("../../hc-core/hcWrapper/hcWrapper");
-const emSession_1 = require("../emSession/emSession");
+const emServiceSession_1 = require("../emServiceSession/emServiceSession");
 const HttpStatus = require("http-status-codes");
 class EMResponseWrapper {
     //#endregion
     //#region Methods
-    constructor(session) {
-        this._session = session;
+    constructor(serviceSession) {
+        this._serviceSession = serviceSession;
     }
     object(response, object, options) {
         let devData = options != null ? options.devData : null;
@@ -50,7 +50,7 @@ class EMResponseWrapper {
     }
     exception(response, error) {
         response.statusCode = 500;
-        if (error instanceof emSession_1.EMSessionError) {
+        if (error instanceof emServiceSession_1.EMSessionError) {
             let e = error;
             if (e.isHandled) {
                 response.statusCode = e.code;
@@ -63,7 +63,7 @@ class EMResponseWrapper {
             }
             else {
                 let data;
-                if (this._session.isDevMode) {
+                if (this._serviceSession.isDevMode) {
                     data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was ocurred on the Service's Session" };
                     if (error) {
                         data.errorDetails = { sessionMessage: e.message };
@@ -83,7 +83,7 @@ class EMResponseWrapper {
         }
         else {
             let data;
-            if (this._session.isDevMode) {
+            if (this._serviceSession.isDevMode) {
                 data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred in a known context. The details were attached" };
                 if (error)
                     data.errorDetails = {

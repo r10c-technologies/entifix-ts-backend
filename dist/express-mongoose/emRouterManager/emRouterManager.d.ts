@@ -3,11 +3,12 @@ import { EMSession } from '../emSession/emSession';
 import { EMEntityController } from '../emEntityController/emEntityController';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { AccessorInfo } from '../../hc-core/hcMetaData/hcMetaData';
+import { EMServiceSession } from '../emServiceSession/emServiceSession';
 declare class EMRouterManager {
-    private _session;
-    private _appInstance;
+    private _serviceSession;
+    private _expressAppInstance;
     private _routers;
-    constructor(session: EMSession, appInstance: express.Application);
+    constructor(serviceSession: EMServiceSession, exrpressAppInstance: express.Application);
     exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity>(entityName: string): void;
     exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity>(entityName: string, options: {
         controller?: EMEntityController<TDocument, TEntity>;
@@ -19,18 +20,18 @@ declare class EMRouterManager {
         basePath?: string;
         resourceName?: string;
     }): void;
-    resolveComplexRetrieve(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
-    resolveComplexCreate(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
-    resolveComplexUpdate(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
-    resolveComplexDelete(request: express.Request, response: express.Response, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
+    resolveComplexRetrieve(session: EMSession, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
+    resolveComplexCreate(session: EMSession, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
+    resolveComplexUpdate(session: EMSession, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
+    resolveComplexDelete(session: EMSession, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
     getExpositionDetails(): Array<{
         entityName: string;
         resourceName: string;
         basePath: string;
     }>;
     findController<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string): EMEntityController<TDocument, TEntity>;
-    readonly session: EMSession;
-    readonly appInstance: express.Application;
+    readonly serviceSession: EMServiceSession;
+    readonly expressAppInstance: express.Application;
 }
 declare class EMSimpleController {
     private _retrieveMethod;

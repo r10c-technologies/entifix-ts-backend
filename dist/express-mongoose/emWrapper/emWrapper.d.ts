@@ -1,10 +1,10 @@
 import mongoose = require('mongoose');
 import express = require('express');
 import { EMEntity } from '../emEntity/emEntity';
-import { EMSession } from '../emSession/emSession';
+import { EMServiceSession } from '../emServiceSession/emServiceSession';
 declare class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EMEntity> {
-    private _session;
-    constructor(session: EMSession);
+    private _serviceSession;
+    constructor(serviceSession: EMServiceSession);
     object(response: express.Response, object: any): any;
     object(response: express.Response, object: any, options: {
         devData?: any;

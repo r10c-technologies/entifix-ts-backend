@@ -1,85 +1,26 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-//CORE DEPENDENCIES
-const mongoose = require("mongoose");
 //CORE FRAMEWORK
 const hcSession_1 = require("../../hc-core/hcSession/hcSession");
 const hcMetaData_1 = require("../../hc-core/hcMetaData/hcMetaData");
-const amqpConnectionDynamic_1 = require("./amqpConnectionDynamic");
 class EMSession extends hcSession_1.HcSession {
-    constructor(mongoService, amqpService) {
+    //#endregion
+    //#region Methods
+    constructor(serviceSession, request, response) {
         super();
-        //Mongo Configuration
-        this._urlMongoConnection = 'mongodb://' + mongoService;
-        //AMQP Configuration
-        if (amqpService) {
-            this._urlAmqpConnection = 'amqp://' + amqpService;
-            //defaluts
-            this._limitAmqpRetry = 10;
-            this._periodAmqpRetry = 2000;
-        }
-    }
-    connect() {
-        let connectDb = () => { this._mongooseConnection = mongoose.createConnection(this._urlMongoConnection); };
-        if (this._urlAmqpConnection) {
-            connectDb();
-            return this.atachToBroker();
-        }
-        else
-            return new Promise((resolve, reject) => {
-                connectDb();
-                resolve();
-            });
-    }
-    atachToBroker() {
-        return new Promise((resolve, reject) => {
-            amqpConnectionDynamic_1.AMQPConnectionDynamic.connect(this._urlAmqpConnection, { period: this._periodAmqpRetry, limit: this._limitAmqpRetry }).then(connection => {
-                this._brokerConnection = connection;
-                amqpConnectionDynamic_1.AMQPConnectionDynamic.createExchangeAndQueues(connection, this._amqpExchangesDescription, this._amqpQueueBindsDescription).then(channel => {
-                    this._brokerChannel = channel;
-                    resolve();
-                }, error => reject(error));
-            }, error => reject(error));
-        });
+        this._serviceSession = serviceSession;
+        this._request = request;
+        this._response = response;
     }
     getModel(entityName) {
-        return (this.entitiesInfo.find(e => e.name == entityName).model);
+        return this._serviceSession.getModel(entityName, this._systemOwner);
     }
     getInfo(entityName) {
-        return this.entitiesInfo.find(info => info.name == entityName).info;
-    }
-    //registerEntity<TDocument extends mongoose.Document, TEntity extends EMEntity>(entityName: string, structureSchema : Object, type: { new( session: EMSession, document : EntityDocument ) : TEntity} ) : void
-    registerEntity(type, entityInfo) {
-        //var info : EntityInfo = (<any>type).entityInfo; 
-        var structureSchema = entityInfo.getCompleteSchema();
-        var entityName = entityInfo.name;
-        if (this.entitiesInfo.filter(e => e.name == entityName).length == 0) {
-            var schema;
-            var model;
-            //schema = <mongoose.Schema>( this._mongooseInstance.Schema(structureSchema) );
-            schema = new mongoose.Schema(structureSchema);
-            model = this._mongooseConnection.model(entityName, schema);
-            this.addEntityInfo({
-                name: entityName,
-                info: entityInfo,
-                schema: schema,
-                model: model,
-                activateType: (d) => {
-                    return new type(this, d);
-                }
-            });
-        }
-        else
-            console.warn('Attempt to duplicate entity already registered: ' + entityName);
+        return this._serviceSession.getInfo(entityName);
     }
     createDocument(entityName, document) {
         return new Promise((resolve, reject) => {
-            // let model = this.getModel<T>(entityName);
             this.manageDocumentCreation(document);
-            // model.create(document).then( 
-            //     value => resolve(value), 
-            //     error => reject( this.createError(error, 'Error in create document' ))
-            // );
             document.save().then(value => resolve(value), error => reject(this.createError(error, 'Error in create document')));
         });
     }
@@ -208,7 +149,7 @@ class EMSession extends hcSession_1.HcSession {
     activateEntityInstance(info, document, options) {
         return new Promise((resolve, reject) => {
             let changes = options && options.changes ? options.changes : [];
-            let baseInstace = this.entitiesInfo.find(a => a.name == info.name).activateType(document);
+            let baseInstace = this._serviceSession.entitiesInfo.find(a => a.name == info.name).activateType(this, document);
             // let entityAccessors = info.getAccessors().filter( a => a.activator != null && ( a.type == "Array" ? baseInstace[a.name] != null && baseInstace[a.name].length > 0 : baseInstace[a.name] != null ) );
             let entityAccessors = info.getAccessors().filter(a => a.activator != null);
             let currentEA = entityAccessors.filter(ea => {
@@ -258,7 +199,7 @@ class EMSession extends hcSession_1.HcSession {
         });
     }
     getMetadataToExpose(entityName) {
-        let info = (this.entitiesInfo.find(e => e.name == entityName).info);
+        let info = this.getInfo(entityName);
         return info.getAccessors().filter(accessor => accessor.exposition).map(accessor => {
             let name = accessor.serializeAlias || accessor.name;
             let type = accessor.activator && accessor.activator.bindingType == hcMetaData_1.MemberBindingType.Reference ? accessor.activator.referenceType : accessor.type;
@@ -313,20 +254,8 @@ class EMSession extends hcSession_1.HcSession {
             });
         });
     }
-    enableDevMode() {
-        this._devMode = true;
-    }
-    disableDevMode() {
-        this._devMode = false;
-    }
     createError(error, message) {
-        if (this._devMode) {
-            let m = 'DevMode: Error in EMSession => ' + message;
-            console.warn(m);
-            return new EMSessionError(error, m);
-        }
-        else
-            return new EMSessionError(null, 'INTERNAL SERVER ERROR');
+        return this._serviceSession.createError(error, message);
     }
     manageDocumentCreation(document) {
         document.created = new Date();
@@ -340,7 +269,7 @@ class EMSession extends hcSession_1.HcSession {
         document.deferredDeletion = true;
     }
     resolveToMongoFilters(entityName, filters) {
-        let info = this.entitiesInfo.find(f => f.name == entityName).info;
+        let info = this.getInfo(entityName);
         let persistentMembers = info.getAllMembers()
             .filter(m => (m instanceof hcMetaData_1.AccessorInfo) && (m.schema != null || m.persistenceType == hcMetaData_1.PersistenceType.Auto))
             .map(m => {
@@ -442,7 +371,7 @@ class EMSession extends hcSession_1.HcSession {
     }
     resolveToMongoSorting(entityName, sorting) {
         if (sorting != null && sorting.length > 0) {
-            let info = this.entitiesInfo.find(f => f.name == entityName).info;
+            let info = this.getInfo(entityName);
             let persistentMembers = info.getAllMembers().filter(m => (m instanceof hcMetaData_1.AccessorInfo) && m.schema != null).map(m => { return { property: m.name, type: m.type }; });
             let errSorting;
             let mongoSorting = {};
@@ -467,55 +396,18 @@ class EMSession extends hcSession_1.HcSession {
             return null;
     }
     throwException(message) {
-        if (this._devMode)
-            console.error('DEV-MODE: ' + message);
-        else
-            throw new Error(message);
+        this._serviceSession.throwException(message);
     }
     throwInfo(message, warnDevMode) {
         warnDevMode = warnDevMode != null ? warnDevMode : true;
-        if (warnDevMode && this._devMode)
-            console.warn('DEV-MODE: ' + message);
-        else
-            console.info(message);
+        this._serviceSession.throwInfo(message, warnDevMode);
     }
     //#endregion
     //#region Accessors (Properties)
-    get isDevMode() { return this._devMode; }
-    get periodAmqpRetry() { return this._periodAmqpRetry; }
-    set periodAmqpRetry(value) { this._periodAmqpRetry = value; }
-    get limitAmqpRetry() { return this._limitAmqpRetry; }
-    set limitAmqpRetry(value) { this._limitAmqpRetry = value; }
-    get mongooseConnection() { return this._mongooseConnection; }
-    get brokerConnection() { return this._brokerConnection; }
-    get brokerChannel() { return this._brokerChannel; }
-    get amqpExchangesDescription() { return this._amqpExchangesDescription; }
-    set amqpExchangesDescription(value) { this._amqpExchangesDescription = value; }
-    get amqpQueueBindsDescription() { return this._amqpQueueBindsDescription; }
-    set amqpQueueBindsDescription(value) { this._amqpQueueBindsDescription = value; }
+    get request() { return this._request; }
+    get response() { return this.response; }
 }
 exports.EMSession = EMSession;
-class EMSessionError {
-    //#endregion
-    //#region Methods
-    constructor(error, message) {
-        this._error = error;
-        this._message = message;
-        this._code = 500;
-    }
-    setAsHandledError(code, message) {
-        this._code = code;
-        this._message = message;
-        this._isHandled = true;
-    }
-    //#endregion
-    //#region Accessors
-    get error() { return this._error; }
-    get message() { return this._message; }
-    get code() { return this._code; }
-    get isHandled() { return this._isHandled; }
-}
-exports.EMSessionError = EMSessionError;
 var FilterType;
 (function (FilterType) {
     FilterType[FilterType["Fixed"] = 1] = "Fixed";

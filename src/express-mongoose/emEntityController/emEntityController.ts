@@ -36,7 +36,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         this._entityName = entityName;
         this._routerManager = routerManager;
         this._useEntities = true;
-        this._responseWrapper = new EMResponseWrapper(session);
+        this._responseWrapper = new EMResponseWrapper(routerManager.serviceSession);
         this._resourceName = options && options.resourceName ?  options.resourceName : entityName.toLowerCase();
 
         this._router = express.Router();
@@ -103,7 +103,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                         error => this._responseWrapper.exception(response, error)
                     ).catch( error => this._responseWrapper.exception( response, error) );
                 else
-                    this.session.listDocuments<TDocument>(this._entityName, { filters, skip, take, sorting } ).then(
+                    session.listDocuments<TDocument>(this._entityName, { filters, skip, take, sorting } ).then(
                         results => { 
                             let det = results.details || {};
                             let options = { total : det.total, skip : det.skip, take : det.take };
@@ -126,12 +126,12 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             let paramName = options && options.paramName ? options.paramName : '_id';
 
             if (this._useEntities)
-                this.session.findEntity<TEntity, TDocument>(this.entityInfo, request.params[paramName]).then(
+                session.findEntity<TEntity, TDocument>(this.entityInfo, request.params[paramName]).then(
                     entityResult => this._responseWrapper.entity(response, entityResult),
                     error => this._responseWrapper.exception(response, error)
                 ).catch( error => this._responseWrapper.exception( response, error) );            
             else
-                this.session.findDocument<TDocument>(this._entityName, request.params[paramName]).then(
+                session.findDocument<TDocument>(this._entityName, request.params[paramName]).then(
                     docResult => this._responseWrapper.document(response, docResult),
                     error => this._responseWrapper.exception(response, error)
                 ).catch( error => this._responseWrapper.exception( response, error) ); 
@@ -144,9 +144,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     {
         this.createSession(request, response).then( 
             session => { if (session) {
-
-                this._responseWrapper.object(response, this.session.getMetadataToExpose(this._entityName));
-            
+                this._responseWrapper.object(response, session.getMetadataToExpose(this._entityName));
             }}
         );
     }
@@ -158,7 +156,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
                 if (!this._useEntities)
                 {
-                    this._session.createDocument(this.entityName, <TDocument>request.body).then(
+                    session.createDocument(this.entityName, <TDocument>request.body).then(
                         result => this._responseWrapper.document(response, result, { status: HttpStatus.CREATED }),
                         error => this._responseWrapper.exception(response, error)
                     ).catch( error => this._responseWrapper.exception( response, error) );
@@ -359,42 +357,48 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             if ( parsedRequest.nonPersistent )
                  addDevData({ message: 'The request has non persistent accessors and these could be ignored', accessors : parsedRequest.nonPersistent });
 
-            if (parsedRequest.persistent._id)
-            {
-                this._session.findDocument<TDocument>(this._entityName, parsedRequest.persistent._id).then(
-                    document => {
+            this.createSession(request, response).then( 
+                session => { if (session) {
 
-                        delete parsedRequest.persistent._id;
+                    if (parsedRequest.persistent._id)
+                    {
+                        session.findDocument<TDocument>(this._entityName, parsedRequest.persistent._id).then(
+                            document => {
 
-                        let changes : Array<{property:string, oldValue:any, newValue:any}>;
-                        for ( let p in parsedRequest.persistent)
-                        {
-                            let oldValue = document[p];
-                            let newValue = parsedRequest.persistent[p];
-                            
-                            if (oldValue != newValue)
-                            {
-                                if (!changes)
-                                    changes = [];
+                                delete parsedRequest.persistent._id;
 
-                                changes.push( { property: p, oldValue, newValue } );
-                            }                                
-                        }
+                                let changes : Array<{property:string, oldValue:any, newValue:any}>;
+                                for ( let p in parsedRequest.persistent)
+                                {
+                                    let oldValue = document[p];
+                                    let newValue = parsedRequest.persistent[p];
+                                    
+                                    if (oldValue != newValue)
+                                    {
+                                        if (!changes)
+                                            changes = [];
 
-                        document.set(parsedRequest.persistent);
-                        resolve( { document, devData, changes } );
-                    },
-                    err => reject(err)
-                );
-            }
-            else
-            {
-                let model = this._session.getModel(this._entityName);
-                let document : TDocument;
+                                        changes.push( { property: p, oldValue, newValue } );
+                                    }                                
+                                }
 
-                document = new model(parsedRequest.persistent) as TDocument;                
-                resolve({ document, devData });
-            }
+                                document.set(parsedRequest.persistent);
+                                resolve( { document, devData, changes } );
+                            },
+                            err => reject(err)
+                        );
+                    }
+                    else
+                    {
+                        let model = session.getModel(this._entityName);
+                        let document : TDocument;
+
+                        document = new model(parsedRequest.persistent) as TDocument;                
+                        resolve({ document, devData });
+                    }
+
+                }}
+            );            
         }).then( 
             validation => {
                 if (validation.error)
@@ -411,7 +415,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                 return validation;                                       
             },
             error => this._responseWrapper.exception( response, error )
-        );
+        ).catch( error => this._responseWrapper.exception( response, error ) );
     }    
 
     //#endregion
@@ -480,7 +484,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     }
 
 
-    resolveComplexRetrieveMethod( request : express.Request, response : express.Response, next : express.NextFunction, routerManager : EMRouterManager ) : void
+    resolveComplexRetrieveMethod( request : express.Request, response : express.Response, next : express.NextFunction ) : void
     {
         let arrayPath = this.getArrayPath(request);
 
@@ -489,7 +493,11 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             let mappingPath = this.createMappingPath(arrayPath);
 
             if (mappingPath)
-                routerManager.resolveComplexRetrieve(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
+                this.createSession(request, response).then(
+                    session => { if (session) {
+                        this._routerManager.resolveComplexRetrieve(session, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
+                    }}
+                );
             else
                 next();            
         }
@@ -514,7 +522,11 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         let mappingPath = this.createMappingPath(arrayPath);
 
         if (mappingPath)
-            this._routerManager.resolveComplexCreate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
+            this.createSession(request, response).then(
+                session => { if (session) {
+                    this._routerManager.resolveComplexCreate(session, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
+                }}
+            );
         else
             next();            
     }
@@ -525,7 +537,11 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         let mappingPath = this.createMappingPath(arrayPath);
 
         if (mappingPath)
-            this._routerManager.resolveComplexUpdate(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
+            this.createSession(request, response).then(
+                session => { if (session) {
+                    this._routerManager.resolveComplexUpdate(session, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
+                }}
+            );
         else
             next();            
     }
@@ -539,7 +555,11 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             let mappingPath = this.createMappingPath(arrayPath);
 
             if (mappingPath)
-                this._routerManager.resolveComplexDelete(request, response, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
+                this.createSession(request, response).then(
+                    session => { if (session) {
+                        this._routerManager.resolveComplexDelete(session, mappingPath.baseTypeName, mappingPath.instanceId, mappingPath.endAccessorInfo, mappingPath.pathOverInstance);
+                    }}
+                );
             else
                 next();            
         }
@@ -553,16 +573,16 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         return session.findEntity<TEntity,TDocument>(this.entityInfo, id );
     }
 
-    createInstance( session : EMSession ) : Promise<TEntity>
+    createInstance( request: express.Request, response : express.Response ) : Promise<TEntity>
     {
         return new Promise<TEntity>( (resolve, reject) => {
-            this.validateDocumentRequest(session.request, session.response).then( (validation : RequestValidation<TDocument> ) => {
+            this.validateDocumentRequest(request, response).then( (validation : RequestValidation<TDocument> ) => {
                 if (validation)
                 {
-                    session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, validation.document ).then(
+                    validation.session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, validation.document ).then(
                         entity => resolve(entity),
-                        error => this._responseWrapper.exception(session.response, error)
-                    );
+                        error => this._responseWrapper.exception(response, error)
+                    ).catch( error => this._responseWrapper.exception(response, error) );
                 }
             });
         });
@@ -570,7 +590,8 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     private getExtensionAccessors ( entityName : string ) : Array<AccessorInfo>
     {
-        return this.session
+        return this._routerManager
+                    .serviceSession
                     .getInfo(entityName)
                     .getAllMembers()
                     .filter( memberInfo => memberInfo instanceof AccessorInfo && (memberInfo as AccessorInfo).activator != null && (memberInfo as AccessorInfo).activator.extendRoute == true )
@@ -586,9 +607,9 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     //#region Accessors (Properties)
 
     
-    get entityInfo()
+    get  entityInfo()
     {
-        return this._session.getInfo(this._entityName);
+        return this._routerManager.serviceSession.getInfo(this._entityName);
     }
 
     get entityName ()
@@ -756,6 +777,7 @@ class Filter extends QueryParam implements EMSessionFilter
 
 interface RequestValidation<TDocument>
 { 
+    session? : EMSession;
     document? : TDocument; 
     error? : string; 
     errorData? : any;

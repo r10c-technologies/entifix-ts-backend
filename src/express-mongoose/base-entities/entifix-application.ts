@@ -217,29 +217,30 @@ abstract class EntifixApplication
 
     protected saveModuleAtached(message : amqp.Message ) : void
     {
-        var moduleAtached : { serviceModuleName: string, resources: Array<{ entityName : string, resourceName : string, basePath : string }> } = JSON.parse(message.content.toString());  
-                                        
-        this._session.getModel<IEntifixApplicationModuleModel>("EntifixApplicationModule").find( { name: moduleAtached.serviceModuleName }, 
-            ( err, res ) => {
-                if (!err && res)
-                {
-                    if (res.length == 0)
-                    {
-                        let newModule = new EntifixApplicationModule(this._session);
-                        newModule.name = moduleAtached.serviceModuleName;
-                        newModule.resources = moduleAtached.resources;
-                        newModule.save().then( () => this._serviceSession.brokerChannel.ack(message) );
-                    }
-                    else
-                    {
-                        let module = new EntifixApplicationModule(this._session, res[0]);
-                        module.name = moduleAtached.serviceModuleName;
-                        module.resources = moduleAtached.resources;
-                        module.save().then( () => this._serviceSession.brokerChannel.ack(message) );
-                    }
-                }
-            }
-        );
+        // var moduleAtached : { serviceModuleName: string, resources: Array<{ entityName : string, resourceName : string, basePath : string }> } = JSON.parse(message.content.toString());  
+                             
+        // this._serviceSession.getModel()
+        // this._session.getModel<IEntifixApplicationModuleModel>("EntifixApplicationModule").find( { name: moduleAtached.serviceModuleName }, 
+        //     ( err, res ) => {
+        //         if (!err && res)
+        //         {
+        //             if (res.length == 0)
+        //             {
+        //                 let newModule = new EntifixApplicationModule(this._session);
+        //                 newModule.name = moduleAtached.serviceModuleName;
+        //                 newModule.resources = moduleAtached.resources;
+        //                 newModule.save().then( () => this._serviceSession.brokerChannel.ack(message) );
+        //             }
+        //             else
+        //             {
+        //                 let module = new EntifixApplicationModule(this._session, res[0]);
+        //                 module.name = moduleAtached.serviceModuleName;
+        //                 module.resources = moduleAtached.resources;
+        //                 module.save().then( () => this._serviceSession.brokerChannel.ack(message) );
+        //             }
+        //         }
+        //     }
+        // );
     }
 
     protected atachModule( exchangeName : string, routingKey : string) : void 
@@ -249,7 +250,7 @@ abstract class EntifixApplication
             resources: this._routerManager.getExpositionDetails()
         };
 
-        this.session.brokerChannel.publish(exchangeName, routingKey, new Buffer(JSON.stringify(message)));
+        this._serviceSession.brokerChannel.publish(exchangeName, routingKey, new Buffer(JSON.stringify(message)));
     }
 
     protected createRPCAuthorizationDynamic( ) : void

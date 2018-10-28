@@ -6,13 +6,16 @@ import { EntityInfo, AccessorInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 declare class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEntity> {
     private _entityName;
-    private _session;
     private _responseWrapper;
     private _useEntities;
     private _resourceName;
+    private _routerManager;
     protected _router: express.Router;
-    constructor(entityName: string, session: EMSession);
-    constructor(entityName: string, session: EMSession, resourceName: string);
+    constructor(entityName: string, routerManager: EMRouterManager);
+    constructor(entityName: string, routerManager: EMRouterManager, options: {
+        resourceName?: string;
+    });
+    private createRoutes;
     retrieve(request: express.Request, response: express.Response): void;
     retrieveById(request: express.Request, response: express.Response): void;
     retrieveById(request: express.Request, response: express.Response, options: {
@@ -23,7 +26,9 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     update(request: express.Request, response: express.Response): void;
     delete(request: express.Request, response: express.Response): void;
     private save;
-    createRoutes(routerManager: EMRouterManager): void;
+    private createSession;
+    private validateQueryParams;
+    validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;
     private getArrayPath;
     createMappingPath(arrayPath: Array<string>): {
         baseTypeName: string;
@@ -31,24 +36,22 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
         endAccessorInfo: AccessorInfo;
         pathOverInstance: Array<string>;
     };
-    resolveComplexRetrieveMethod(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
-    resolveComplexCreateMethod(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
-    resolveComplexUpdateMethod(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
-    resolveComplexDeleteMethod(request: express.Request, response: express.Response, next: express.NextFunction, routerManager: EMRouterManager): void;
-    findEntity(id: string): Promise<TEntity>;
+    resolveComplexRetrieveMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
+    resolveComplexCreateMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
+    resolveComplexUpdateMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
+    resolveComplexDeleteMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
+    findEntity(session: EMSession, id: string): Promise<TEntity>;
     createInstance(request: express.Request, response: express.Response): Promise<TEntity>;
     private getExtensionAccessors;
-    private validateQueryParams;
-    validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;
     readonly entityInfo: EntityInfo;
     readonly entityName: string;
-    readonly session: EMSession;
     useEntities: boolean;
     readonly router: express.Router;
     readonly responseWrapper: EMResponseWrapper<TDocument, TEntity>;
     readonly resourceName: string;
 }
 interface RequestValidation<TDocument> {
+    session?: EMSession;
     document?: TDocument;
     error?: string;
     errorData?: any;

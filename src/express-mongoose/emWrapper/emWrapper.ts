@@ -2,24 +2,23 @@ import mongoose = require('mongoose');
 import express = require('express');
 
 import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
-import { EMSessionError } from '../emSession/emSession';
 import { EMEntity } from '../emEntity/emEntity';
-import { EMSession } from '../emSession/emSession';
+import { EMServiceSession, EMSessionError } from '../emServiceSession/emServiceSession';
 import HttpStatus = require('http-status-codes');
 
 class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EMEntity>
 {
     //#region Properties
 
-    private _session : EMSession;
+    private _serviceSession : EMServiceSession;
 
     //#endregion
 
     //#region Methods
 
-    constructor( session : EMSession)
+    constructor( serviceSession : EMServiceSession )
     {
-        this._session = session;
+        this._serviceSession = serviceSession;
     }
 
     object( response : express.Response, object : any);
@@ -111,7 +110,7 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
             else
             {
                 let data : any;
-                if (this._session.isDevMode)
+                if (this._serviceSession.isDevMode)
                 {
                     data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was ocurred on the Service's Session"};
                     if (error)
@@ -136,7 +135,7 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
         else
         {
             let data : any;
-            if (this._session.isDevMode)
+            if (this._serviceSession.isDevMode)
             {
                 data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred in a known context. The details were attached"};
                 if (error)

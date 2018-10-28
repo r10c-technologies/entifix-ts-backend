@@ -1,7 +1,6 @@
 import express = require('express');
 import cors = require('cors');
 import amqp = require('amqplib/callback_api');
-import { EMSession } from '../emSession/emSession';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 interface EntifixAppConfig {
     serviceName: string;
@@ -24,7 +23,7 @@ interface EntifixAppConfig {
 }
 declare abstract class EntifixApplication {
     private _expressApp;
-    private _session;
+    private _serviceSession;
     private _routerManager;
     private _authChannel;
     private _nameAuthQueue;
@@ -39,10 +38,10 @@ declare abstract class EntifixApplication {
         message: string;
     }>;
     private createExpressApp;
-    private createEntifixSession;
-    private createMiddlewareFunctions;
+    private createServiceSession;
+    protected createMiddlewareFunctions(): void;
     private protectRoutes;
-    protected onSessionCreated(): void;
+    protected onServiceSessionCreated(): void;
     protected configSessionAMQPConneciton(): void;
     protected saveModuleAtached(message: amqp.Message): void;
     protected atachModule(exchangeName: string, routingKey: string): void;
@@ -69,7 +68,6 @@ declare abstract class EntifixApplication {
     }): Promise<void>;
     protected createKeyCache(token: string, request: express.Request): string;
     private readonly isMainService;
-    protected readonly session: EMSession;
     readonly expressApp: express.Application;
     protected readonly routerManager: EMRouterManager;
     private readonly cacheExpiration;

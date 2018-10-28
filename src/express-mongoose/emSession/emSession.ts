@@ -223,11 +223,7 @@ class EMSession extends HcSession
 
             let changes = options && options.changes ? options.changes : [];
 
-            let baseInstace = this.
-            
-            <TEntity>this.entitiesInfo.find(a => a.name == info.name).activateType(document);
-
-            
+            let baseInstace = this._serviceSession.entitiesInfo.find(a => a.name == info.name).activateType(this, document);
 
             // let entityAccessors = info.getAccessors().filter( a => a.activator != null && ( a.type == "Array" ? baseInstace[a.name] != null && baseInstace[a.name].length > 0 : baseInstace[a.name] != null ) );
             let entityAccessors = info.getAccessors().filter( a => a.activator != null );
@@ -296,7 +292,8 @@ class EMSession extends HcSession
 
     getMetadataToExpose(entityName : string) : Array<{ name : string, type : string, persistent : boolean}>
     {
-        let info = <EntityInfo>(this.entitiesInfo.find( e => e.name == entityName).info);
+        let info = this.getInfo(entityName);
+
         return info.getAccessors().filter(accessor => accessor.exposition).map( accessor => { 
 
             let name = accessor.serializeAlias || accessor.name;
@@ -392,14 +389,7 @@ class EMSession extends HcSession
 
     private createError(error : any, message : string)
     {
-        if (this._devMode)
-        {
-            let m = 'DevMode: Error in EMSession => ' + message;
-            console.warn(m);    
-            return new EMSessionError(error, m);
-        }
-        else
-            return new EMSessionError(null, 'INTERNAL SERVER ERROR');
+        return this._serviceSession.createError(error, message);
     }
 
     private manageDocumentCreation<TDocument extends EntityDocument>(document : TDocument) : void
@@ -421,7 +411,7 @@ class EMSession extends HcSession
 
     private resolveToMongoFilters(entityName : string, filters? : Array<EMSessionFilter>) : { error : boolean, filters?: any, message? : string }
     {        
-        let info : EntityInfo = this.entitiesInfo.find( f => f.name == entityName).info;
+        let info : EntityInfo = this.getInfo(entityName);
         
         let persistentMembers = 
                 info.getAllMembers()
@@ -561,7 +551,7 @@ class EMSession extends HcSession
     {        
         if (sorting != null && sorting.length > 0)
         {
-            let info : EntityInfo = this.entitiesInfo.find( f => f.name == entityName).info;
+            let info = this.getInfo(entityName);
             let persistentMembers = info.getAllMembers().filter( m => (m instanceof AccessorInfo) && m.schema != null ).map( m => { return  { property: m.name, type: m.type } } );
 
             let errSorting : string;
@@ -672,4 +662,4 @@ interface ListEntitiesResultDetails<TEntity extends EMEntity>
     details? : { total?: number, skip?: number, take?: number }
 }
 
-export { EMSession, EMSessionError, EMSessionFilter, FilterType, SortType, EMSessionSort, ListOptions }
+export { EMSession, EMSessionFilter, FilterType, SortType, EMSessionSort, ListOptions }
