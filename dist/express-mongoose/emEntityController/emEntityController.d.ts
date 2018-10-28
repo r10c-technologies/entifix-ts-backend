@@ -22,6 +22,9 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     create(request: express.Request, response: express.Response): void;
     update(request: express.Request, response: express.Response): void;
     delete(request: express.Request, response: express.Response): void;
+    delete(request: express.Request, response: express.Response, options: {
+        paramName?: string;
+    }): void;
     private save;
     createRoutes(routerManager: EMRouterManager): void;
     private getArrayPath;

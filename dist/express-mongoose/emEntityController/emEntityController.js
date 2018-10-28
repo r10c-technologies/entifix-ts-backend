@@ -67,12 +67,12 @@ class EMEntityController {
         else
             this.save(request, response);
     }
-    delete(request, response) {
-        let id = request.params._id;
+    delete(request, response, options) {
+        let paramName = options && options.paramName ? options.paramName : '_id';
         let responseOk = () => this._responseWrapper.object(response, { 'Delete status': 'register deleted ' });
         let responseError = error => this._responseWrapper.exception(response, responseError);
         if (this._useEntities) {
-            this._session.findEntity(this.entityInfo, id).then(entity => {
+            this._session.findEntity(this.entityInfo, request.params[paramName]).then(entity => {
                 entity.delete().then(movFlow => {
                     if (movFlow.continue)
                         responseOk();
@@ -82,7 +82,7 @@ class EMEntityController {
             }, error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
         }
         else {
-            this._session.findDocument(this._entityName, request.params._id).then(docResult => this._session.deleteDocument(this._entityName, docResult).then(responseOk, responseError), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
+            this._session.findDocument(this._entityName, request.params[paramName]).then(docResult => this._session.deleteDocument(this._entityName, docResult).then(responseOk, responseError), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
         }
     }
     save(request, response) {
@@ -196,7 +196,7 @@ class EMEntityController {
                 next();
         }
         else
-            this.delete(request, response);
+            this.delete(request, response, { paramName: 'path' });
     }
     findEntity(id) {
         return this.session.findEntity(this.entityInfo, id);

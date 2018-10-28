@@ -614,7 +614,7 @@ class EMSession extends HcSession
             case 'Date':
                 let tempTimeStamp = Date.parse(sessionFilter.value);
                 if (isNaN(tempTimeStamp) == false) 
-                    valueFilter = new Date(tempTimeStamp);
+                    valueFilter = sessionFilter.value; //new Date(tempTimeStamp); Bug with mongo query
                 else
                     return { err: true, message: `The value for a filter in the property "${persistentName}" must be a date` };
                 break;
