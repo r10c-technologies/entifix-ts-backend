@@ -7,6 +7,7 @@ import { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription } from
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType} from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
+import { UserData } from '../../hc-core/hcUtilities/interactionDataModels';
 
 class EMServiceSession
 {
@@ -160,7 +161,7 @@ class EMServiceSession
     {
         this._entitiesInfo.forEach( ei => {
             let modelName = 'DEV_'+ ei.name;
-            let model = ei.modelActivator.activate( this._mongooseConnection, ei.name, ei.schema );
+            let model = ei.modelActivator.activate( this._mongooseConnection, modelName, ei.schema );
             ei.models.push({ systemOwner: 'DEVELOPER', model });
         });
     }
@@ -169,7 +170,7 @@ class EMServiceSession
     {
         this._entitiesInfo.forEach( ei => {
             let modelName = systemOwner + '_'+ ei.name;
-            let model = ei.modelActivator.activate( this._mongooseConnection, ei.name, ei.schema );
+            let model = ei.modelActivator.activate( this._mongooseConnection, modelName, ei.schema );
             ei.models.push({ systemOwner, model });
         });
     }
@@ -256,6 +257,24 @@ class EMServiceSession
     { return this._amqpQueueBindsDescription; }
     set amqpQueueBindsDescription (value)
     { this._amqpQueueBindsDescription = value; }
+
+    get developerUserData () : UserData
+    {
+        if (this.isDevMode)
+        {
+            return {
+                name: 'LOCAL DEVELOPER',
+                userName: 'DEVELOPER',
+                systemOwner: 'DEVELOPER',
+                idUser: null 
+            }
+        }
+        else
+        {
+            this.throwException('It is not possible to use the Developer User Data without activate DevMode');
+            return null;
+        }
+    }
 
     //#endregion
 }

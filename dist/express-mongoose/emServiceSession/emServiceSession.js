@@ -81,14 +81,14 @@ class EMServiceSession {
     createDeveloperModels() {
         this._entitiesInfo.forEach(ei => {
             let modelName = 'DEV_' + ei.name;
-            let model = ei.modelActivator.activate(this._mongooseConnection, ei.name, ei.schema);
+            let model = ei.modelActivator.activate(this._mongooseConnection, modelName, ei.schema);
             ei.models.push({ systemOwner: 'DEVELOPER', model });
         });
     }
     createSystemOwnerModels(systemOwner) {
         this._entitiesInfo.forEach(ei => {
             let modelName = systemOwner + '_' + ei.name;
-            let model = ei.modelActivator.activate(this._mongooseConnection, ei.name, ei.schema);
+            let model = ei.modelActivator.activate(this._mongooseConnection, modelName, ei.schema);
             ei.models.push({ systemOwner, model });
         });
     }
@@ -135,6 +135,20 @@ class EMServiceSession {
     set amqpExchangesDescription(value) { this._amqpExchangesDescription = value; }
     get amqpQueueBindsDescription() { return this._amqpQueueBindsDescription; }
     set amqpQueueBindsDescription(value) { this._amqpQueueBindsDescription = value; }
+    get developerUserData() {
+        if (this.isDevMode) {
+            return {
+                name: 'LOCAL DEVELOPER',
+                userName: 'DEVELOPER',
+                systemOwner: 'DEVELOPER',
+                idUser: null
+            };
+        }
+        else {
+            this.throwException('It is not possible to use the Developer User Data without activate DevMode');
+            return null;
+        }
+    }
 }
 exports.EMServiceSession = EMServiceSession;
 class ModelActivator {

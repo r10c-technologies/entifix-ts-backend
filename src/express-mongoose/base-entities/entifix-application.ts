@@ -9,6 +9,7 @@ import crypto = require ('crypto');
 
 //Core Framework
 import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
+import { TokenValidation, UserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EntifixApplicationModule, IEntifixApplicationModuleModel } from './entifix-application-module';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
@@ -70,7 +71,7 @@ abstract class EntifixApplication
     protected abstract get serviceConfiguration () :  EntifixAppConfig;
     protected abstract registerEntities() : void;
     protected abstract exposeEntities() : void;
-    protected abstract validateToken(token : string, request?: express.Request) : Promise<{success : boolean, message : string}>;
+    protected abstract validateToken(token : string, request?: express.Request) : Promise<TokenValidation>;
     
     private createExpressApp ( port: number) : void
     {
@@ -164,7 +165,10 @@ abstract class EntifixApplication
             this.validateToken(token, request).then(
                 result => {
                     if (result.success)
+                    {
+                        (request as any).userData = result.userData;
                         next();
+                    }
                     else
                         deniedAccess( result.message )
                 },
@@ -300,9 +304,9 @@ abstract class EntifixApplication
         });
     }
 
-    protected requestTokenValidation(token : string) : Promise<{success : boolean, message: string}>  
+    protected requestTokenValidation(token : string) : Promise<TokenValidation>  
     {
-        return new Promise<{success : boolean, message : string}> ( 
+        return new Promise<TokenValidation> ( 
             (resolve, reject) => 
             {
                 let idReq = this.generateRequestTokenId();
@@ -312,17 +316,17 @@ abstract class EntifixApplication
                 this._authChannel.consume(this._assertAuthQueue.queue, message => {
                     if (message.properties.correlationId == idReq)
                     {
-                        let responseData : {success:boolean, message:string} = JSON.parse(message.content.toString());
-                        resolve(responseData);
+                        let validation : TokenValidation = JSON.parse(message.content.toString());
+                        resolve(validation);
                     }
                 }, {noAck: true});
             }
         );
     }
 
-    protected requestTokenValidationWithCache(token : string, request : express.Request) : Promise<{success : boolean, message: string}> 
+    protected requestTokenValidationWithCache(token : string, request : express.Request) : Promise<TokenValidation> 
     {
-        return new Promise<{success : boolean, message : string}> (
+        return new Promise<TokenValidation> (
             (resolve, reject) => 
             {
                 this.getTokenValidationCache(token, request).then(
@@ -354,9 +358,9 @@ abstract class EntifixApplication
     }
 
 
-    protected getTokenValidationCache( token: string, request: express.Request ) : Promise<{exists: boolean, cacheResult? : { success:boolean, message:string }}>
+    protected getTokenValidationCache( token: string, request: express.Request ) : Promise<{exists: boolean, cacheResult? : TokenValidation }>
     { 
-        return new Promise<{exists: boolean, cacheResult? : { success:boolean, message:string }}> (
+        return new Promise<{exists: boolean, cacheResult? : TokenValidation}> (
             (resolve, reject) => 
             {
                 let keyCache = this.createKeyCache(token, request);
@@ -365,7 +369,7 @@ abstract class EntifixApplication
                     {
                         if (value)
                         {
-                            let cacheResult : { success: boolean, message: string } = JSON.parse(value);
+                            let cacheResult : TokenValidation = JSON.parse(value);
                             resolve( { exists: true, cacheResult });
                         }
                         else
@@ -379,7 +383,7 @@ abstract class EntifixApplication
         )
     }
 
-    protected setTokenValidationCache( token: string, request : express.Request, result : { success: boolean, message : string} ) : Promise<void>
+    protected setTokenValidationCache( token: string, request : express.Request, result : TokenValidation ) : Promise<void>
     {
         return new Promise<void> (
             (resolve, reject) =>
@@ -412,6 +416,7 @@ abstract class EntifixApplication
     {
         return this.serviceConfiguration.isMainService != null ? this.serviceConfiguration.isMainService : false;
     }
+
     public get expressApp()
     { return this._expressApp }
 
@@ -422,6 +427,9 @@ abstract class EntifixApplication
     {
         return this.serviceConfiguration.authCacheDuration || (60 * 5);
     }
+
+    protected get serviceSession ()
+    { return this._serviceSession; }
 
     //#endregion
 }

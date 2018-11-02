@@ -8,17 +8,18 @@ import { HcSession } from '../../hc-core/hcSession/hcSession';
 import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType} from '../../hc-core/hcMetaData/hcMetaData';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMServiceSession } from '../emServiceSession/emServiceSession'; 
+import { UserData } from '../../hc-core/hcUtilities/interactionDataModels';
 
 class EMSession extends HcSession
 {
     //#region Properties (Fields)
 
-    private _serviceSession: EMServiceSession;
     private _request : express.Request;
     private _response : express.Response;
 
-    private _systemOwner : string;
-
+    protected _userData : UserData;
+    protected _serviceSession: EMServiceSession;
+    
     //#endregion
 
 
@@ -33,11 +34,12 @@ class EMSession extends HcSession
         this._request = request;
         this._response = response;
 
+        this._userData = (request as any)._userData || serviceSession.developerUserData;
     }
     
     getModel<T extends EntityDocument >(entityName : string) : mongoose.Model<T>
     {
-        return this._serviceSession.getModel(entityName, this._systemOwner);
+        return this._serviceSession.getModel(entityName, this._userData.systemOwner);
     }
 
     getInfo(entityName : string ) : EntityInfo
@@ -609,8 +611,16 @@ class EMSession extends HcSession
     { return this._request; }
 
     get response()
-    { return this.response; }
+    { return this._response; }
 
+    get userName()
+    { return this._userData.userName; } 
+
+    get systemOwner()
+    { return this._userData.systemOwner; }
+
+    get userCompleteName()
+    { return this._userData.name; }
 
     //#endregion
 }

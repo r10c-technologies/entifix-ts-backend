@@ -1,7 +1,9 @@
 import express = require('express');
 import cors = require('cors');
 import amqp = require('amqplib/callback_api');
+import { TokenValidation } from '../../hc-core/hcUtilities/interactionDataModels';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
+import { EMServiceSession } from '../emServiceSession/emServiceSession';
 interface EntifixAppConfig {
     serviceName: string;
     mongoService: string;
@@ -33,10 +35,7 @@ declare abstract class EntifixApplication {
     protected abstract readonly serviceConfiguration: EntifixAppConfig;
     protected abstract registerEntities(): void;
     protected abstract exposeEntities(): void;
-    protected abstract validateToken(token: string, request?: express.Request): Promise<{
-        success: boolean;
-        message: string;
-    }>;
+    protected abstract validateToken(token: string, request?: express.Request): Promise<TokenValidation>;
     private createExpressApp;
     private createServiceSession;
     protected createMiddlewareFunctions(): void;
@@ -46,30 +45,19 @@ declare abstract class EntifixApplication {
     protected saveModuleAtached(message: amqp.Message): void;
     protected atachModule(exchangeName: string, routingKey: string): void;
     protected createRPCAuthorizationDynamic(): void;
-    protected requestTokenValidation(token: string): Promise<{
-        success: boolean;
-        message: string;
-    }>;
-    protected requestTokenValidationWithCache(token: string, request: express.Request): Promise<{
-        success: boolean;
-        message: string;
-    }>;
+    protected requestTokenValidation(token: string): Promise<TokenValidation>;
+    protected requestTokenValidationWithCache(token: string, request: express.Request): Promise<TokenValidation>;
     protected generateRequestTokenId(): string;
     protected getTokenValidationCache(token: string, request: express.Request): Promise<{
         exists: boolean;
-        cacheResult?: {
-            success: boolean;
-            message: string;
-        };
+        cacheResult?: TokenValidation;
     }>;
-    protected setTokenValidationCache(token: string, request: express.Request, result: {
-        success: boolean;
-        message: string;
-    }): Promise<void>;
+    protected setTokenValidationCache(token: string, request: express.Request, result: TokenValidation): Promise<void>;
     protected createKeyCache(token: string, request: express.Request): string;
     private readonly isMainService;
     readonly expressApp: express.Application;
     protected readonly routerManager: EMRouterManager;
     private readonly cacheExpiration;
+    protected readonly serviceSession: EMServiceSession;
 }
 export { EntifixApplication, EntifixAppConfig };

@@ -4,11 +4,12 @@ import { HcSession } from '../../hc-core/hcSession/hcSession';
 import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
+import { UserData } from '../../hc-core/hcUtilities/interactionDataModels';
 declare class EMSession extends HcSession {
-    private _serviceSession;
     private _request;
     private _response;
-    private _systemOwner;
+    protected _userData: UserData;
+    protected _serviceSession: EMServiceSession;
     constructor(serviceSession: EMServiceSession, request: express.Request, response: express.Response);
     getModel<T extends EntityDocument>(entityName: string): mongoose.Model<T>;
     getInfo(entityName: string): EntityInfo;
@@ -47,7 +48,10 @@ declare class EMSession extends HcSession {
     throwInfo(message: string): void;
     throwInfo(message: string, warnDevMode: boolean): void;
     readonly request: express.Request;
-    readonly response: any;
+    readonly response: express.Response;
+    readonly userName: string;
+    readonly systemOwner: string;
+    readonly userCompleteName: string;
 }
 interface EMSessionFilter {
     property: string;

@@ -96,8 +96,10 @@ class EntifixApplication {
                 return;
             }
             this.validateToken(token, request).then(result => {
-                if (result.success)
+                if (result.success) {
+                    request.userData = result.userData;
                     next();
+                }
                 else
                     deniedAccess(result.message);
             }, error => deniedAccess('Error on token validation', 500, this.serviceConfiguration.devMode ? error : null));
@@ -205,8 +207,8 @@ class EntifixApplication {
             this._authChannel.sendToQueue(this._nameAuthQueue, new Buffer(JSON.stringify({ token })), { correlationId: idReq, replyTo: this._assertAuthQueue.queue });
             this._authChannel.consume(this._assertAuthQueue.queue, message => {
                 if (message.properties.correlationId == idReq) {
-                    let responseData = JSON.parse(message.content.toString());
-                    resolve(responseData);
+                    let validation = JSON.parse(message.content.toString());
+                    resolve(validation);
                 }
             }, { noAck: true });
         });
@@ -271,6 +273,7 @@ class EntifixApplication {
     get cacheExpiration() {
         return this.serviceConfiguration.authCacheDuration || (60 * 5);
     }
+    get serviceSession() { return this._serviceSession; }
 }
 exports.EntifixApplication = EntifixApplication;
 //# sourceMappingURL=entifix-application.js.map
