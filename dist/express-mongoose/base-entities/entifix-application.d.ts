@@ -7,6 +7,7 @@ interface EntifixAppConfig {
     serviceName: string;
     mongoService: string;
     amqpService?: string;
+    amqpDefaultInteraction?: boolean;
     authCacheService?: string;
     authCacheServicePort?: number;
     authCacheDuration?: number;
@@ -73,5 +74,6 @@ declare abstract class EntifixApplication {
     readonly expressApp: express.Application;
     protected readonly routerManager: EMRouterManager;
     private readonly cacheExpiration;
+    readonly useDefaultAMQPInteraction: boolean;
 }
 export { EntifixApplication, EntifixAppConfig };

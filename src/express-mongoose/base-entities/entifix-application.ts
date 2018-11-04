@@ -18,6 +18,7 @@ interface EntifixAppConfig
     serviceName: string,
     mongoService : string, 
     amqpService? : string, 
+    amqpDefaultInteraction?: boolean,
     authCacheService? : string,
     authCacheServicePort? : number,
     authCacheDuration?: number,
@@ -181,7 +182,7 @@ abstract class EntifixApplication
         this._routerManager = new EMRouterManager( this._session, this._expressApp ); 
         this.exposeEntities();
 
-        if ( this.serviceConfiguration.amqpService)
+        if ( this.useDefaultAMQPInteraction )
         {
             if (this.isMainService)
                 this._session.brokerChannel.consume( 'modules_to_atach', message => this.saveModuleAtached(message));
@@ -201,7 +202,7 @@ abstract class EntifixApplication
 
     protected configSessionAMQPConneciton () : void
     {
-        if (this.serviceConfiguration.amqpService)
+        if ( this.useDefaultAMQPInteraction )
         {
             this._session.amqpExchangesDescription = [ 
                 { name: 'main_events', type: 'topic', durable: false }
@@ -421,6 +422,11 @@ abstract class EntifixApplication
     private get cacheExpiration()
     {
         return this.serviceConfiguration.authCacheDuration || (60 * 5);
+    }
+
+    get useDefaultAMQPInteraction()
+    {
+        return (this.serviceConfiguration.amqpService != null) && ( this.serviceConfiguration.amqpDefaultInteraction != false);
     }
 
     //#endregion

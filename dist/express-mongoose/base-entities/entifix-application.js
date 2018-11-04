@@ -108,7 +108,7 @@ class EntifixApplication {
         this.registerEntities();
         this._routerManager = new emRouterManager_1.EMRouterManager(this._session, this._expressApp);
         this.exposeEntities();
-        if (this.serviceConfiguration.amqpService) {
+        if (this.useDefaultAMQPInteraction) {
             if (this.isMainService)
                 this._session.brokerChannel.consume('modules_to_atach', message => this.saveModuleAtached(message));
             else
@@ -121,7 +121,7 @@ class EntifixApplication {
         }
     }
     configSessionAMQPConneciton() {
-        if (this.serviceConfiguration.amqpService) {
+        if (this.useDefaultAMQPInteraction) {
             this._session.amqpExchangesDescription = [
                 { name: 'main_events', type: 'topic', durable: false }
             ];
@@ -264,6 +264,9 @@ class EntifixApplication {
     get routerManager() { return this._routerManager; }
     get cacheExpiration() {
         return this.serviceConfiguration.authCacheDuration || (60 * 5);
+    }
+    get useDefaultAMQPInteraction() {
+        return (this.serviceConfiguration.amqpService != null) && (this.serviceConfiguration.amqpDefaultInteraction != false);
     }
 }
 exports.EntifixApplication = EntifixApplication;
