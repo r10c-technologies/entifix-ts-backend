@@ -11,10 +11,13 @@ class EMSession extends hcSession_1.HcSession {
         this._serviceSession = serviceSession;
         this._request = request;
         this._response = response;
-        this._userData = request._userData || serviceSession.developerUserData;
+        this._privateUserData = this.getPrivateUserData();
+    }
+    getPrivateUserData() {
+        return this._request.privateUserData || this._serviceSession.developerUserData;
     }
     getModel(entityName) {
-        return this._serviceSession.getModel(entityName, this._userData.systemOwner);
+        return this._serviceSession.getModel(entityName, this._privateUserData.systemOwner);
     }
     getInfo(entityName) {
         return this._serviceSession.getInfo(entityName);
@@ -407,9 +410,10 @@ class EMSession extends hcSession_1.HcSession {
     //#region Accessors (Properties)
     get request() { return this._request; }
     get response() { return this._response; }
-    get userName() { return this._userData.userName; }
-    get systemOwner() { return this._userData.systemOwner; }
-    get userCompleteName() { return this._userData.name; }
+    get userName() { return this._privateUserData.userName; }
+    get systemOwner() { return this._privateUserData.systemOwner; }
+    get userCompleteName() { return this._privateUserData.name; }
+    get serviceSession() { return this._serviceSession; }
 }
 exports.EMSession = EMSession;
 var FilterType;

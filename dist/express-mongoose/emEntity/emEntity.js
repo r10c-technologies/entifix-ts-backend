@@ -16,10 +16,12 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
     constructor(session, document) {
         super();
         this._session = session;
-        if (document)
-            this._document = document;
+        if (!document) {
+            let model = this.session.getModel(this.entityInfo.name);
+            this._document = new model();
+        }
         else
-            this._document = {};
+            this._document = document;
     }
     serializeExposedAccessors() {
         var simpleObject = {};

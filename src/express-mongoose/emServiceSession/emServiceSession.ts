@@ -7,7 +7,7 @@ import { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription } from
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType} from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
-import { UserData } from '../../hc-core/hcUtilities/interactionDataModels';
+import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 
 class EMServiceSession
 {
@@ -258,7 +258,7 @@ class EMServiceSession
     set amqpQueueBindsDescription (value)
     { this._amqpQueueBindsDescription = value; }
 
-    get developerUserData () : UserData
+    get developerUserData () : PrivateUserData
     {
         if (this.isDevMode)
         {

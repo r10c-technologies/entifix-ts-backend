@@ -37,10 +37,13 @@ class EMEntity extends Entity
         
         this._session = session;
         
-        if ( document )
-            this._document = document;
+        if (!document)
+        {
+            let model = this.session.getModel(this.entityInfo.name);
+            this._document = new model();
+        } 
         else
-            this._document = {} as any;
+            this._document = document;
     }
 
     serializeExposedAccessors () : any

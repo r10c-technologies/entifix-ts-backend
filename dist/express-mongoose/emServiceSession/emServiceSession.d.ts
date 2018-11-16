@@ -4,7 +4,7 @@ import { ExchangeDescription, QueueBindDescription } from '../emServiceSession/a
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
-import { UserData } from '../../hc-core/hcUtilities/interactionDataModels';
+import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 declare class EMServiceSession {
     private _mongooseInstance;
     private _mongooseConnection;
@@ -54,7 +54,7 @@ declare class EMServiceSession {
     readonly brokerChannel: amqp.Channel;
     amqpExchangesDescription: ExchangeDescription[];
     amqpQueueBindsDescription: QueueBindDescription[];
-    readonly developerUserData: UserData;
+    readonly developerUserData: PrivateUserData;
 }
 declare class EMSessionError {
     private _code;

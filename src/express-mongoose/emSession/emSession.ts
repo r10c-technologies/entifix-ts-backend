@@ -8,7 +8,7 @@ import { HcSession } from '../../hc-core/hcSession/hcSession';
 import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType} from '../../hc-core/hcMetaData/hcMetaData';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMServiceSession } from '../emServiceSession/emServiceSession'; 
-import { UserData } from '../../hc-core/hcUtilities/interactionDataModels';
+import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 
 class EMSession extends HcSession
 {
@@ -17,7 +17,7 @@ class EMSession extends HcSession
     private _request : express.Request;
     private _response : express.Response;
 
-    protected _userData : UserData;
+    protected _privateUserData : PrivateUserData;
     protected _serviceSession: EMServiceSession;
     
     //#endregion
@@ -34,12 +34,17 @@ class EMSession extends HcSession
         this._request = request;
         this._response = response;
 
-        this._userData = (request as any)._userData || serviceSession.developerUserData;
+        this._privateUserData = this.getPrivateUserData();
     }
     
+    protected getPrivateUserData( ) : PrivateUserData
+    {
+        return (this._request as any).privateUserData || this._serviceSession.developerUserData;
+    }
+
     getModel<T extends EntityDocument >(entityName : string) : mongoose.Model<T>
     {
-        return this._serviceSession.getModel(entityName, this._userData.systemOwner);
+        return this._serviceSession.getModel(entityName, this._privateUserData.systemOwner);
     }
 
     getInfo(entityName : string ) : EntityInfo
@@ -614,13 +619,16 @@ class EMSession extends HcSession
     { return this._response; }
 
     get userName()
-    { return this._userData.userName; } 
+    { return this._privateUserData.userName; } 
 
     get systemOwner()
-    { return this._userData.systemOwner; }
+    { return this._privateUserData.systemOwner; }
 
     get userCompleteName()
-    { return this._userData.name; }
+    { return this._privateUserData.name; }
+
+    get serviceSession ()
+    { return this._serviceSession; }
 
     //#endregion
 }

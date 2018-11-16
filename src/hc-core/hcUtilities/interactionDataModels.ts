@@ -2,14 +2,22 @@
 
 
 
-interface TokenValidation
+interface TokenValidationResponse
 {
+    error? : any,
     success: boolean,
-    message: string,
-    userData: UserData
+    message?: string,
+    privateUserData?: PrivateUserData
 }
 
-interface UserData
+interface TokenValidationRequest
+{
+    token: string,
+    path: string
+    service: string,
+}
+
+interface PrivateUserData
 {
     systemOwner: string,
     userName: string, 
@@ -17,8 +25,15 @@ interface UserData
     idUser: string
 }
 
+interface PublicUserData
+{
+    idUser: string,
+    userName: string,
+    name: string
+}
 
-export { UserData, TokenValidation }
+
+export { PublicUserData, PrivateUserData, TokenValidationRequest, TokenValidationResponse }
 
 
 

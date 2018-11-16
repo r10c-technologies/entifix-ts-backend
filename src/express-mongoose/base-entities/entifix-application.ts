@@ -4,12 +4,11 @@ import bodyParser = require('body-parser');
 import cors = require('cors');
 import amqp = require('amqplib/callback_api');
 import redis = require('redis');
-import crypto = require ('crypto');
  
 
 //Core Framework
 import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
-import { TokenValidation, UserData } from '../../hc-core/hcUtilities/interactionDataModels';
+import { TokenValidationRequest, TokenValidationResponse, PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EntifixApplicationModule, IEntifixApplicationModuleModel } from './entifix-application-module';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
@@ -71,7 +70,7 @@ abstract class EntifixApplication
     protected abstract get serviceConfiguration () :  EntifixAppConfig;
     protected abstract registerEntities() : void;
     protected abstract exposeEntities() : void;
-    protected abstract validateToken(token : string, request?: express.Request) : Promise<TokenValidation>;
+    protected abstract validateToken(token : string, request?: express.Request) : Promise<TokenValidationResponse>;
     
     private createExpressApp ( port: number) : void
     {
@@ -166,7 +165,7 @@ abstract class EntifixApplication
                 result => {
                     if (result.success)
                     {
-                        (request as any).userData = result.userData;
+                        (request as any).privateUserData = result.privateUserData;
                         next();
                     }
                     else
@@ -270,22 +269,22 @@ abstract class EntifixApplication
                     authChannel.prefetch(1);
                     
                     authChannel.consume(this._nameAuthQueue, message => {
-                        let data : { token : string } = JSON.parse(message.content.toString());
+                        let tokenRequest : TokenValidationRequest = JSON.parse(message.content.toString());
                         
-                        this.validateToken( data.token ).then( 
-                            result => { 
-                                authChannel.sendToQueue(message.properties.replyTo, new Buffer(JSON.stringify(result)), { correlationId: message.properties.correlationId } );
-                                authChannel.ack(message);
-                            },
-                            error => {
-                                let result = {
-                                    success: false,
-                                    message: error.message
-                                }
-
+                        this.processTokenValidationRequest(tokenRequest).then(
+                            result => {
                                 authChannel.sendToQueue(message.properties.replyTo, new Buffer(JSON.stringify(result)), { correlationId: message.properties.correlationId } );
                                 authChannel.ack(message);
                             }
+                        ).catch( error => {
+                                let result : TokenValidationResponse = {
+                                    success: false,
+                                    error: error
+                                };
+
+                                authChannel.sendToQueue(message.properties.replyTo, new Buffer(JSON.stringify(result)), { correlationId: message.properties.correlationId } );
+                                authChannel.ack(message);
+                            }                            
                         );
                     });
                 }
@@ -304,19 +303,32 @@ abstract class EntifixApplication
         });
     }
 
-    protected requestTokenValidation(token : string) : Promise<TokenValidation>  
+    protected processTokenValidationRequest(tokenValidationRequest : TokenValidationRequest) : Promise<TokenValidationResponse>
     {
-        return new Promise<TokenValidation> ( 
+        this.serviceSession.throwException('No setted process for token validation request');
+        return null;
+    }
+
+    protected requestTokenValidation(token : string, request : express.Request ) : Promise<TokenValidationResponse>  
+    {
+        return new Promise<TokenValidationResponse> ( 
             (resolve, reject) => 
             {
                 let idReq = this.generateRequestTokenId();
+                let serviceName = this.serviceConfiguration.serviceName;
 
-                this._authChannel.sendToQueue(this._nameAuthQueue, new Buffer(JSON.stringify({ token })), { correlationId : idReq, replyTo: this._assertAuthQueue.queue });
+                let tokenRequest : TokenValidationRequest = {
+                    token,
+                    path: request.path,
+                    service: serviceName
+                };
+
+                this._authChannel.sendToQueue(this._nameAuthQueue, new Buffer(JSON.stringify( tokenRequest )), { correlationId : idReq, replyTo: this._assertAuthQueue.queue });
 
                 this._authChannel.consume(this._assertAuthQueue.queue, message => {
                     if (message.properties.correlationId == idReq)
                     {
-                        let validation : TokenValidation = JSON.parse(message.content.toString());
+                        let validation : TokenValidationResponse = JSON.parse(message.content.toString());
                         resolve(validation);
                     }
                 }, {noAck: true});
@@ -324,16 +336,16 @@ abstract class EntifixApplication
         );
     }
 
-    protected requestTokenValidationWithCache(token : string, request : express.Request) : Promise<TokenValidation> 
+    protected requestTokenValidationWithCache(token : string, request : express.Request) : Promise<TokenValidationResponse> 
     {
-        return new Promise<TokenValidation> (
+        return new Promise<TokenValidationResponse> (
             (resolve, reject) => 
             {
                 this.getTokenValidationCache(token, request).then(
                     result => {
                         if (!result.exists)
                         {
-                            this.requestTokenValidation(token).then(
+                            this.requestTokenValidation(token, request).then(
                                 res => {
                                     this.setTokenValidationCache(token, request, res).then(
                                         () => resolve(res),
@@ -358,9 +370,9 @@ abstract class EntifixApplication
     }
 
 
-    protected getTokenValidationCache( token: string, request: express.Request ) : Promise<{exists: boolean, cacheResult? : TokenValidation }>
+    protected getTokenValidationCache( token: string, request: express.Request ) : Promise<{exists: boolean, cacheResult? : TokenValidationResponse }>
     { 
-        return new Promise<{exists: boolean, cacheResult? : TokenValidation}> (
+        return new Promise<{exists: boolean, cacheResult? : TokenValidationResponse}> (
             (resolve, reject) => 
             {
                 let keyCache = this.createKeyCache(token, request);
@@ -369,7 +381,7 @@ abstract class EntifixApplication
                     {
                         if (value)
                         {
-                            let cacheResult : TokenValidation = JSON.parse(value);
+                            let cacheResult : TokenValidationResponse = JSON.parse(value);
                             resolve( { exists: true, cacheResult });
                         }
                         else
@@ -383,7 +395,7 @@ abstract class EntifixApplication
         )
     }
 
-    protected setTokenValidationCache( token: string, request : express.Request, result : TokenValidation ) : Promise<void>
+    protected setTokenValidationCache( token: string, request : express.Request, result : TokenValidationResponse ) : Promise<void>
     {
         return new Promise<void> (
             (resolve, reject) =>

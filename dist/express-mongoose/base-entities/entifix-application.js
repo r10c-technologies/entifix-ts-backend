@@ -97,7 +97,7 @@ class EntifixApplication {
             }
             this.validateToken(token, request).then(result => {
                 if (result.success) {
-                    request.userData = result.userData;
+                    request.privateUserData = result.privateUserData;
                     next();
                 }
                 else
@@ -173,14 +173,14 @@ class EntifixApplication {
                     authChannel.assertQueue(this._nameAuthQueue, { durable: false });
                     authChannel.prefetch(1);
                     authChannel.consume(this._nameAuthQueue, message => {
-                        let data = JSON.parse(message.content.toString());
-                        this.validateToken(data.token).then(result => {
+                        let tokenRequest = JSON.parse(message.content.toString());
+                        this.processTokenValidationRequest(tokenRequest).then(result => {
                             authChannel.sendToQueue(message.properties.replyTo, new Buffer(JSON.stringify(result)), { correlationId: message.properties.correlationId });
                             authChannel.ack(message);
-                        }, error => {
+                        }).catch(error => {
                             let result = {
                                 success: false,
-                                message: error.message
+                                error: error
                             };
                             authChannel.sendToQueue(message.properties.replyTo, new Buffer(JSON.stringify(result)), { correlationId: message.properties.correlationId });
                             authChannel.ack(message);
@@ -201,10 +201,20 @@ class EntifixApplication {
                 this._serviceSession.throwException('Cannot create authorization channel');
         });
     }
-    requestTokenValidation(token) {
+    processTokenValidationRequest(tokenValidationRequest) {
+        this.serviceSession.throwException('No setted process for token validation request');
+        return null;
+    }
+    requestTokenValidation(token, request) {
         return new Promise((resolve, reject) => {
             let idReq = this.generateRequestTokenId();
-            this._authChannel.sendToQueue(this._nameAuthQueue, new Buffer(JSON.stringify({ token })), { correlationId: idReq, replyTo: this._assertAuthQueue.queue });
+            let serviceName = this.serviceConfiguration.serviceName;
+            let tokenRequest = {
+                token,
+                path: request.path,
+                service: serviceName
+            };
+            this._authChannel.sendToQueue(this._nameAuthQueue, new Buffer(JSON.stringify(tokenRequest)), { correlationId: idReq, replyTo: this._assertAuthQueue.queue });
             this._authChannel.consume(this._assertAuthQueue.queue, message => {
                 if (message.properties.correlationId == idReq) {
                     let validation = JSON.parse(message.content.toString());
@@ -217,7 +227,7 @@ class EntifixApplication {
         return new Promise((resolve, reject) => {
             this.getTokenValidationCache(token, request).then(result => {
                 if (!result.exists) {
-                    this.requestTokenValidation(token).then(res => {
+                    this.requestTokenValidation(token, request).then(res => {
                         this.setTokenValidationCache(token, request, res).then(() => resolve(res), error => reject(error));
                     }, error => reject(error));
                 }

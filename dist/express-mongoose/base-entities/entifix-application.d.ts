@@ -1,7 +1,7 @@
 import express = require('express');
 import cors = require('cors');
 import amqp = require('amqplib/callback_api');
-import { TokenValidation } from '../../hc-core/hcUtilities/interactionDataModels';
+import { TokenValidationRequest, TokenValidationResponse } from '../../hc-core/hcUtilities/interactionDataModels';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
 interface EntifixAppConfig {
@@ -35,7 +35,7 @@ declare abstract class EntifixApplication {
     protected abstract readonly serviceConfiguration: EntifixAppConfig;
     protected abstract registerEntities(): void;
     protected abstract exposeEntities(): void;
-    protected abstract validateToken(token: string, request?: express.Request): Promise<TokenValidation>;
+    protected abstract validateToken(token: string, request?: express.Request): Promise<TokenValidationResponse>;
     private createExpressApp;
     private createServiceSession;
     protected createMiddlewareFunctions(): void;
@@ -45,14 +45,15 @@ declare abstract class EntifixApplication {
     protected saveModuleAtached(message: amqp.Message): void;
     protected atachModule(exchangeName: string, routingKey: string): void;
     protected createRPCAuthorizationDynamic(): void;
-    protected requestTokenValidation(token: string): Promise<TokenValidation>;
-    protected requestTokenValidationWithCache(token: string, request: express.Request): Promise<TokenValidation>;
+    protected processTokenValidationRequest(tokenValidationRequest: TokenValidationRequest): Promise<TokenValidationResponse>;
+    protected requestTokenValidation(token: string, request: express.Request): Promise<TokenValidationResponse>;
+    protected requestTokenValidationWithCache(token: string, request: express.Request): Promise<TokenValidationResponse>;
     protected generateRequestTokenId(): string;
     protected getTokenValidationCache(token: string, request: express.Request): Promise<{
         exists: boolean;
-        cacheResult?: TokenValidation;
+        cacheResult?: TokenValidationResponse;
     }>;
-    protected setTokenValidationCache(token: string, request: express.Request, result: TokenValidation): Promise<void>;
+    protected setTokenValidationCache(token: string, request: express.Request, result: TokenValidationResponse): Promise<void>;
     protected createKeyCache(token: string, request: express.Request): string;
     private readonly isMainService;
     readonly expressApp: express.Application;
