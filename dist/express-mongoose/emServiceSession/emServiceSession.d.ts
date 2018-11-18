@@ -6,10 +6,11 @@ import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 declare class EMServiceSession {
+    private _serviceName;
     private _mongooseInstance;
     private _mongooseConnection;
     private _brokerConnection;
-    private _brokerChannel;
+    private _brokerChannels;
     private _urlMongoConnection;
     private _urlAmqpConnection;
     private _periodAmqpRetry;
@@ -18,8 +19,8 @@ declare class EMServiceSession {
     private _amqpQueueBindsDescription;
     private _devMode;
     private _entitiesInfo;
-    constructor(mongoService: string);
-    constructor(mongoService: string, amqpService: string);
+    constructor(serviceName: string, mongoService: string);
+    constructor(serviceName: string, mongoService: string, amqpService: string);
     connect(): Promise<void>;
     private atachToBroker;
     getInfo(entityName: string): EntityInfo;
@@ -35,6 +36,8 @@ declare class EMServiceSession {
     throwInfo(message: string): void;
     throwInfo(message: string, warnDevMode: boolean): void;
     createError(error: any, message: string): EMSessionError;
+    checkAMQPConnection(): void;
+    readonly serviceName: string;
     readonly entitiesInfo: {
         name: string;
         info: EntityInfo;
@@ -51,9 +54,13 @@ declare class EMServiceSession {
     limitAmqpRetry: any;
     readonly mongooseConnection: mongoose.Connection;
     readonly brokerConnection: amqp.Connection;
-    readonly brokerChannel: amqp.Channel;
+    readonly brokerChannels: {
+        name: string;
+        channel: amqp.Channel;
+    }[];
     amqpExchangesDescription: ExchangeDescription[];
     amqpQueueBindsDescription: QueueBindDescription[];
+    readonly mainChannel: amqp.Channel;
     readonly developerUserData: PrivateUserData;
 }
 declare class EMSessionError {

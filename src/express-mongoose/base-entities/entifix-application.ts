@@ -71,6 +71,7 @@ abstract class EntifixApplication
     protected abstract registerEntities() : void;
     protected abstract exposeEntities() : void;
     protected abstract validateToken(token : string, request?: express.Request) : Promise<TokenValidationResponse>;
+    protected registerEventsAndDelegates() : void { };
     
     private createExpressApp ( port: number) : void
     {
@@ -190,7 +191,7 @@ abstract class EntifixApplication
         if ( this.serviceConfiguration.amqpService)
         {
             if (this.isMainService)
-                this._serviceSession.brokerChannel.consume( 'modules_to_atach', message => this.saveModuleAtached(message));
+                this._serviceSession.mainChannel.consume( 'modules_to_atach', message => this.saveModuleAtached(message));
              else
                 this.atachModule( 'main_events', 'auth.module_atach' );
                 
@@ -203,6 +204,8 @@ abstract class EntifixApplication
 
             this._authCacheClient.on( "error ", err => this._serviceSession.throwException(err));
         }
+
+        this.registerEventsAndDelegates();
     }
 
     protected configSessionAMQPConneciton () : void
@@ -253,7 +256,7 @@ abstract class EntifixApplication
             resources: this._routerManager.getExpositionDetails()
         };
 
-        this._serviceSession.brokerChannel.publish(exchangeName, routingKey, new Buffer(JSON.stringify(message)));
+        this._serviceSession.mainChannel.publish(exchangeName, routingKey, new Buffer(JSON.stringify(message)));
     }
 
     protected createRPCAuthorizationDynamic( ) : void
