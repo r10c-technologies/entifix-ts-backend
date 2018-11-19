@@ -290,12 +290,12 @@ abstract class EntifixApplication
                 }
                 else // Create RPC Client
                 {
-                    authChannel.assertQueue('', {exclusive : true }, (err, assertedQueue) => { 
-                        if (!err)
-                            this._assertAuthQueue = assertedQueue;
-                        else
-                            this._serviceSession.throwException("Cannot create Auth Queue");
-                    });
+                    // authChannel.assertQueue('', {exclusive : true }, (err, assertedQueue) => { 
+                    //     if (!err)
+                    //         this._assertAuthQueue = assertedQueue;
+                    //     else
+                    //         this._serviceSession.throwException("Cannot create Auth Queue");
+                    // });
                 }
             }
             else
@@ -314,24 +314,32 @@ abstract class EntifixApplication
         return new Promise<TokenValidationResponse> ( 
             (resolve, reject) => 
             {
-                let idReq = this.generateRequestTokenId();
-                let serviceName = this.serviceConfiguration.serviceName;
+                this._serviceSession.brokerConnection.createChannel( ( err, tempAuthChannel) => { 
+                    tempAuthChannel.assertQueue('', {exclusive : true }, (err, assertedQueue) => { 
+                        var idRequest = this.generateRequestTokenId();
+                        var serviceName = this.serviceConfiguration.serviceName;
 
-                let tokenRequest : TokenValidationRequest = {
-                    token,
-                    path: request.path,
-                    service: serviceName
-                };
+                        let tokenRequest : TokenValidationRequest = {
+                            token,
+                            path: request.path,
+                            service: serviceName
+                        };
 
-                this._authChannel.sendToQueue(this._nameAuthQueue, new Buffer(JSON.stringify( tokenRequest )), { correlationId : idReq, replyTo: this._assertAuthQueue.queue });
+                        tempAuthChannel.consume(
+                            assertedQueue.queue,
+                            message => {
+                                if (message.properties.correlationId == idRequest) {
+                                    let validation : TokenValidationResponse = JSON.parse(message.content.toString());
+                                    tempAuthChannel.close( err => { });
+                                    resolve(validation);
+                                }
+                            }, 
+                            {noAck: true}
+                        );
 
-                this._authChannel.consume(this._assertAuthQueue.queue, message => {
-                    if (message.properties.correlationId == idReq)
-                    {
-                        let validation : TokenValidationResponse = JSON.parse(message.content.toString());
-                        resolve(validation);
-                    }
-                }, {noAck: true});
+                        tempAuthChannel.sendToQueue(this._nameAuthQueue, new Buffer(JSON.stringify( tokenRequest )), { correlationId : idRequest, replyTo: assertedQueue.queue });
+                    });
+                });               
             }
         );
     }
@@ -444,6 +452,69 @@ abstract class EntifixApplication
     { return this._serviceSession; }
 
     //#endregion
+}
+
+class TokenValidator 
+{
+    promise : Promise<TokenValidationResponse>;
+
+    constructor(
+        public idRequest : string,
+        public serviceName, 
+        public channel : amqp.Channel, 
+        public token : string, 
+        public request : express.Request,
+        public authQueueName : string,
+        public assertedQueue : amqp.Replies.AssertQueue) 
+    {
+        this.promise =  new Promise<TokenValidationResponse> ( 
+            (resolve, reject) => 
+            {
+                let tokenRequest : TokenValidationRequest = {
+                    token: this.token,
+                    path: this.request.path,
+                    service: this.serviceName
+                };
+
+                this.channel.sendToQueue(this.authQueueName, new Buffer(JSON.stringify( tokenRequest )), { correlationId : this.idRequest, replyTo: this.assertedQueue.queue });
+
+                let consumer = (idReq, resolvePromise) => {
+                    function onConsume(message : amqp.Message) 
+                    {
+                        if (message.properties.correlationId == this.idRequest) 
+                        {
+                            let validation : TokenValidationResponse = JSON.parse(message.content.toString());
+                            resolvePromise(validation);
+                        }
+                    }
+                }
+
+                let newConsumerInstance = new Consumer( this.idRequest, resolve );
+
+                this.channel.consume(
+                    this.assertedQueue.queue,
+                    newConsumerInstance.onConsume, 
+                    {noAck: true}
+                );
+            }
+        );
+
+    }
+
+}
+
+function Consumer(idReq, resolvePromise) 
+{
+    this.onConsume = function(message : amqp.Message) 
+    {
+        let a = 3;
+        let b = this;
+        if (message.properties.correlationId == this.idRequest) 
+        {
+            let validation : TokenValidationResponse = JSON.parse(message.content.toString());
+            resolvePromise(validation);
+        }
+    }
 }
 
 export { EntifixApplication, EntifixAppConfig }
