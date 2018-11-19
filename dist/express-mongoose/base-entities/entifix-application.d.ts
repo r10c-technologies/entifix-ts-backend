@@ -36,6 +36,7 @@ declare abstract class EntifixApplication {
     protected abstract registerEntities(): void;
     protected abstract exposeEntities(): void;
     protected abstract validateToken(token: string, request?: express.Request): Promise<TokenValidationResponse>;
+    protected registerEventsAndDelegates(): void;
     private createExpressApp;
     private createServiceSession;
     protected createMiddlewareFunctions(): void;

@@ -5,8 +5,10 @@ const mongoose = require("mongoose");
 //CORE FRAMEWORK
 const amqpConnectionDynamic_1 = require("../emServiceSession/amqpConnectionDynamic");
 class EMServiceSession {
-    constructor(mongoService, amqpService) {
+    constructor(serviceName, mongoService, amqpService) {
+        this._serviceName = serviceName;
         this._entitiesInfo = [];
+        this._brokerChannels = new Array();
         //Mongo Configuration
         this._urlMongoConnection = 'mongodb://' + mongoService;
         //AMQP Configuration
@@ -34,7 +36,7 @@ class EMServiceSession {
             amqpConnectionDynamic_1.AMQPConnectionDynamic.connect(this._urlAmqpConnection, { period: this._periodAmqpRetry, limit: this._limitAmqpRetry }).then(connection => {
                 this._brokerConnection = connection;
                 amqpConnectionDynamic_1.AMQPConnectionDynamic.createExchangeAndQueues(connection, this._amqpExchangesDescription, this._amqpQueueBindsDescription).then(channel => {
-                    this._brokerChannel = channel;
+                    this._brokerChannels.push({ name: 'mainChannel', channel });
                     resolve();
                 }, error => reject(error));
             }, error => reject(error));
@@ -120,8 +122,13 @@ class EMServiceSession {
         else
             return new EMSessionError(null, 'INTERNAL SERVER ERROR');
     }
+    checkAMQPConnection() {
+        if (!this._urlAmqpConnection || !this._brokerConnection)
+            this.throwException('No AMQP service enabled');
+    }
     //#endregion
     //#region Accessors
+    get serviceName() { return this._serviceName; }
     get entitiesInfo() { return this._entitiesInfo; }
     get isDevMode() { return this._devMode; }
     get periodAmqpRetry() { return this._periodAmqpRetry; }
@@ -130,11 +137,17 @@ class EMServiceSession {
     set limitAmqpRetry(value) { this._limitAmqpRetry = value; }
     get mongooseConnection() { return this._mongooseConnection; }
     get brokerConnection() { return this._brokerConnection; }
-    get brokerChannel() { return this._brokerChannel; }
+    get brokerChannels() { return this._brokerChannels; }
     get amqpExchangesDescription() { return this._amqpExchangesDescription; }
     set amqpExchangesDescription(value) { this._amqpExchangesDescription = value; }
     get amqpQueueBindsDescription() { return this._amqpQueueBindsDescription; }
     set amqpQueueBindsDescription(value) { this._amqpQueueBindsDescription = value; }
+    get mainChannel() {
+        let mc = this._brokerChannels.find(c => c.name == 'mainChannel');
+        if (!mc)
+            this.throwException('Main broker channel not found');
+        return mc.channel;
+    }
     get developerUserData() {
         if (this.isDevMode) {
             return {

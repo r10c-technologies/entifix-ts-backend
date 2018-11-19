@@ -17,4 +17,9 @@ __export(require("./express-mongoose/emMetadata/emMetadata"));
 __export(require("./express-mongoose/base-entities/resource-detail"));
 __export(require("./express-mongoose/base-entities/entifix-application"));
 __export(require("./express-mongoose/base-entities/entifix-application-module"));
+__export(require("./amqp-events/amqp-delegate/AMQPDelegate"));
+__export(require("./amqp-events/amqp-event/AMQPEvent"));
+__export(require("./amqp-events/amqp-event-args/AMQPEventArgs"));
+__export(require("./amqp-events/amqp-event-manager/AMQPEventManager"));
+__export(require("./amqp-events/amqp-sender/AMQPSender"));
 //# sourceMappingURL=index.js.map

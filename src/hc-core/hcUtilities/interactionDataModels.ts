@@ -1,7 +1,4 @@
 
-
-
-
 interface TokenValidationResponse
 {
     error? : any,

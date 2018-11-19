@@ -8,16 +8,20 @@ import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType} from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
+import { AMQPEvent } from '../../amqp-events/amqp-event/AMQPEvent';
+import { AMQPDelegate } from '../../amqp-events/amqp-delegate/AMQPDelegate';
+import { stringify } from 'querystring';
 
 class EMServiceSession
 {
     //#region Properties
     
     //Connection instances
+    private _serviceName : string;
     private _mongooseInstance : any;
     private _mongooseConnection : mongoose.Connection;
     private _brokerConnection : amqp.Connection;
-    private _brokerChannel : amqp.Channel;
+    private _brokerChannels : Array<{ name:string, channel:amqp.Channel}>;
         
     //Configuraion properties
     private _urlMongoConnection : string;
@@ -45,11 +49,13 @@ class EMServiceSession
     
     //#region Methods
 
-    constructor (mongoService : string);
-    constructor (mongoService : string, amqpService : string);
-    constructor (mongoService : string, amqpService? : string)
+    constructor (serviceName: string, mongoService : string);
+    constructor (serviceName: string, mongoService : string, amqpService : string);
+    constructor (serviceName: string, mongoService : string, amqpService? : string)
     {
+        this._serviceName = serviceName;
         this._entitiesInfo = [];
+        this._brokerChannels = new Array<{name:string, channel: amqp.Channel}>();
 
         //Mongo Configuration
         this._urlMongoConnection = 'mongodb://' + mongoService;
@@ -89,8 +95,8 @@ class EMServiceSession
                 connection => {
                     this._brokerConnection = connection;
                     AMQPConnectionDynamic.createExchangeAndQueues( connection, this._amqpExchangesDescription, this._amqpQueueBindsDescription ).then(
-                        channel => {
-                            this._brokerChannel = channel;
+                        channel => {                            
+                            this._brokerChannels.push( { name: 'mainChannel', channel } );
                             resolve();
                         },
                         error => reject(error)
@@ -217,11 +223,20 @@ class EMServiceSession
             return new EMSessionError(null, 'INTERNAL SERVER ERROR');
     }
 
+    checkAMQPConnection () : void
+    {
+        if (!this._urlAmqpConnection || !this._brokerConnection)
+            this.throwException('No AMQP service enabled');
+    }
+
     //#endregion
 
 
 
     //#region Accessors
+
+    get serviceName()
+    { return this._serviceName; }
 
     get entitiesInfo ()
     { return this._entitiesInfo; }
@@ -245,8 +260,8 @@ class EMServiceSession
     get brokerConnection()
     { return this._brokerConnection; }
 
-    get brokerChannel()
-    { return this._brokerChannel; }
+    get brokerChannels()
+    { return this._brokerChannels; }
 
     get amqpExchangesDescription ()
     { return this._amqpExchangesDescription; }
@@ -258,9 +273,19 @@ class EMServiceSession
     set amqpQueueBindsDescription (value)
     { this._amqpQueueBindsDescription = value; }
 
+    get mainChannel ()
+    {
+        let mc = this._brokerChannels.find( c => c.name == 'mainChannel' );
+
+        if (!mc)
+            this.throwException('Main broker channel not found');
+
+        return mc.channel;
+    }
+
     get developerUserData () : PrivateUserData
     {
-        if (this.isDevMode)
+        if (this.isDevMode) 
         {
             return {
                 name: 'LOCAL DEVELOPER',
