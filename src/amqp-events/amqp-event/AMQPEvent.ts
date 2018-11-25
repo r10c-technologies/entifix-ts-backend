@@ -1,3 +1,5 @@
+import amqp = require('amqplib/callback_api');
+
 import { AMQPEventMessage } from '../amqp-models/amqp-models';
 import { AMQPEventManager } from '../amqp-event-manager/AMQPEventManager';
 import { AMQPSender } from '../amqp-sender/AMQPSender';
@@ -13,33 +15,53 @@ abstract class AMQPEvent
 
     //#region Methods
 
-    abstract generate () : Promise<void>;
-
-    constructMessage( eventManager : AMQPEventManager, data : any ) : AMQPEventMessage
+    constructor(eventManager : AMQPEventManager) 
     {
-        let actionName = this.actionName;
-        let entityName = this.entityName;
-        let sender = new AMQPSender( {
-            serviceName: eventManager.serviceSession.serviceName,
-            actionName,
-            entityName
-        } );
-
-        let eventArgs = new AMQPEventArgs( { 
-            data
-        } );
-
-        return { sender, eventArgs };
+        this._eventManager = eventManager;
     }
 
+    protected onMessageConstruciton(data : any) : Promise<{ data : any, options? : amqp.Options.Publish}>
+    {
+        return null;
+    }
+    
+    constructMessage( data : any ) : Promise<AMQPEventMessage>
+    {
+        return new Promise<AMQPEventMessage>( (resolve,reject)=>{
+            let resolvePromise = (data, options?) => {
+                let sender = new AMQPSender();
+                sender.serviceName = this.eventManager.serviceSession.serviceName;
+                sender.actionName = this.actionName;
+                sender.entityName = this.entityName;
+                sender.publishOptions = options;
+
+                let eventArgs = new AMQPEventArgs();
+                eventArgs.data = data;
+
+                resolve({ sender, eventArgs});
+            };
+
+            let onConstructionTask = this.onMessageConstruciton(data);
+            if (onConstructionTask)
+                onConstructionTask.then( result => resolvePromise(result.data, result.options)).catch( err => reject(err));
+            else
+                resolvePromise(data);
+        });
+    }
 
     //#endregion
 
     //#region Accessors
 
-    abstract get exchangeName () : string;
-    abstract get routingKey() : string;
+    get exchangeName () : string
+    { return null; }
     
+    get routingKey() : string
+    { return null; }
+
+    get specificQueue() : string
+    { return null; }
+
     get entityName() : string
     { return null; }
 
@@ -48,6 +70,9 @@ abstract class AMQPEvent
 
     get channelName () : string
     { return 'mainChannel' }
+
+    get eventManager () 
+    { return this._eventManager; }
 
     //#endregion
 

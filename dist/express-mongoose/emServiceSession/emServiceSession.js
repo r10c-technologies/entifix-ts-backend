@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 //CORE DEPENDENCIES
 const mongoose = require("mongoose");
 //CORE FRAMEWORK
-const amqpConnectionDynamic_1 = require("../emServiceSession/amqpConnectionDynamic");
+const amqpConnectionDynamic_1 = require("../../amqp-events/amqp-connection/amqpConnectionDynamic");
 class EMServiceSession {
     constructor(serviceName, mongoService, amqpService) {
         this._serviceName = serviceName;
@@ -21,25 +21,20 @@ class EMServiceSession {
     }
     connect() {
         let connectDb = () => { this._mongooseConnection = mongoose.createConnection(this._urlMongoConnection); };
-        if (this._urlAmqpConnection) {
+        return new Promise((resolve, reject) => {
             connectDb();
-            return this.atachToBroker();
-        }
-        else
-            return new Promise((resolve, reject) => {
-                connectDb();
+            if (this._urlAmqpConnection)
+                this.atachToBroker().then(() => resolve()).catch(error => reject(error));
+            else
                 resolve();
-            });
+        });
     }
     atachToBroker() {
         return new Promise((resolve, reject) => {
             amqpConnectionDynamic_1.AMQPConnectionDynamic.connect(this._urlAmqpConnection, { period: this._periodAmqpRetry, limit: this._limitAmqpRetry }).then(connection => {
                 this._brokerConnection = connection;
-                amqpConnectionDynamic_1.AMQPConnectionDynamic.createExchangeAndQueues(connection, this._amqpExchangesDescription, this._amqpQueueBindsDescription).then(channel => {
-                    this._brokerChannels.push({ name: 'mainChannel', channel });
-                    resolve();
-                }, error => reject(error));
-            }, error => reject(error));
+                resolve();
+            }).catch(err => reject(err));
         });
     }
     getInfo(entityName) {
@@ -146,7 +141,7 @@ class EMServiceSession {
         let mc = this._brokerChannels.find(c => c.name == 'mainChannel');
         if (!mc)
             this.throwException('Main broker channel not found');
-        return mc.channel;
+        return mc.instance;
     }
     get developerUserData() {
         if (this.isDevMode) {

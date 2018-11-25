@@ -1,6 +1,6 @@
 import mongoose = require('mongoose');
 import amqp = require('amqplib/callback_api');
-import { ExchangeDescription, QueueBindDescription } from '../emServiceSession/amqpConnectionDynamic';
+import { ExchangeDescription, QueueBindDescription } from '../../amqp-events/amqp-connection/amqpConnectionDynamic';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
@@ -56,7 +56,7 @@ declare class EMServiceSession {
     readonly brokerConnection: amqp.Connection;
     readonly brokerChannels: {
         name: string;
-        channel: amqp.Channel;
+        instance: amqp.Channel;
     }[];
     amqpExchangesDescription: ExchangeDescription[];
     amqpQueueBindsDescription: QueueBindDescription[];

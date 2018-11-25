@@ -5,46 +5,71 @@ class AMQPEventManager {
     //#region Methods
     constructor(serviceSession) {
         this._serviceSession = serviceSession;
-        this._publishers = new Array();
+        this._events = new Array();
+        this._delegates = new Array();
     }
-    registerEvent(eventData) {
+    registerEvent(type) {
         this._serviceSession.checkAMQPConnection();
-        if (eventData instanceof Array)
-            eventData.forEach(e => this._publishers.push({ name: e.constructor.name, eventInstance: e }));
-        else
-            this._publishers.push({ name: eventData.constructor.name, eventInstance: eventData });
+        let instance = new type(this);
+        this._events.push({ name: type.name, instance });
+        return instance;
     }
     publish(eventName, data) {
         this._serviceSession.checkAMQPConnection();
-        let pub = this._publishers.find(p => p.name == eventName);
+        let pub = this._events.find(p => p.name == eventName);
         if (!pub)
-            this._serviceSession.throwException(`No published register for the event: ${eventName}`);
-        let amqpEventMessage = pub.eventInstance.constructMessage(this, data);
-        let message = {
-            sender: amqpEventMessage.sender.serialize(),
-            eventArgs: amqpEventMessage.eventArgs.serialize()
-        };
-        this.getEventChannel(pub.eventInstance).publish(pub.eventInstance.exchangeName, pub.eventInstance.routingKey, new Buffer(JSON.stringify(message)));
+            this._serviceSession.throwException(`No registered event for: ${eventName}`);
+        pub.instance.constructMessage(data).then(amqpMessage => {
+            let message = {
+                sender: amqpMessage.sender.serialize(),
+                eventArgs: amqpMessage.eventArgs.serialize()
+            };
+            this.assertEventChannel(pub.instance).then(c => {
+                let content = new Buffer(JSON.stringify(message));
+                if (pub.instance.specificQueue)
+                    c.sendToQueue(pub.instance.specificQueue, content, amqpMessage.sender.publishOptions);
+                else
+                    c.publish(pub.instance.exchangeName, pub.instance.routingKey, content, amqpMessage.sender.publishOptions);
+            });
+        });
     }
-    registerDelegate(delegateData) {
+    registerDelegate(type) {
         this._serviceSession.checkAMQPConnection();
-        if (delegateData instanceof Array)
-            delegateData.forEach(d => this.getDelegateChannel(d).consume(d.queueName, d.onMessage));
-        else
-            this.getDelegateChannel(delegateData).consume(delegateData.queueName, delegateData.onMessage);
+        let instance = new type(this);
+        this._delegates.push({ name: type.name, instance });
+        this.assertDelegateChannel(instance).then(ch => {
+            ch.assertQueue(instance.queueName, instance.queueOptions);
+            ch.consume(instance.queueName, instance.onMessage(ch));
+        });
+        return instance;
     }
-    getDelegateChannel(delegate) {
-        let ch = this._serviceSession.brokerChannels.find(c => c.name == delegate.channelName);
-        if (!ch)
-            this._serviceSession.throwException(`Channel not found: ${delegate.channelName}`);
-        return ch.channel;
+    assertDelegateChannel(delegate) {
+        return this.assertChannel(delegate.channelName);
     }
     ;
-    getEventChannel(event) {
-        let ch = this._serviceSession.brokerChannels.find(c => c.name == event.channelName);
-        if (!ch)
-            this._serviceSession.throwException(`Channel not found: ${event.channelName}`);
-        return ch.channel;
+    assertEventChannel(event) {
+        return this.assertChannel(event.channelName);
+    }
+    createAnonymousChannel() {
+        return this.assertChannel(null);
+    }
+    assertChannel(name) {
+        return new Promise((resolve, reject) => {
+            if (name)
+                var ch = this._serviceSession.brokerChannels.find(c => c.name == name);
+            if (!ch) {
+                this._serviceSession.brokerConnection.createChannel((err, channel) => {
+                    if (!err) {
+                        this._serviceSession.brokerChannels.push({ name, instance: channel });
+                        resolve(channel);
+                    }
+                    else
+                        reject(err);
+                });
+            }
+            else
+                resolve(ch.instance);
+        });
     }
     //#endregion
     //#region Accesors

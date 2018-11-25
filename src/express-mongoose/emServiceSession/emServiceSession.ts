@@ -3,14 +3,13 @@ import mongoose = require('mongoose');
 import amqp = require('amqplib/callback_api');
 
 //CORE FRAMEWORK
-import { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription } from '../emServiceSession/amqpConnectionDynamic';
+import { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription } from '../../amqp-events/amqp-connection/amqpConnectionDynamic';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType} from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import { AMQPEvent } from '../../amqp-events/amqp-event/AMQPEvent';
 import { AMQPDelegate } from '../../amqp-events/amqp-delegate/AMQPDelegate';
-import { stringify } from 'querystring';
 
 class EMServiceSession
 {
@@ -21,7 +20,7 @@ class EMServiceSession
     private _mongooseInstance : any;
     private _mongooseConnection : mongoose.Connection;
     private _brokerConnection : amqp.Connection;
-    private _brokerChannels : Array<{ name:string, channel:amqp.Channel}>;
+    private _brokerChannels : Array<{ name:string, instance:amqp.Channel}>;
         
     //Configuraion properties
     private _urlMongoConnection : string;
@@ -55,7 +54,7 @@ class EMServiceSession
     {
         this._serviceName = serviceName;
         this._entitiesInfo = [];
-        this._brokerChannels = new Array<{name:string, channel: amqp.Channel}>();
+        this._brokerChannels = new Array<{name:string, instance: amqp.Channel}>();
 
         //Mongo Configuration
         this._urlMongoConnection = 'mongodb://' + mongoService;
@@ -75,17 +74,13 @@ class EMServiceSession
     {
         let connectDb = () => { this._mongooseConnection = mongoose.createConnection(this._urlMongoConnection) };
 
-        if (this._urlAmqpConnection)
-        {
+        return new Promise<void>((resolve,reject)=>{
             connectDb();
-            return this.atachToBroker();
-        }
-        else
-            return new Promise<void>( (resolve, reject) => {
-                connectDb();
+            if (this._urlAmqpConnection)
+                this.atachToBroker().then( () => resolve()).catch( error => reject(error));
+            else
                 resolve();
-            });
-            
+        });            
     }
     
     private atachToBroker () : Promise<void>
@@ -94,16 +89,9 @@ class EMServiceSession
             AMQPConnectionDynamic.connect(this._urlAmqpConnection, { period: this._periodAmqpRetry, limit: this._limitAmqpRetry}).then(
                 connection => {
                     this._brokerConnection = connection;
-                    AMQPConnectionDynamic.createExchangeAndQueues( connection, this._amqpExchangesDescription, this._amqpQueueBindsDescription ).then(
-                        channel => {                            
-                            this._brokerChannels.push( { name: 'mainChannel', channel } );
-                            resolve();
-                        },
-                        error => reject(error)
-                    );
-                }, 
-                error => reject(error)
-            );
+                    resolve();
+                }
+            ).catch(err => reject(err));
         });
     }
 
@@ -280,7 +268,7 @@ class EMServiceSession
         if (!mc)
             this.throwException('Main broker channel not found');
 
-        return mc.channel;
+        return mc.instance;
     }
 
     get developerUserData () : PrivateUserData

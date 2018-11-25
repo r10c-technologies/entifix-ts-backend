@@ -3,39 +3,59 @@ import amqp = require('amqplib/callback_api');
 
 import { AMQPSender } from '../amqp-sender/AMQPSender';
 import { AMQPEventArgs } from '../amqp-event-args/AMQPEventArgs';
+import { AMQPEventManager } from '../amqp-event-manager/AMQPEventManager';
 
 abstract class AMQPDelegate 
 {
     //#region Properties
 
+    private _eventManager : AMQPEventManager;
+    private _queueOptions : amqp.Options.AssertQueue;
+
     //#endregion
 
     //#region Methods
 
-    constructor( )
+    constructor( eventManager : AMQPEventManager )
     {
-
+        this._eventManager = eventManager;
     }
 
-    abstract execute( sender : AMQPSender, eventArgs : AMQPEventArgs) : Promise<void>;
+    abstract execute( sender : AMQPSender, eventArgs : AMQPEventArgs ) : Promise<void>;
 
-    onMessage( message : amqp.Message ) : void
+    onMessage( channel : amqp.Channel ) : ( message : amqp.Message) => any
     {
-        let messageContent = JSON.parse(message.content.toString());
-        let sender = new AMQPSender(messageContent);
-        let eventArgs = new AMQPEventArgs(messageContent);
-        this.execute( sender, eventArgs );
+        return message => {
+            let messageContent = JSON.parse(message.content.toString());
+            let sender = new AMQPSender(messageContent);
+            
+            let eventArgs = new AMQPEventArgs(messageContent);
+            eventArgs.originalMessage = message;
+            eventArgs.channel = channel;
+
+            this.execute( sender, eventArgs );
+        }        
     }
 
     //#endregion
 
     //#region Accessors
 
-    abstract get queueName () : string;
-    abstract get exchangeName () : string;
+    get queueName () : string
+    { return null; }
+
+    get queueOptions () : amqp.Options.AssertQueue
+    { return this._queueOptions; }
+
+    get exchangeName () : string
+    { return null; }
     
     get channelName () : string
     { return 'mainChannel' }
+
+    get eventManager ()
+    { return this._eventManager; }
+
 
     //#endregion
 

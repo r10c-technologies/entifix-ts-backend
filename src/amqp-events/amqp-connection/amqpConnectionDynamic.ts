@@ -89,6 +89,27 @@ class AMQPConnectionDynamic
         });
     }
 
+    static createChannel(connection : amqp.Connection) : Promise<amqp.Channel>
+    {
+        return new Promise<amqp.Channel>( (resolve,reject)=>{
+            connection.createChannel( (err, channel)=>{
+                if (!err)
+                    resolve(channel);
+                else
+                    reject(err);
+            });
+        });
+    }
+
+    static assertE
+
+    static assertQueue() : Promise<amqp.Replies.AssertQueue>
+    {
+        return new Promise<amqp.Replies.AssertQueue>( (resolve,reject)=>{
+
+        });
+    }
+
     //#endregion
 }
 

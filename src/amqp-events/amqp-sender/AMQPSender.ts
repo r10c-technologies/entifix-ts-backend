@@ -1,17 +1,20 @@
+import amqp = require('amqplib/callback_api');
 
 class AMQPSender
 {
     //#region Properties
 
-    protected _serviceName : string;
-    protected _entityName : string;
-    protected _actionName : string;
+    private _serviceName : string;
+    private _entityName : string;
+    private _actionName : string;
+
+    private _publishOptions : amqp.Options.Publish;
 
     //#endregion
 
     //#region Methods
 
-    constructor ( messageContent : any)
+    constructor ( messageContent? : any)
     {
         if (messageContent && messageContent.sender)
         {
@@ -48,6 +51,11 @@ class AMQPSender
     { return this._actionName; }
     set actionName ( value )
     { this._actionName = value; }
+
+    get publishOptions()
+    { return this._publishOptions; }
+    set publishOptions( value )
+    { this._publishOptions = value; }
 
     //#endregion
 

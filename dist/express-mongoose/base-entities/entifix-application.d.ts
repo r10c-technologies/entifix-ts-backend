@@ -27,8 +27,8 @@ declare abstract class EntifixApplication {
     private _expressApp;
     private _serviceSession;
     private _routerManager;
+    private _eventManager;
     private _authChannel;
-    private _nameAuthQueue;
     private _assertAuthQueue;
     private _authCacheClient;
     constructor(port: number);
@@ -49,7 +49,6 @@ declare abstract class EntifixApplication {
     protected processTokenValidationRequest(tokenValidationRequest: TokenValidationRequest): Promise<TokenValidationResponse>;
     protected requestTokenValidation(token: string, request: express.Request): Promise<TokenValidationResponse>;
     protected requestTokenValidationWithCache(token: string, request: express.Request): Promise<TokenValidationResponse>;
-    protected generateRequestTokenId(): string;
     protected getTokenValidationCache(token: string, request: express.Request): Promise<{
         exists: boolean;
         cacheResult?: TokenValidationResponse;

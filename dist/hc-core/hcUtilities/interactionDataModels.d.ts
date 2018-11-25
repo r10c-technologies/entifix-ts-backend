@@ -7,7 +7,6 @@ interface TokenValidationResponse {
 interface TokenValidationRequest {
     token: string;
     path: string;
-    service: string;
 }
 interface PrivateUserData {
     systemOwner: string;

@@ -25,6 +25,8 @@ class AMQPSender {
     set entityName(value) { this._entityName = value; }
     get actionName() { return this._actionName; }
     set actionName(value) { this._actionName = value; }
+    get publishOptions() { return this._publishOptions; }
+    set publishOptions(value) { this._publishOptions = value; }
 }
 exports.AMQPSender = AMQPSender;
 //# sourceMappingURL=AMQPSender.js.map
