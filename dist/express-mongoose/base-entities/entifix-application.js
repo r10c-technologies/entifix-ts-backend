@@ -118,7 +118,7 @@ class EntifixApplication {
             this._serviceSession.createDeveloperModels();
         this._routerManager = new emRouterManager_1.EMRouterManager(this._serviceSession, this._expressApp);
         this.exposeEntities();
-        if (this.serviceConfiguration.amqpService) {
+        if (this.serviceConfiguration.amqpService && this.useDefaultAMQPInteraction) {
             this._eventManager = new AMQPEventManager_1.AMQPEventManager(this._serviceSession);
             this.createRPCAuthorizationDynamic();
             this.registerEventsAndDelegates();
@@ -129,7 +129,7 @@ class EntifixApplication {
         }
     }
     configSessionAMQPConneciton() {
-        if (this.serviceConfiguration.amqpService) {
+        if (this.useDefaultAMQPInteraction) {
             this._serviceSession.amqpExchangesDescription = [
                 { name: 'main_events', type: 'topic', durable: false }
             ];
@@ -247,6 +247,9 @@ class EntifixApplication {
         return this.serviceConfiguration.authCacheDuration || (60 * 5);
     }
     get serviceSession() { return this._serviceSession; }
+    get useDefaultAMQPInteraction() {
+        return (this.serviceConfiguration.amqpService != null) && (this.serviceConfiguration.amqpDefaultInteraction != false);
+    }
 }
 exports.EntifixApplication = EntifixApplication;
 class TokenValidator {

@@ -102,10 +102,11 @@ class EMEntityController {
             }
         });
     }
-    delete(request, response) {
+    delete(request, response, options) {
         this.createSession(request, response).then(session => {
             if (session) {
                 let id = request.params._id;
+                let paramName = options && options.paramName ? options.paramName : '_id';
                 let responseOk = () => this._responseWrapper.object(response, { 'Delete status': 'register deleted ' });
                 let responseError = error => this._responseWrapper.exception(response, responseError);
                 if (this._useEntities) {
@@ -119,7 +120,7 @@ class EMEntityController {
                     }, error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
                 }
                 else {
-                    session.findDocument(this._entityName, request.params._id).then(docResult => session.deleteDocument(this._entityName, docResult).then(responseOk, responseError), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
+                    session.findDocument(this._entityName, request.params[paramName]).then(docResult => session.deleteDocument(this._entityName, docResult).then(responseOk, responseError), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
                 }
             }
         });
@@ -359,7 +360,7 @@ class EMEntityController {
                 next();
         }
         else
-            this.delete(request, response);
+            this.delete(request, response, { paramName: 'path' });
     }
     findEntity(session, id) {
         return session.findEntity(this.entityInfo, id);

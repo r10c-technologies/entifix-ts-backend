@@ -186,12 +186,16 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         );
     }
 
-    delete ( request : express.Request, response : express.Response ) : void
+    delete ( request : express.Request, response : express.Response ) : void;
+    delete ( request : express.Request, response : express.Response, options :  { paramName?: string } ) : void;
+    delete ( request : express.Request, response : express.Response, options? :  { paramName?: string } ) : void
     {
         this.createSession(request, response).then( 
             session => { if (session) {
 
                 let id = request.params._id;
+                let paramName = options && options.paramName ? options.paramName : '_id';
+
                 let responseOk = () => this._responseWrapper.object( response, {'Delete status': 'register deleted '} );
                 let responseError = error => this._responseWrapper.exception(response, responseError);
 
@@ -211,7 +215,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                 }
                 else
                 {
-                    session.findDocument<TDocument>(this._entityName, request.params._id).then(
+                    session.findDocument<TDocument>(this._entityName, request.params[paramName]).then(
                         docResult => session.deleteDocument(this._entityName, docResult).then( responseOk, responseError ),
                         error => this._responseWrapper.exception(response, error)            
                     ).catch( error => this._responseWrapper.exception( response, error) );
@@ -564,7 +568,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                 next();            
         }
         else
-            this.delete(request, response);
+            this.delete(request, response,  { paramName: 'path' } );
     }
 
 

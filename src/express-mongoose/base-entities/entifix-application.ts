@@ -21,6 +21,7 @@ interface EntifixAppConfig
     serviceName: string,
     mongoService : string, 
     amqpService? : string, 
+    amqpDefaultInteraction?: boolean,
     authCacheService? : string,
     authCacheServicePort? : number,
     authCacheDuration?: number,
@@ -195,7 +196,7 @@ abstract class EntifixApplication
 
         
 
-        if ( this.serviceConfiguration.amqpService)
+        if ( this.serviceConfiguration.amqpService && this.useDefaultAMQPInteraction )
         {
             this._eventManager = new AMQPEventManager( this._serviceSession ); 
             this.createRPCAuthorizationDynamic();     
@@ -215,7 +216,7 @@ abstract class EntifixApplication
 
     protected configSessionAMQPConneciton () : void
     {
-        if (this.serviceConfiguration.amqpService)
+        if ( this.useDefaultAMQPInteraction )
         {
             this._serviceSession.amqpExchangesDescription = [ 
                 { name: 'main_events', type: 'topic', durable: false }
@@ -396,6 +397,11 @@ abstract class EntifixApplication
 
     protected get serviceSession ()
     { return this._serviceSession; }
+    
+    get useDefaultAMQPInteraction()
+    {
+        return (this.serviceConfiguration.amqpService != null) && ( this.serviceConfiguration.amqpDefaultInteraction != false);
+    }
 
     //#endregion
 }
