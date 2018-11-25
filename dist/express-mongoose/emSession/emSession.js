@@ -4,17 +4,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const hcSession_1 = require("../../hc-core/hcSession/hcSession");
 const hcMetaData_1 = require("../../hc-core/hcMetaData/hcMetaData");
 class EMSession extends hcSession_1.HcSession {
-    //#endregion
-    //#region Methods
-    constructor(serviceSession, request, response) {
+    constructor(serviceSession, options) {
         super();
         this._serviceSession = serviceSession;
-        this._request = request;
-        this._response = response;
-        this._privateUserData = this.getPrivateUserData();
-    }
-    getPrivateUserData() {
-        return this._request.privateUserData || this._serviceSession.developerUserData;
+        this._request = options.request;
+        this._response = options.response;
+        if (options.privateUserData)
+            this._privateUserData = options.privateUserData;
+        else
+            this._privateUserData = this._request ? this._request.privateUserData : this._serviceSession.developerUserData;
+        this._serviceSession.verifySystemOwnerModels(this._privateUserData.systemOwner);
     }
     getModel(entityName) {
         return this._serviceSession.getModel(entityName, this._privateUserData.systemOwner);
@@ -264,13 +263,16 @@ class EMSession extends hcSession_1.HcSession {
     manageDocumentCreation(document) {
         document.created = new Date();
         document.deferredDeletion = false;
+        document.createdBy = this._privateUserData.idUser;
     }
     manageDocumentUpdate(document) {
         document.modified = new Date();
+        document.modifiedBy = this._privateUserData.idUser;
     }
     manageDocumentDeletion(document) {
         document.deleted = new Date();
         document.deferredDeletion = true;
+        document.deletedBy = this._privateUserData.idUser;
     }
     resolveToMongoFilters(entityName, filters) {
         let info = this.getInfo(entityName);
@@ -399,6 +401,9 @@ class EMSession extends hcSession_1.HcSession {
         else
             return null;
     }
+    publishAMQPMessage(eventName, data) {
+        this._serviceSession.publishAMQPMessage(this, eventName, data);
+    }
     throwException(message) {
         this._serviceSession.throwException(message);
     }
@@ -414,6 +419,7 @@ class EMSession extends hcSession_1.HcSession {
     get systemOwner() { return this._privateUserData.systemOwner; }
     get userCompleteName() { return this._privateUserData.name; }
     get serviceSession() { return this._serviceSession; }
+    get privateUserData() { return this._privateUserData; }
 }
 exports.EMSession = EMSession;
 var FilterType;

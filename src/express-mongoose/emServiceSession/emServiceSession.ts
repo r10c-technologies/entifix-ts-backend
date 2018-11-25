@@ -10,6 +10,8 @@ import { EMSession } from '../emSession/emSession';
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import { AMQPEvent } from '../../amqp-events/amqp-event/AMQPEvent';
 import { AMQPDelegate } from '../../amqp-events/amqp-delegate/AMQPDelegate';
+import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
+import { EIDRM } from 'constants';
 
 class EMServiceSession
 {
@@ -30,6 +32,9 @@ class EMServiceSession
     private _amqpExchangesDescription : Array<ExchangeDescription>;
     private _amqpQueueBindsDescription : Array<QueueBindDescription>;
     
+    //Main artifact instances
+    private _amqpEventManager : AMQPEventManager;
+
     private _devMode : boolean;
     
     private _entitiesInfo : Array<{ 
@@ -95,6 +100,19 @@ class EMServiceSession
         });
     }
 
+    createAndBindEventManager( ) : AMQPEventManager
+    {
+        this._amqpEventManager = new AMQPEventManager(this);
+        return this._amqpEventManager;
+    }
+
+    publishAMQPMessage( session : EMSession, eventName: string, data : any ) : void
+    {
+        if (this._amqpEventManager)
+            this._amqpEventManager.publish(eventName, data, { session });
+        else
+            this.throwException('No AMQP Event manager binded');
+    }
     
     getInfo(entityName : string) : EntityInfo
     {
@@ -160,13 +178,16 @@ class EMServiceSession
         });
     }
     
-    createSystemOwnerModels( systemOwner : string )
+    verifySystemOwnerModels( systemOwner : string )
     {
-        this._entitiesInfo.forEach( ei => {
-            let modelName = systemOwner + '_'+ ei.name;
-            let model = ei.modelActivator.activate( this._mongooseConnection, modelName, ei.schema );
-            ei.models.push({ systemOwner, model });
-        });
+        if (this._entitiesInfo.filter( ei => ei.models.find( m => m.systemOwner == systemOwner) != null ).length == 0)
+        {
+            this._entitiesInfo.forEach( ei => {
+                let modelName = systemOwner + '_'+ ei.name;
+                let model = ei.modelActivator.activate( this._mongooseConnection, modelName, ei.schema );
+                ei.models.push({ systemOwner, model });
+            });
+        }
     }
 
     enableDevMode () : void

@@ -1,11 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const emSession_1 = require("../../express-mongoose/emSession/emSession");
 class AMQPEventArgs {
-    //#endregion
-    //#region Methods
-    constructor(messageContent) {
+    constructor(messageContent, options) {
         if (messageContent && messageContent.eventArgs)
             this._data = messageContent.eventArgs.data;
+        if (messageContent && messageContent.sender && messageContent.sender.privateUserData && options && options.serviceSession)
+            this._session = new emSession_1.EMSession(options.serviceSession, { privateUserData: messageContent.sender.privateUserData });
+        if (options) {
+            this._channel = options.channel;
+            this._originalMessage = options.originalMessage;
+        }
     }
     serialize() {
         return {
@@ -19,11 +24,9 @@ class AMQPEventArgs {
     //#endregion
     //#region Accessors
     get data() { return this._data; }
-    set data(value) { this._data = value; }
     get originalMessage() { return this._originalMessage; }
-    set originalMessage(value) { this._originalMessage = value; }
     get channel() { return this._channel; }
-    set channel(value) { this._channel = value; }
+    get session() { return this._session; }
 }
 exports.AMQPEventArgs = AMQPEventArgs;
 //# sourceMappingURL=AMQPEventArgs.js.map

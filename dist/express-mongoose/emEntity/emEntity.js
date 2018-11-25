@@ -161,6 +161,9 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
     }
     set instancedChanges(value) { this._instancedChanges = value; }
     get isNew() { return this._document.isNew; }
+    get createdBy() { return this._document.createdBy; }
+    get modifiedBy() { return this._document.modifiedBy; }
+    get deletedBy() { return this._document.deletedBy; }
 };
 __decorate([
     hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: Date, require: true } }),
@@ -192,6 +195,21 @@ __decorate([
     __metadata("design:type", Boolean),
     __metadata("design:paramtypes", [Boolean])
 ], EMEntity.prototype, "deferredDeletion", null);
+__decorate([
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: String, require: false } }),
+    __metadata("design:type", String),
+    __metadata("design:paramtypes", [])
+], EMEntity.prototype, "createdBy", null);
+__decorate([
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: String, require: false } }),
+    __metadata("design:type", String),
+    __metadata("design:paramtypes", [])
+], EMEntity.prototype, "modifiedBy", null);
+__decorate([
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: String, require: false } }),
+    __metadata("design:type", String),
+    __metadata("design:paramtypes", [])
+], EMEntity.prototype, "deletedBy", null);
 EMEntity = __decorate([
     hcMetaData_1.DefinedEntity({ packageName: 'CORE', abstract: true }),
     __metadata("design:paramtypes", [emSession_1.EMSession, Object])

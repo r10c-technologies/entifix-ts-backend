@@ -6,6 +6,7 @@ import { AMQPEvent } from '../amqp-event/AMQPEvent';
 import { AMQPEventMessage } from '../amqp-models/amqp-models';
 import { AMQPSender } from '../amqp-sender/AMQPSender';
 import { AMQPEventArgs } from '../amqp-event-args/AMQPEventArgs';
+import { EMSession } from '../../express-mongoose/emSession/emSession';
 
 interface ExchangeDescription 
 {
@@ -55,7 +56,9 @@ class AMQPEventManager
         return instance;
     }
 
-    publish(eventName : string, data : any) : void
+    publish( eventName: string, data : any) : void;
+    publish( eventName: string, data : any, options: { session? : EMSession } ) : void;
+    publish( eventName: string, data : any, options?: { session? : EMSession } ) : void
     {
         this._serviceSession.checkAMQPConnection();
 
@@ -64,7 +67,7 @@ class AMQPEventManager
         if (!pub)
             this._serviceSession.throwException(`No registered event for: ${eventName}`);
 
-        pub.instance.constructMessage(data).then( amqpMessage => {
+        pub.instance.constructMessage( data, options ).then( amqpMessage => {
             let message = {
                 sender: amqpMessage.sender.serialize(),
                 eventArgs: amqpMessage.eventArgs.serialize()

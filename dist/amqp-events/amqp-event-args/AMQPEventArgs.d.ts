@@ -1,13 +1,22 @@
 import amqp = require('amqplib/callback_api');
+import { EMServiceSession } from '../../express-mongoose/emServiceSession/emServiceSession';
+import { EMSession } from '../../express-mongoose/emSession/emSession';
 declare class AMQPEventArgs {
     private _data;
     private _originalMessage;
     private _channel;
-    constructor(messageContent?: any);
+    private _session;
+    constructor(messageContent: any);
+    constructor(messageContent: any, options: {
+        channel?: amqp.Channel;
+        serviceSession?: EMServiceSession;
+        originalMessage?: amqp.Message;
+    });
     serialize(): any;
     ackMessage(): void;
-    data: any;
-    originalMessage: amqp.Message;
-    channel: amqp.Channel;
+    readonly data: any;
+    readonly originalMessage: amqp.Message;
+    readonly channel: amqp.Channel;
+    readonly session: EMSession;
 }
 export { AMQPEventArgs };

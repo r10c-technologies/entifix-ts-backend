@@ -16,7 +16,6 @@ class EMSession extends HcSession
 
     private _request : express.Request;
     private _response : express.Response;
-
     protected _privateUserData : PrivateUserData;
     protected _serviceSession: EMServiceSession;
     
@@ -26,22 +25,25 @@ class EMSession extends HcSession
 
     //#region Methods
 
-    constructor( serviceSession : EMServiceSession, request : express.Request, response : express.Response )
+    constructor( serviceSession : EMServiceSession, options: { request : express.Request, response : express.Response } );
+    constructor( serviceSession : EMServiceSession, options: { privateUserData : PrivateUserData } );
+    constructor( serviceSession : EMServiceSession, options: { request? : express.Request, response? : express.Response, privateUserData? : PrivateUserData } )
     {
         super();
     
         this._serviceSession = serviceSession;
-        this._request = request;
-        this._response = response;
 
-        this._privateUserData = this.getPrivateUserData();
+        this._request = options.request;
+        this._response = options.response;
+
+        if (options.privateUserData)
+            this._privateUserData = options.privateUserData;
+        else
+            this._privateUserData = this._request ? (this._request as any).privateUserData : this._serviceSession.developerUserData;
+
+        this._serviceSession.verifySystemOwnerModels(this._privateUserData.systemOwner);
     }
     
-    protected getPrivateUserData( ) : PrivateUserData
-    {
-        return (this._request as any).privateUserData || this._serviceSession.developerUserData;
-    }
-
     getModel<T extends EntityDocument >(entityName : string) : mongoose.Model<T>
     {
         return this._serviceSession.getModel(entityName, this._privateUserData.systemOwner);
@@ -403,17 +405,20 @@ class EMSession extends HcSession
     {
         document.created = new Date();
         document.deferredDeletion = false;
+        document.createdBy = this._privateUserData.idUser;
     }
 
     private manageDocumentUpdate<TDocument extends EntityDocument>(document : TDocument) : void
     {
         document.modified = new Date();
+        document.modifiedBy = this._privateUserData.idUser;
     }
 
     private manageDocumentDeletion<TDocument extends EntityDocument>(document : TDocument) : void
     {
         document.deleted = new Date();
         document.deferredDeletion = true;
+        document.deletedBy = this._privateUserData.idUser;
     }
 
     private resolveToMongoFilters(entityName : string, filters? : Array<EMSessionFilter>) : { error : boolean, filters?: any, message? : string }
@@ -592,7 +597,11 @@ class EMSession extends HcSession
         
     }
 
-    
+    publishAMQPMessage(eventName : string, data : any) : void
+    {
+        this._serviceSession.publishAMQPMessage(this, eventName, data);
+    }
+
     throwException (message : string) : void
     {
         this._serviceSession.throwException( message );
@@ -630,6 +639,9 @@ class EMSession extends HcSession
     get serviceSession ()
     { return this._serviceSession; }
 
+    get privateUserData ()
+    { return this._privateUserData; }
+    
     //#endregion
 }
 

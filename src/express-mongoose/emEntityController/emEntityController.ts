@@ -260,16 +260,16 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         }
 
         return new Promise<EMSession>( (resolve, reject ) => {
-            
-            let newSession = new EMSession( this._routerManager.serviceSession, request, response );
+            let newSession = new EMSession( this._routerManager.serviceSession, { request, response } );
+
+            //Execute another async tasks before using the new session
+            //...
+            //...
+            //...
 
             resolve( newSession );
-
         })
-        .then(
-            session => session,
-            error => responseWithException(error)
-        )        
+        .then( session => session )        
         .catch( error => responseWithException(error) );
     }
     

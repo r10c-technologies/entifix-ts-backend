@@ -29,9 +29,7 @@ abstract class AMQPDelegate
             let messageContent = JSON.parse(message.content.toString());
             let sender = new AMQPSender(messageContent);
             
-            let eventArgs = new AMQPEventArgs(messageContent);
-            eventArgs.originalMessage = message;
-            eventArgs.channel = channel;
+            let eventArgs = new AMQPEventArgs(messageContent, { originalMessage: message, channel, serviceSession: this._eventManager.serviceSession });
 
             this.execute( sender, eventArgs );
         }        

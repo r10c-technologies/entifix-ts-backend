@@ -147,10 +147,14 @@ class EMEntityController {
             this._responseWrapper.exception(response, e);
         };
         return new Promise((resolve, reject) => {
-            let newSession = new emSession_1.EMSession(this._routerManager.serviceSession, request, response);
+            let newSession = new emSession_1.EMSession(this._routerManager.serviceSession, { request, response });
+            //Execute another async tasks before using the new session
+            //...
+            //...
+            //...
             resolve(newSession);
         })
-            .then(session => session, error => responseWithException(error))
+            .then(session => session)
             .catch(error => responseWithException(error));
     }
     validateQueryParams(request, response) {

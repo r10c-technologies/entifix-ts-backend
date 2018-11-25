@@ -10,7 +10,10 @@ interface EntityDocument extends mongoose.Document
     created : Date,
     modified : Date,
     deleted : Date,
-    deferredDeletion: Boolean
+    deferredDeletion: Boolean,
+    createdBy : string,
+    modifiedBy : string,
+    deletedBy : string
 }
 
 
@@ -278,6 +281,18 @@ class EMEntity extends Entity
     get isNew()
     { return this._document.isNew; }
 
+    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: String, require: false } })
+    get createdBy () : string
+    { return this._document.createdBy; }
+    
+    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: String, require: false } })
+    get modifiedBy () : string
+    { return this._document.modifiedBy; }
+    
+    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: String, require: false } })
+    get deletedBy () : string
+    { return this._document.deletedBy; }
+    
     //#endregion
 }
 

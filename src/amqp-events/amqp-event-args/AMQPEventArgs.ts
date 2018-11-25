@@ -1,5 +1,8 @@
 import amqp = require('amqplib/callback_api');
 
+import { EMServiceSession } from '../../express-mongoose/emServiceSession/emServiceSession';
+import { EMSession } from '../../express-mongoose/emSession/emSession';
+
 class AMQPEventArgs 
 {
     //#region Properties
@@ -7,15 +10,27 @@ class AMQPEventArgs
     private _data : any;
     private _originalMessage : amqp.Message;
     private _channel : amqp.Channel;
+    private _session : EMSession;
 
     //#endregion
 
     //#region Methods
 
-    constructor( messageContent? : any)
+    constructor( messageContent : any);
+    constructor( messageContent : any, options: { channel? : amqp.Channel, serviceSession?: EMServiceSession, originalMessage? : amqp.Message } );
+    constructor( messageContent : any, options?: { channel? : amqp.Channel, serviceSession?: EMServiceSession, originalMessage? : amqp.Message } )
     {
         if (messageContent && messageContent.eventArgs)
             this._data = messageContent.eventArgs.data;
+
+        if (messageContent && messageContent.sender && messageContent.sender.privateUserData && options && options.serviceSession)
+            this._session = new EMSession( options.serviceSession, { privateUserData: messageContent.sender.privateUserData } );
+
+        if (options)
+        {
+            this._channel = options.channel;
+            this._originalMessage = options.originalMessage;
+        }
     }
 
     
@@ -38,18 +53,15 @@ class AMQPEventArgs
 
     get data ()
     { return this._data; }
-    set data ( value )
-    { this._data = value; }
-
+    
     get originalMessage()
     { return this._originalMessage; }
-    set originalMessage( value )
-    { this._originalMessage = value; }
-
+    
     get channel()
     { return this._channel; }
-    set channel( value )
-    { this._channel = value; } 
+    
+    get session()
+    { return this._session; }
 
     //#endregion
 

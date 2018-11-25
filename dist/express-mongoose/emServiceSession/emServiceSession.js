@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose = require("mongoose");
 //CORE FRAMEWORK
 const amqpConnectionDynamic_1 = require("../../amqp-events/amqp-connection/amqpConnectionDynamic");
+const AMQPEventManager_1 = require("../../amqp-events/amqp-event-manager/AMQPEventManager");
 class EMServiceSession {
     constructor(serviceName, mongoService, amqpService) {
         this._serviceName = serviceName;
@@ -36,6 +37,16 @@ class EMServiceSession {
                 resolve();
             }).catch(err => reject(err));
         });
+    }
+    createAndBindEventManager() {
+        this._amqpEventManager = new AMQPEventManager_1.AMQPEventManager(this);
+        return this._amqpEventManager;
+    }
+    publishAMQPMessage(session, eventName, data) {
+        if (this._amqpEventManager)
+            this._amqpEventManager.publish(eventName, data, { session });
+        else
+            this.throwException('No AMQP Event manager binded');
     }
     getInfo(entityName) {
         let infoRegister = this._entitiesInfo.find(e => e.name == entityName);
@@ -82,12 +93,14 @@ class EMServiceSession {
             ei.models.push({ systemOwner: 'DEVELOPER', model });
         });
     }
-    createSystemOwnerModels(systemOwner) {
-        this._entitiesInfo.forEach(ei => {
-            let modelName = systemOwner + '_' + ei.name;
-            let model = ei.modelActivator.activate(this._mongooseConnection, modelName, ei.schema);
-            ei.models.push({ systemOwner, model });
-        });
+    verifySystemOwnerModels(systemOwner) {
+        if (this._entitiesInfo.filter(ei => ei.models.find(m => m.systemOwner == systemOwner) != null).length == 0) {
+            this._entitiesInfo.forEach(ei => {
+                let modelName = systemOwner + '_' + ei.name;
+                let model = ei.modelActivator.activate(this._mongooseConnection, modelName, ei.schema);
+                ei.models.push({ systemOwner, model });
+            });
+        }
     }
     enableDevMode() {
         this._devMode = true;

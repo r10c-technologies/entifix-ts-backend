@@ -5,6 +5,7 @@ import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
+import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 declare class EMServiceSession {
     private _serviceName;
     private _mongooseInstance;
@@ -17,19 +18,22 @@ declare class EMServiceSession {
     private _limitAmqpRetry;
     private _amqpExchangesDescription;
     private _amqpQueueBindsDescription;
+    private _amqpEventManager;
     private _devMode;
     private _entitiesInfo;
     constructor(serviceName: string, mongoService: string);
     constructor(serviceName: string, mongoService: string, amqpService: string);
     connect(): Promise<void>;
     private atachToBroker;
+    createAndBindEventManager(): AMQPEventManager;
+    publishAMQPMessage(session: EMSession, eventName: string, data: any): void;
     getInfo(entityName: string): EntityInfo;
     getModel<TDocument extends EntityDocument>(entityName: string, systemOwner: string): mongoose.Model<TDocument>;
     registerEntity<TDocument extends mongoose.Document, TEntity extends EMEntity>(type: {
         new (session: EMSession, document: EntityDocument): TEntity;
     }, entityInfo: EntityInfo): void;
     createDeveloperModels(): void;
-    createSystemOwnerModels(systemOwner: string): void;
+    verifySystemOwnerModels(systemOwner: string): void;
     enableDevMode(): void;
     disableDevMode(): void;
     throwException(message: string): void;

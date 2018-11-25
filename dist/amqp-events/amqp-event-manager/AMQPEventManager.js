@@ -14,12 +14,12 @@ class AMQPEventManager {
         this._events.push({ name: type.name, instance });
         return instance;
     }
-    publish(eventName, data) {
+    publish(eventName, data, options) {
         this._serviceSession.checkAMQPConnection();
         let pub = this._events.find(p => p.name == eventName);
         if (!pub)
             this._serviceSession.throwException(`No registered event for: ${eventName}`);
-        pub.instance.constructMessage(data).then(amqpMessage => {
+        pub.instance.constructMessage(data, options).then(amqpMessage => {
             let message = {
                 sender: amqpMessage.sender.serialize(),
                 eventArgs: amqpMessage.eventArgs.serialize()

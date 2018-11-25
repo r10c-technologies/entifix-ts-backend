@@ -9,7 +9,6 @@ const redis = require("redis");
 const hcWrapper_1 = require("../../hc-core/hcWrapper/hcWrapper");
 const emRouterManager_1 = require("../emRouterManager/emRouterManager");
 const emServiceSession_1 = require("../emServiceSession/emServiceSession");
-const AMQPEventManager_1 = require("../../amqp-events/amqp-event-manager/AMQPEventManager");
 const TokenValidationRequestRPC_1 = require("../../amqp-events/amqp-base-events/TokenValidationRequestRPC");
 const TokenValidationResponseRPC_1 = require("../../amqp-events/amqp-base-events/TokenValidationResponseRPC");
 class EntifixApplication {
@@ -119,7 +118,7 @@ class EntifixApplication {
         this._routerManager = new emRouterManager_1.EMRouterManager(this._serviceSession, this._expressApp);
         this.exposeEntities();
         if (this.serviceConfiguration.amqpService && this.useDefaultAMQPInteraction) {
-            this._eventManager = new AMQPEventManager_1.AMQPEventManager(this._serviceSession);
+            this._eventManager = this.serviceSession.createAndBindEventManager();
             this.createRPCAuthorizationDynamic();
             this.registerEventsAndDelegates();
         }

@@ -4,6 +4,7 @@ import { AMQPEventMessage } from '../amqp-models/amqp-models';
 import { AMQPEventManager } from '../amqp-event-manager/AMQPEventManager';
 import { AMQPSender } from '../amqp-sender/AMQPSender';
 import { AMQPEventArgs } from '../amqp-event-args/AMQPEventArgs';
+import { EMSession } from '../../express-mongoose/emSession/emSession';
 
 abstract class AMQPEvent 
 {
@@ -26,17 +27,24 @@ abstract class AMQPEvent
     }
     
     constructMessage( data : any ) : Promise<AMQPEventMessage>
+    constructMessage( data : any, options: { session? : EMSession } ) : Promise<AMQPEventMessage>
+    constructMessage( data : any, options?: { session? : EMSession } ) : Promise<AMQPEventMessage>
     {
+        let generalOptions = options;
         return new Promise<AMQPEventMessage>( (resolve,reject)=>{
             let resolvePromise = (data, options?) => {
-                let sender = new AMQPSender();
-                sender.serviceName = this.eventManager.serviceSession.serviceName;
-                sender.actionName = this.actionName;
-                sender.entityName = this.entityName;
-                sender.publishOptions = options;
-
-                let eventArgs = new AMQPEventArgs();
-                eventArgs.data = data;
+                let sender = new AMQPSender({
+                    sender: {
+                        serviceName : this.eventManager.serviceSession.serviceName,
+                        actionName : this.actionName,
+                        entityName : this.entityName,
+                        privateUserData : generalOptions && generalOptions.session ? generalOptions.session.privateUserData : null
+                    }
+                }, { publishOptions: options });
+                
+                let eventArgs = new AMQPEventArgs({
+                    eventArgs: { data }
+                });
 
                 resolve({ sender, eventArgs});
             };

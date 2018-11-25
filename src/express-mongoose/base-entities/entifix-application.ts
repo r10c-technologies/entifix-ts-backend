@@ -15,6 +15,7 @@ import { EMServiceSession } from '../emServiceSession/emServiceSession';
 import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 import { TokenValidationRequestRPC } from '../../amqp-events/amqp-base-events/TokenValidationRequestRPC';
 import { TokenValidationResponseRPC } from '../../amqp-events/amqp-base-events/TokenValidationResponseRPC';
+import { EMSession } from '../emSession/emSession';
 
 interface EntifixAppConfig
 { 
@@ -194,11 +195,11 @@ abstract class EntifixApplication
         this._routerManager = new EMRouterManager( this._serviceSession, this._expressApp ); 
         this.exposeEntities();
 
-        
+
 
         if ( this.serviceConfiguration.amqpService && this.useDefaultAMQPInteraction )
         {
-            this._eventManager = new AMQPEventManager( this._serviceSession ); 
+            this._eventManager = this.serviceSession.createAndBindEventManager(); 
             this.createRPCAuthorizationDynamic();     
             this.registerEventsAndDelegates();
         }

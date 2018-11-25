@@ -2,6 +2,7 @@ import amqp = require('amqplib/callback_api');
 import { EMServiceSession } from '../../express-mongoose/emServiceSession/emServiceSession';
 import { AMQPDelegate } from '../amqp-delegate/AMQPDelegate';
 import { AMQPEvent } from '../amqp-event/AMQPEvent';
+import { EMSession } from '../../express-mongoose/emSession/emSession';
 declare class AMQPEventManager {
     private _serviceSession;
     private _events;
@@ -13,6 +14,9 @@ declare class AMQPEventManager {
         new (session: AMQPEventManager): TEvent;
     }): TEvent;
     publish(eventName: string, data: any): void;
+    publish(eventName: string, data: any, options: {
+        session?: EMSession;
+    }): void;
     registerDelegate<TDelegate extends AMQPDelegate>(type: {
         new (session: AMQPEventManager): TDelegate;
     }): TDelegate;

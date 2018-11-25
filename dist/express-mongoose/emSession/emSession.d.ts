@@ -10,8 +10,13 @@ declare class EMSession extends HcSession {
     private _response;
     protected _privateUserData: PrivateUserData;
     protected _serviceSession: EMServiceSession;
-    constructor(serviceSession: EMServiceSession, request: express.Request, response: express.Response);
-    protected getPrivateUserData(): PrivateUserData;
+    constructor(serviceSession: EMServiceSession, options: {
+        request: express.Request;
+        response: express.Response;
+    });
+    constructor(serviceSession: EMServiceSession, options: {
+        privateUserData: PrivateUserData;
+    });
     getModel<T extends EntityDocument>(entityName: string): mongoose.Model<T>;
     getInfo(entityName: string): EntityInfo;
     createDocument<T extends EntityDocument>(entityName: string, document: T): Promise<T>;
@@ -45,6 +50,7 @@ declare class EMSession extends HcSession {
     private resolveToMongoFilters;
     private parseMongoFilter;
     private resolveToMongoSorting;
+    publishAMQPMessage(eventName: string, data: any): void;
     throwException(message: string): void;
     throwInfo(message: string): void;
     throwInfo(message: string, warnDevMode: boolean): void;
@@ -54,6 +60,7 @@ declare class EMSession extends HcSession {
     readonly systemOwner: string;
     readonly userCompleteName: string;
     readonly serviceSession: EMServiceSession;
+    readonly privateUserData: PrivateUserData;
 }
 interface EMSessionFilter {
     property: string;

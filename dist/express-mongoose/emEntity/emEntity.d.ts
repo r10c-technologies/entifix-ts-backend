@@ -7,6 +7,9 @@ interface EntityDocument extends mongoose.Document {
     modified: Date;
     deleted: Date;
     deferredDeletion: Boolean;
+    createdBy: string;
+    modifiedBy: string;
+    deletedBy: string;
 }
 declare class EMEntity extends Entity {
     protected _document: EntityDocument;
@@ -43,6 +46,9 @@ declare class EMEntity extends Entity {
         newValue: any;
     }[];
     readonly isNew: boolean;
+    readonly createdBy: string;
+    readonly modifiedBy: string;
+    readonly deletedBy: string;
 }
 interface IBaseEntity {
     created: Date;

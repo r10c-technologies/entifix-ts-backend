@@ -11,16 +11,21 @@ class AMQPEvent {
     onMessageConstruciton(data) {
         return null;
     }
-    constructMessage(data) {
+    constructMessage(data, options) {
+        let generalOptions = options;
         return new Promise((resolve, reject) => {
             let resolvePromise = (data, options) => {
-                let sender = new AMQPSender_1.AMQPSender();
-                sender.serviceName = this.eventManager.serviceSession.serviceName;
-                sender.actionName = this.actionName;
-                sender.entityName = this.entityName;
-                sender.publishOptions = options;
-                let eventArgs = new AMQPEventArgs_1.AMQPEventArgs();
-                eventArgs.data = data;
+                let sender = new AMQPSender_1.AMQPSender({
+                    sender: {
+                        serviceName: this.eventManager.serviceSession.serviceName,
+                        actionName: this.actionName,
+                        entityName: this.entityName,
+                        privateUserData: generalOptions && generalOptions.session ? generalOptions.session.privateUserData : null
+                    }
+                }, { publishOptions: options });
+                let eventArgs = new AMQPEventArgs_1.AMQPEventArgs({
+                    eventArgs: { data }
+                });
                 resolve({ sender, eventArgs });
             };
             let onConstructionTask = this.onMessageConstruciton(data);
