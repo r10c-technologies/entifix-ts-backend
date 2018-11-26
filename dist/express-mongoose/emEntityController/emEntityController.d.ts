@@ -32,6 +32,9 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     private createSession;
     private validateQueryParams;
     validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;
+    validateDocumentRequest(request: express.Request, response: express.Response, options: {
+        alwaysNew?: boolean;
+    }): Promise<RequestValidation<TDocument> | void>;
     private getArrayPath;
     createMappingPath(arrayPath: Array<string>): {
         baseTypeName: string;
@@ -45,6 +48,9 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     resolveComplexDeleteMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
     findEntity(session: EMSession, id: string): Promise<TEntity>;
     createInstance(request: express.Request, response: express.Response): Promise<TEntity>;
+    createInstance(request: express.Request, response: express.Response, options: {
+        alwaysNew?: boolean;
+    }): Promise<TEntity>;
     private getExtensionAccessors;
     readonly entityInfo: EntityInfo;
     readonly entityName: string;

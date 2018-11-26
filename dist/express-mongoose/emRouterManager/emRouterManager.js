@@ -50,11 +50,19 @@ class EMRouterManager {
         let constructionController = this.findController(construtorType);
         constructionController.findEntity(session, instanceId).then(entity => {
             let objectToExpose = entity[pathOverInstance[0]];
-            for (let i = 1; i < pathOverInstance.length; i++)
-                objectToExpose = objectToExpose ? objectToExpose[pathOverInstance[i]] : null;
+            for (let i = 1; i < pathOverInstance.length; i++) {
+                let nexStep = pathOverInstance[i];
+                if (objectToExpose instanceof Array)
+                    objectToExpose = objectToExpose.find(obj => obj._id.toString() == nexStep);
+                else
+                    objectToExpose = objectToExpose ? objectToExpose[pathOverInstance[i]] : null;
+            }
             let expositionType = expositionAccessorInfo.activator.entityInfo.name;
             let expositionController = this.findController(expositionType);
-            if (expositionAccessorInfo.type == 'Array')
+            let isArray = objectToExpose ? objectToExpose instanceof Array : null;
+            if (isArray == null)
+                isArray = expositionAccessorInfo.type == 'Array';
+            if (isArray)
                 expositionController.responseWrapper.entityCollection(session.response, objectToExpose);
             else
                 expositionController.responseWrapper.entity(session.response, objectToExpose);
@@ -64,7 +72,7 @@ class EMRouterManager {
         let constructionController = this.findController(construtorType);
         let expositionController = this.findController(expositionAccessorInfo.activator.entityInfo.name);
         constructionController.findEntity(session, instanceId).then(baseEntity => {
-            expositionController.createInstance(session.request, session.response).then(exEntity => {
+            expositionController.createInstance(session.request, session.response, { alwaysNew: true }).then(exEntity => {
                 let objectToExpose = baseEntity[pathOverInstance[0]];
                 let pathTo = pathOverInstance[0];
                 for (let i = 1; i < pathOverInstance.length; i++) {
@@ -91,7 +99,7 @@ class EMRouterManager {
         let constructionController = this.findController(construtorType);
         let expositionController = this.findController(expositionAccessorInfo.activator.entityInfo.name);
         constructionController.findEntity(session, instanceId).then(baseEntity => {
-            expositionController.createInstance(session.request, session.response).then(exEntity => {
+            expositionController.createInstance(session.request, session.response, { alwaysNew: true }).then(exEntity => {
                 let objectToExpose = baseEntity[pathOverInstance[0]];
                 let pathTo = pathOverInstance[0];
                 for (let i = 1; i < pathOverInstance.length; i++) {
@@ -118,7 +126,7 @@ class EMRouterManager {
         let constructionController = this.findController(construtorType);
         let expositionController = this.findController(expositionAccessorInfo.activator.entityInfo.name);
         constructionController.findEntity(session, instanceId).then(baseEntity => {
-            expositionController.createInstance(session.request, session.response).then(exEntity => {
+            expositionController.createInstance(session.request, session.response, { alwaysNew: true }).then(exEntity => {
                 let objectToExpose = baseEntity[pathOverInstance[0]];
                 let pathTo = pathOverInstance[0];
                 for (let i = 1; i < pathOverInstance.length; i++) {

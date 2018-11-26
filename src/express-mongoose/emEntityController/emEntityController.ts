@@ -336,10 +336,15 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         return { error: false, queryParams }; 
     }
 
-    
-    validateDocumentRequest ( request : express.Request, response : express.Response ) : Promise<RequestValidation<TDocument> | void>
+    validateDocumentRequest ( request : express.Request, response : express.Response ) : Promise<RequestValidation<TDocument> | void>;
+    validateDocumentRequest ( request : express.Request, response : express.Response, options : { alwaysNew?: boolean } ) : Promise<RequestValidation<TDocument> | void>;
+    validateDocumentRequest ( request : express.Request, response : express.Response, options? : { alwaysNew?: boolean } ) : Promise<RequestValidation<TDocument> | void>
     {
         return new Promise<RequestValidation<TDocument>>( (resolve, reject) => {
+
+            //Defaults
+            let alwaysNew = options && options.alwaysNew != null ? options.alwaysNew : false;
+
 
             if  ( (typeof request.body) != 'object' )
                 return resolve({ error: 'The data provided is not an object', errorData: request });
@@ -364,7 +369,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             this.createSession(request, response).then( 
                 session => { if (session) {
 
-                    if (parsedRequest.persistent._id)
+                    if (parsedRequest.persistent._id && !alwaysNew)
                     {
                         session.findDocument<TDocument>(this._entityName, parsedRequest.persistent._id).then(
                             document => {
@@ -387,7 +392,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                                 }
 
                                 document.set(parsedRequest.persistent);
-                                resolve( { document, devData, changes } );
+                                resolve( { document, devData, changes, session } );
                             },
                             err => reject(err)
                         );
@@ -398,7 +403,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                         let document : TDocument;
 
                         document = new model(parsedRequest.persistent) as TDocument;                
-                        resolve({ document, devData });
+                        resolve({ document, devData, session });
                     }
 
                 }}
@@ -577,10 +582,12 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         return session.findEntity<TEntity,TDocument>(this.entityInfo, id );
     }
 
-    createInstance( request: express.Request, response : express.Response ) : Promise<TEntity>
+    createInstance( request: express.Request, response : express.Response ) : Promise<TEntity>;
+    createInstance( request: express.Request, response : express.Response, options : { alwaysNew?: boolean } ) : Promise<TEntity>;
+    createInstance( request: express.Request, response : express.Response, options? : { alwaysNew?: boolean } ) : Promise<TEntity>
     {
         return new Promise<TEntity>( (resolve, reject) => {
-            this.validateDocumentRequest(request, response).then( (validation : RequestValidation<TDocument> ) => {
+            this.validateDocumentRequest(request, response, options).then( (validation : RequestValidation<TDocument> ) => {
                 if (validation)
                 {
                     validation.session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, validation.document ).then(

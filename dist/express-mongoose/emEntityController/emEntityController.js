@@ -203,8 +203,10 @@ class EMEntityController {
             }
         return { error: false, queryParams };
     }
-    validateDocumentRequest(request, response) {
+    validateDocumentRequest(request, response, options) {
         return new Promise((resolve, reject) => {
+            //Defaults
+            let alwaysNew = options && options.alwaysNew != null ? options.alwaysNew : false;
             if ((typeof request.body) != 'object')
                 return resolve({ error: 'The data provided is not an object', errorData: request });
             let parsedRequest = emEntity_1.EMEntity.deserializeAccessors(this.entityInfo, request.body);
@@ -222,7 +224,7 @@ class EMEntityController {
                 addDevData({ message: 'The request has non persistent accessors and these could be ignored', accessors: parsedRequest.nonPersistent });
             this.createSession(request, response).then(session => {
                 if (session) {
-                    if (parsedRequest.persistent._id) {
+                    if (parsedRequest.persistent._id && !alwaysNew) {
                         session.findDocument(this._entityName, parsedRequest.persistent._id).then(document => {
                             delete parsedRequest.persistent._id;
                             let changes;
@@ -236,14 +238,14 @@ class EMEntityController {
                                 }
                             }
                             document.set(parsedRequest.persistent);
-                            resolve({ document, devData, changes });
+                            resolve({ document, devData, changes, session });
                         }, err => reject(err));
                     }
                     else {
                         let model = session.getModel(this._entityName);
                         let document;
                         document = new model(parsedRequest.persistent);
-                        resolve({ document, devData });
+                        resolve({ document, devData, session });
                     }
                 }
             });
@@ -369,9 +371,9 @@ class EMEntityController {
     findEntity(session, id) {
         return session.findEntity(this.entityInfo, id);
     }
-    createInstance(request, response) {
+    createInstance(request, response, options) {
         return new Promise((resolve, reject) => {
-            this.validateDocumentRequest(request, response).then((validation) => {
+            this.validateDocumentRequest(request, response, options).then((validation) => {
                 if (validation) {
                     validation.session.activateEntityInstance(this.entityInfo, validation.document).then(entity => resolve(entity), error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
                 }

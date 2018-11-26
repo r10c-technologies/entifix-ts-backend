@@ -12,7 +12,7 @@ class EMSession extends hcSession_1.HcSession {
         if (options.privateUserData)
             this._privateUserData = options.privateUserData;
         else
-            this._privateUserData = this._request ? this._request.privateUserData : this._serviceSession.developerUserData;
+            this._privateUserData = this._request && this._request.privateUserData ? this._request.privateUserData : this._serviceSession.developerUserData;
         this._serviceSession.verifySystemOwnerModels(this._privateUserData.systemOwner);
     }
     getModel(entityName) {
