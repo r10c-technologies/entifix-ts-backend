@@ -29,6 +29,7 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
         paramName?: string;
     }): void;
     private save;
+    action(request: express.Request, response: express.Response): void;
     private createSession;
     private validateQueryParams;
     validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;

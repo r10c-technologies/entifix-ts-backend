@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { error } from 'util';
 import { Entity } from '../hcEntity/hcEntity';
 import { HcSession } from '../hcSession/hcSession';
+import { method } from 'bluebird';
 
 function DefinedEntity( );
 function DefinedEntity( params : { packageName? : string, abstract? : boolean } );
@@ -85,39 +86,65 @@ function DefinedProperty ()
     }
 }
 
-function DefinedMethod ()
-{
-    return function (target: any, key: string, descriptor : PropertyDescriptor)
-    {
-        //To be programmed
 
+const definedParamKey = Symbol("definedParam");
+
+function DefinedParam( params? : { } )
+{
+    return function(target: Object, propertyKey: string | symbol, parameterIndex: number) 
+    {
+        let definedParameters: number[] = Reflect.getOwnMetadata(definedParamKey, target, propertyKey) || [];
+        definedParameters.push(parameterIndex);
+        Reflect.defineMetadata(definedParamKey, definedParameters, target, propertyKey);
     }
 }
 
-function DefinedParameter ()
+function DefinedMethod( params? : { } )
 {
-    return function (target: Object, key: string, order : number)
+    return function(target: any, propertyName: string, descriptor: TypedPropertyDescriptor<Function>)
     {
-        //To be programmed
+        let originalMethod = descriptor.value;
+        descriptor.value = function(){
+            let definedParameters: number[] = Reflect.getOwnMetadata( definedParamKey, target, propertyName );
+            if (definedParameters)
+            {
+                for ( let paramIndex of definedParameters )
+                {
+                    let a = arguments;
+                    let b = a;
 
+                    let entityInfo = defineMetaData(target, CreationType.member);
+                    let reflectInfo = Reflect.getMetadata('design:type', target, propertyName);
+            
+                    let methodInfo = new MethodInfo();
+                    methodInfo.name = propertyName;
+                    methodInfo.className = target.constructor.name;
+                                
+                    entityInfo.addMethodInfo(methodInfo);
+                }
+            }
+        }
+
+        return method.apply(this, arguments);
     }
 }
 
-function Defined(...args : any[])
-{
-    switch(args.length)
-    {
-        case 1:
-            return DefinedEntity.apply(this, args);
-        case 2:
-            return DefinedProperty.apply(this, args);
-        case 3:
-            if ( typeof args[2] == "number" )
-                return DefinedParameter.apply(this, args);
-            else
-                return DefinedAccessor.apply(this, args);
-    }
-}
+// function DefinedMethod ( params? : { } )
+// {
+//     params = params || { };
+//     return function (target: any, key: string, descriptor : PropertyDescriptor)
+//     {
+//         let entityInfo = defineMetaData(target, CreationType.member);
+//         let reflectInfo = Reflect.getMetadata('design:type', target, key);
+
+//         let methodInfo = new MethodInfo();
+//         methodInfo.name = key;
+//         methodInfo.className = target.constructor.name;
+        
+//         entityInfo.addMethodInfo(methodInfo);
+//     }
+// }
+
 
 function defineMetaData( objectWithMetadata : any, creationType : CreationType ): EntityInfo
 {
@@ -209,6 +236,11 @@ class EntityInfo
     getAccessors( ) : Array<AccessorInfo>
     {
         return this.getAllMembers().filter( e => e instanceof AccessorInfo ).map( e => e as AccessorInfo);
+    }
+
+    getDefinedMethods( ) : Array<MethodInfo>
+    {
+        return this.getAllMembers().filter( e => e instanceof MethodInfo ).map( e => e as MethodInfo );
     }
 
 
@@ -451,6 +483,8 @@ class MethodInfo extends MemberInfo
 {
     //#region Properties
 
+    private _parameters : Array<string>;
+
     //#endregion
 
     //#region Methods
@@ -458,11 +492,18 @@ class MethodInfo extends MemberInfo
     constructor ()
     {
         super();
+
+        this._parameters = new Array<string>();
     }
 
     //#endregion
 
     //#region Accessors
+
+    get parameters()
+    { return this._parameters; }
+    set parameters(value)
+    { this._parameters = value; }
 
     //#endregion
 }
@@ -495,10 +536,10 @@ export {
     MemberBindingType,
     ExpositionType, 
     EntityInfo, 
-    Defined, 
     DefinedAccessor, 
     DefinedEntity, 
-    DefinedMethod, 
+    DefinedMethod,
+    DefinedParam,
     IMetaDataInfo, 
     PersistenceType,
     AccessorInfo,

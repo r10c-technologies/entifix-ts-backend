@@ -2,7 +2,7 @@ import mongoose = require('mongoose');
 import { Entity, EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity';
 import { EMSession } from '../emSession/emSession';
 import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
-interface EntityDocument extends mongoose.Document {
+interface IBaseEntity {
     created: Date;
     modified: Date;
     deleted: Date;
@@ -10,6 +10,8 @@ interface EntityDocument extends mongoose.Document {
     createdBy: string;
     modifiedBy: string;
     deletedBy: string;
+}
+interface EntityDocument extends mongoose.Document, IBaseEntity {
 }
 declare class EMEntity extends Entity {
     protected _document: EntityDocument;
@@ -22,6 +24,16 @@ declare class EMEntity extends Entity {
         persistent?: any;
         nonPersistent?: any;
         readOnly?: any;
+        nonValid?: any;
+    };
+    static deserializeDefinedMethod(info: EntityInfo, simpleObject: any): {
+        isValidPayload: boolean;
+        message?: string;
+        methodName?: string;
+        parameters?: Array<{
+            key: string;
+            value: any;
+        }>;
         nonValid?: any;
     };
     save(): Promise<EntityMovementFlow>;
@@ -50,8 +62,4 @@ declare class EMEntity extends Entity {
     readonly modifiedBy: string;
     readonly deletedBy: string;
 }
-interface IBaseEntity {
-    created: Date;
-    modified: Date;
-}
-export { EMEntity, IBaseEntity, EntityDocument };
+export { EMEntity, EntityDocument, IBaseEntity };

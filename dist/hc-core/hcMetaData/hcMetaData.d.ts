@@ -15,8 +15,8 @@ declare function DefinedAccessor(params?: {
     persistentAlias?: string;
     activator?: MemberActivator;
 }): (target: any, key: string, descriptor: PropertyDescriptor) => void;
-declare function DefinedMethod(): (target: any, key: string, descriptor: PropertyDescriptor) => void;
-declare function Defined(...args: any[]): any;
+declare function DefinedParam(params?: {}): (target: Object, propertyKey: string | symbol, parameterIndex: number) => void;
+declare function DefinedMethod(params?: {}): (target: any, propertyName: string, descriptor: TypedPropertyDescriptor<Function>) => any;
 declare class EntityInfo {
     private _packageName;
     private _name;
@@ -29,6 +29,7 @@ declare class EntityInfo {
     addMethodInfo(methodInfo: MethodInfo): void;
     getAllMembers(): Array<MemberInfo>;
     getAccessors(): Array<AccessorInfo>;
+    getDefinedMethods(): Array<MethodInfo>;
     getAccessorSchemas(): Array<{
         accessorName: string;
         accessorSchema: any;
@@ -89,7 +90,9 @@ declare class AccessorInfo extends MemberInfo {
     activator: MemberActivator;
 }
 declare class MethodInfo extends MemberInfo {
+    private _parameters;
     constructor();
+    parameters: string[];
 }
 interface IMetaDataInfo {
     entityInfo: EntityInfo;
@@ -106,4 +109,4 @@ declare enum MemberBindingType {
     Reference = 1,
     Snapshot = 2
 }
-export { MemberBindingType, ExpositionType, EntityInfo, Defined, DefinedAccessor, DefinedEntity, DefinedMethod, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo, MemberActivator };
+export { MemberBindingType, ExpositionType, EntityInfo, DefinedAccessor, DefinedEntity, DefinedMethod, DefinedParam, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo, MemberActivator };

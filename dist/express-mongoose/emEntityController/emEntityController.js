@@ -25,6 +25,8 @@ class EMEntityController {
         this._router.put('/' + this._resourceName, (request, response, next) => this.update(request, response));
         this._router.put('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexUpdateMethod(request, response, next));
         this._router.delete('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexDeleteMethod(request, response, next));
+        if (this.entityInfo.getDefinedMethods().length > 0)
+            this._router.patch('/' + this._resourceName + '/:action', (request, response, next) => this.action(request, response));
     }
     //#endregion
     //#region On request/response session  methods
@@ -138,6 +140,27 @@ class EMEntityController {
                 }, error => this._responseWrapper.exception(session.response, error)).catch(error => this._responseWrapper.exception(session.response, error));
             }
         }).catch(error => this._responseWrapper.exception(session.response, error));
+    }
+    action(request, response) {
+        let validation = emEntity_1.EMEntity.deserializeDefinedMethod(this.entityInfo, request.body);
+        if (validation.isValidPayload) {
+            this.createSession(request, response).then(session => {
+                if (session) {
+                    let id = request.params._id;
+                    session.findEntity(this.entityInfo, id).then(entity => {
+                        let methodInstace = entity[validation.methodName];
+                        let paramValues = validation.parameters.map(p => p.value);
+                        methodInstace(...paramValues);
+                    }).catch(e => this._responseWrapper.exception(response, e));
+                }
+            });
+        }
+        else {
+            let details;
+            if (validation.nonValid)
+                details = { nonValidData: validation.nonValid };
+            this._responseWrapper.handledError(response, validation.message, HttpStatus.BAD_REQUEST, details);
+        }
     }
     //#endregion
     //#region Utility methods

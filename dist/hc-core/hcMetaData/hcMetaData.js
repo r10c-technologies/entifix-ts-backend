@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 require("reflect-metadata");
 const util_1 = require("util");
+const bluebird_1 = require("bluebird");
 function DefinedEntity(params) {
     return function (target) {
         //var entityInfo = checkMetadata(target);
@@ -54,31 +55,50 @@ function DefinedProperty() {
         //To be programmed
     };
 }
-function DefinedMethod() {
-    return function (target, key, descriptor) {
-        //To be programmed
+const definedParamKey = Symbol("definedParam");
+function DefinedParam(params) {
+    return function (target, propertyKey, parameterIndex) {
+        let definedParameters = Reflect.getOwnMetadata(definedParamKey, target, propertyKey) || [];
+        definedParameters.push(parameterIndex);
+        Reflect.defineMetadata(definedParamKey, definedParameters, target, propertyKey);
+    };
+}
+exports.DefinedParam = DefinedParam;
+function DefinedMethod(params) {
+    return function (target, propertyName, descriptor) {
+        let originalMethod = descriptor.value;
+        descriptor.value = function () {
+            let definedParameters = Reflect.getOwnMetadata(definedParamKey, target, propertyName);
+            if (definedParameters) {
+                for (let paramIndex of definedParameters) {
+                    let a = arguments;
+                    let b = a;
+                    let entityInfo = defineMetaData(target, CreationType.member);
+                    let reflectInfo = Reflect.getMetadata('design:type', target, propertyName);
+                    let methodInfo = new MethodInfo();
+                    methodInfo.name = propertyName;
+                    methodInfo.className = target.constructor.name;
+                    entityInfo.addMethodInfo(methodInfo);
+                }
+            }
+        };
+        return bluebird_1.method.apply(this, arguments);
     };
 }
 exports.DefinedMethod = DefinedMethod;
-function DefinedParameter() {
-    return function (target, key, order) {
-        //To be programmed
-    };
-}
-function Defined(...args) {
-    switch (args.length) {
-        case 1:
-            return DefinedEntity.apply(this, args);
-        case 2:
-            return DefinedProperty.apply(this, args);
-        case 3:
-            if (typeof args[2] == "number")
-                return DefinedParameter.apply(this, args);
-            else
-                return DefinedAccessor.apply(this, args);
-    }
-}
-exports.Defined = Defined;
+// function DefinedMethod ( params? : { } )
+// {
+//     params = params || { };
+//     return function (target: any, key: string, descriptor : PropertyDescriptor)
+//     {
+//         let entityInfo = defineMetaData(target, CreationType.member);
+//         let reflectInfo = Reflect.getMetadata('design:type', target, key);
+//         let methodInfo = new MethodInfo();
+//         methodInfo.name = key;
+//         methodInfo.className = target.constructor.name;
+//         entityInfo.addMethodInfo(methodInfo);
+//     }
+// }
 function defineMetaData(objectWithMetadata, creationType) {
     let info;
     switch (creationType) {
@@ -134,6 +154,9 @@ class EntityInfo {
     }
     getAccessors() {
         return this.getAllMembers().filter(e => e instanceof AccessorInfo).map(e => e);
+    }
+    getDefinedMethods() {
+        return this.getAllMembers().filter(e => e instanceof MethodInfo).map(e => e);
     }
     getAccessorSchemas() {
         return this.getAllMembers().filter(e => e instanceof AccessorInfo && e.schema != null && e.persistenceType == PersistenceType.Defined).map(e => { return { accessorName: e.name, accessorSchema: e.schema, alias: e.persistentAlias }; });
@@ -241,12 +264,16 @@ class AccessorInfo extends MemberInfo {
 }
 exports.AccessorInfo = AccessorInfo;
 class MethodInfo extends MemberInfo {
-    //#region Properties
     //#endregion
     //#region Methods
     constructor() {
         super();
+        this._parameters = new Array();
     }
+    //#endregion
+    //#region Accessors
+    get parameters() { return this._parameters; }
+    set parameters(value) { this._parameters = value; }
 }
 exports.MethodInfo = MethodInfo;
 var PersistenceType;
