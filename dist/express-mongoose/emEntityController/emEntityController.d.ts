@@ -30,12 +30,23 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     }): void;
     private save;
     action(request: express.Request, response: express.Response): void;
+    action(request: express.Request, response: express.Response, options: {
+        paramId?: string;
+    }): void;
     private createSession;
     private validateQueryParams;
     validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;
     validateDocumentRequest(request: express.Request, response: express.Response, options: {
         alwaysNew?: boolean;
     }): Promise<RequestValidation<TDocument> | void>;
+    validateActionRequest(request: express.Request, response: express.Response): {
+        isValidPayload: boolean;
+        methodName?: string;
+        parameters?: Array<{
+            key: string;
+            value: any;
+        }>;
+    };
     private getArrayPath;
     createMappingPath(arrayPath: Array<string>): {
         baseTypeName: string;

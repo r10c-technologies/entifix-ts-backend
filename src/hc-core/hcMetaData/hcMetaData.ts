@@ -88,13 +88,23 @@ function DefinedProperty ()
 
 
 const definedParamKey = Symbol("definedParam");
+interface DefinedParam {
+    name: string;
+    index: number;
+    required: boolean;
+}
 
-function DefinedParam( params? : { } )
+function DefinedParam( paramName : string, required? : boolean )
 {
+    if (!paramName)
+        throw "Name param is required";
+    
     return function(target: Object, propertyKey: string | symbol, parameterIndex: number) 
     {
-        let definedParameters: number[] = Reflect.getOwnMetadata(definedParamKey, target, propertyKey) || [];
-        definedParameters.push(parameterIndex);
+        required = required != null ? required : false; 
+        let definedParameters: Array<DefinedParam> = Reflect.getOwnMetadata(definedParamKey, target, propertyKey) || new Array<DefinedParam>();
+        definedParameters.push({ name: paramName, index: parameterIndex, required });
+
         Reflect.defineMetadata(definedParamKey, definedParameters, target, propertyKey);
     }
 }
@@ -103,29 +113,44 @@ function DefinedMethod( params? : { } )
 {
     return function(target: any, propertyName: string, descriptor: TypedPropertyDescriptor<Function>)
     {
+        let entityInfo = defineMetaData(target, CreationType.member);
+        
+        let methodInfo = new MethodInfo();
+        methodInfo.name = propertyName;
+        methodInfo.className = target.constructor.name;
+        methodInfo.parameters = Reflect.getOwnMetadata( definedParamKey, target, propertyName );
+        entityInfo.addMethodInfo(methodInfo);
+
         let originalMethod = descriptor.value;
-        descriptor.value = function(){
-            let definedParameters: number[] = Reflect.getOwnMetadata( definedParamKey, target, propertyName );
-            if (definedParameters)
+
+        descriptor.value = function()
+        {
+            let params = new Array<any>();
+            let argumetsArray = new Array<{key,value}>();
+
+            for (let a in arguments)
             {
-                for ( let paramIndex of definedParameters )
-                {
-                    let a = arguments;
-                    let b = a;
-
-                    let entityInfo = defineMetaData(target, CreationType.member);
-                    let reflectInfo = Reflect.getMetadata('design:type', target, propertyName);
-            
-                    let methodInfo = new MethodInfo();
-                    methodInfo.name = propertyName;
-                    methodInfo.className = target.constructor.name;
-                                
-                    entityInfo.addMethodInfo(methodInfo);
-                }
+                let key = arguments[a].key;
+                let value = arguments[a].value;
+                argumetsArray.push( { key, value } );
             }
-        }
+                
+            let limit = Math.max( ...methodInfo.parameters.map( dp => dp.index ) );
 
-        return method.apply(this, arguments);
+            for ( let i = 0; i <= limit; i++ )
+            {
+                let defParam = methodInfo.parameters.find( dp => dp.index == i );
+                if (defParam)
+                {
+                    let arg = argumetsArray.find( a => a.key == defParam.name );
+                    params.push(arg ? arg.value : null);
+                }
+                else
+                    params.push(null);
+            }
+
+            return originalMethod.apply(this, params);
+        }
     }
 }
 
@@ -483,7 +508,7 @@ class MethodInfo extends MemberInfo
 {
     //#region Properties
 
-    private _parameters : Array<string>;
+    private _parameters : Array<DefinedParam>;
 
     //#endregion
 
@@ -493,16 +518,16 @@ class MethodInfo extends MemberInfo
     {
         super();
 
-        this._parameters = new Array<string>();
+        this._parameters = new Array<DefinedParam>();
     }
 
     //#endregion
 
     //#region Accessors
 
-    get parameters()
+    get parameters ()
     { return this._parameters; }
-    set parameters(value)
+    set parameters ( value )
     { this._parameters = value; }
 
     //#endregion

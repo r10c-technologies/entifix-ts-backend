@@ -15,8 +15,13 @@ declare function DefinedAccessor(params?: {
     persistentAlias?: string;
     activator?: MemberActivator;
 }): (target: any, key: string, descriptor: PropertyDescriptor) => void;
-declare function DefinedParam(params?: {}): (target: Object, propertyKey: string | symbol, parameterIndex: number) => void;
-declare function DefinedMethod(params?: {}): (target: any, propertyName: string, descriptor: TypedPropertyDescriptor<Function>) => any;
+interface DefinedParam {
+    name: string;
+    index: number;
+    required: boolean;
+}
+declare function DefinedParam(paramName: string, required?: boolean): (target: Object, propertyKey: string | symbol, parameterIndex: number) => void;
+declare function DefinedMethod(params?: {}): (target: any, propertyName: string, descriptor: TypedPropertyDescriptor<Function>) => void;
 declare class EntityInfo {
     private _packageName;
     private _name;
@@ -92,7 +97,7 @@ declare class AccessorInfo extends MemberInfo {
 declare class MethodInfo extends MemberInfo {
     private _parameters;
     constructor();
-    parameters: string[];
+    parameters: DefinedParam[];
 }
 interface IMetaDataInfo {
     entityInfo: EntityInfo;

@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 require("reflect-metadata");
 const util_1 = require("util");
-const bluebird_1 = require("bluebird");
 function DefinedEntity(params) {
     return function (target) {
         //var entityInfo = checkMetadata(target);
@@ -56,33 +55,46 @@ function DefinedProperty() {
     };
 }
 const definedParamKey = Symbol("definedParam");
-function DefinedParam(params) {
+function DefinedParam(paramName, required) {
+    if (!paramName)
+        throw "Name param is required";
     return function (target, propertyKey, parameterIndex) {
-        let definedParameters = Reflect.getOwnMetadata(definedParamKey, target, propertyKey) || [];
-        definedParameters.push(parameterIndex);
+        required = required != null ? required : false;
+        let definedParameters = Reflect.getOwnMetadata(definedParamKey, target, propertyKey) || new Array();
+        definedParameters.push({ name: paramName, index: parameterIndex, required });
         Reflect.defineMetadata(definedParamKey, definedParameters, target, propertyKey);
     };
 }
 exports.DefinedParam = DefinedParam;
 function DefinedMethod(params) {
     return function (target, propertyName, descriptor) {
+        let entityInfo = defineMetaData(target, CreationType.member);
+        let methodInfo = new MethodInfo();
+        methodInfo.name = propertyName;
+        methodInfo.className = target.constructor.name;
+        methodInfo.parameters = Reflect.getOwnMetadata(definedParamKey, target, propertyName);
+        entityInfo.addMethodInfo(methodInfo);
         let originalMethod = descriptor.value;
         descriptor.value = function () {
-            let definedParameters = Reflect.getOwnMetadata(definedParamKey, target, propertyName);
-            if (definedParameters) {
-                for (let paramIndex of definedParameters) {
-                    let a = arguments;
-                    let b = a;
-                    let entityInfo = defineMetaData(target, CreationType.member);
-                    let reflectInfo = Reflect.getMetadata('design:type', target, propertyName);
-                    let methodInfo = new MethodInfo();
-                    methodInfo.name = propertyName;
-                    methodInfo.className = target.constructor.name;
-                    entityInfo.addMethodInfo(methodInfo);
-                }
+            let params = new Array();
+            let argumetsArray = new Array();
+            for (let a in arguments) {
+                let key = arguments[a].key;
+                let value = arguments[a].value;
+                argumetsArray.push({ key, value });
             }
+            let limit = Math.max(...methodInfo.parameters.map(dp => dp.index));
+            for (let i = 0; i <= limit; i++) {
+                let defParam = methodInfo.parameters.find(dp => dp.index == i);
+                if (defParam) {
+                    let arg = argumetsArray.find(a => a.key == defParam.name);
+                    params.push(arg ? arg.value : null);
+                }
+                else
+                    params.push(null);
+            }
+            return originalMethod.apply(this, params);
         };
-        return bluebird_1.method.apply(this, arguments);
     };
 }
 exports.DefinedMethod = DefinedMethod;

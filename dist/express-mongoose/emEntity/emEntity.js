@@ -70,40 +70,6 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
         let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
         return { persistent, nonPersistent, readOnly, nonValid };
     }
-    static deserializeDefinedMethod(info, simpleObject) {
-        simpleObject = simpleObject || {};
-        let typeRequest = simpleObject.op;
-        let methodName;
-        let parameters;
-        if (!typeRequest)
-            return { isValidPayload: false, message: 'The operator is required' };
-        switch (typeRequest) {
-            case 'invoke':
-                if (!simpleObject.methodName || typeof simpleObject.methodName != 'string')
-                    return { isValidPayload: false, message: `Method name unvalid or undefined` };
-                methodName = simpleObject.methodName;
-                let methodInfo = info.getDefinedMethods().find(dm => dm.name == methodName);
-                if (!methodInfo)
-                    return { isValidPayload: false, message: `The entity ${info.name} does not contains a defined action ${methodName}` };
-                let expectingParams = methodInfo.parameters.length > 0;
-                if (expectingParams && !simpleObject.parameters)
-                    return { isValidPayload: false, message: `The method ${methodName} is expecting parameters` };
-                if (!(simpleObject.parameters instanceof Array))
-                    return { isValidPayload: false, message: `The parameters field must be an Array of objects` };
-                if (simpleObject.parameters.filter(a => !a.key || !a.value).length > 0)
-                    return { isValidPayload: false, message: `Each parameter has to define 'key' and 'value' properties` };
-                parameters = simpleObject.parameters;
-                delete simpleObject.op;
-                delete simpleObject.methodName;
-                delete simpleObject.parameters;
-                let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
-                if (nonValid)
-                    return { isValidPayload: false, message: `There are unvalid data in the request`, nonValid };
-                return { isValidPayload: true, methodName, parameters };
-            default:
-                return { isValidPayload: false, message: `The operator ${typeRequest} is not valid` };
-        }
-    }
     save() {
         return new Promise((resolve, reject) => {
             this.onSaving().then(movFlow => {

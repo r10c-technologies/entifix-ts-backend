@@ -5,10 +5,9 @@ import { EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import HttpStatus = require('http-status-codes');
 import express = require('express')
-import { EntityInfo, AccessorInfo, MemberBindingType } from '../../hc-core/hcMetaData/hcMetaData';
+import { EntityInfo, AccessorInfo, MemberBindingType, DefinedParam } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMMemberActivator } from '../..';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
-import { parse } from 'path';
 
 class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEntity>
 {
@@ -58,7 +57,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         this._router.delete('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveComplexDeleteMethod(request, response, next));
     
         if (this.entityInfo.getDefinedMethods().length > 0)
-            this._router.patch('/'+ this._resourceName + '/:action', ( request, response, next) => this.action( request, response ));
+            this._router.patch('/'+ this._resourceName + '/:_id', ( request, response, next) => this.action( request, response ));
     }
 
 
@@ -250,31 +249,27 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         }).catch( error => this._responseWrapper.exception(session.response, error) );
     }
 
-    action ( request : express.Request, response : express.Response ) : void
+    action ( request : express.Request, response : express.Response ) : void;
+    action ( request : express.Request, response : express.Response, options : { paramId?: string } ) : void;
+    action ( request : express.Request, response : express.Response, options? : { paramId?: string } ) : void
     {
-        let validation = EMEntity.deserializeDefinedMethod( this.entityInfo, request.body );
+        let paramId = options ? options.paramId : '_id';
+
+        let validation = this.validateActionRequest(request, response);
 
         if (validation.isValidPayload)
         {
             this.createSession( request, response ).then( 
                 session => { if (session) {
-                    let id = request.params._id;
+                    let id = request.params[paramId];
                     session.findEntity<TEntity, TDocument>(this.entityInfo, id).then(
                         entity => {
                             let methodInstace = entity[validation.methodName];
-                            let paramValues = validation.parameters.map( p => p.value );
-                            methodInstace(...paramValues);
+                            methodInstace(...validation.parameters);
                         }
                     ).catch( e => this._responseWrapper.exception( response, e ) );                
                 }}
             );
-        }
-        else
-        {
-            let details : any;
-            if ( validation.nonValid )
-                details = { nonValidData: validation.nonValid };
-            this._responseWrapper.handledError( response, validation.message, HttpStatus.BAD_REQUEST, details );
         }
     }
 
@@ -457,6 +452,70 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             error => this._responseWrapper.exception( response, error )
         ).catch( error => this._responseWrapper.exception( response, error ) );
     }    
+
+    validateActionRequest( request : express.Request, response : express.Response ) : { isValidPayload: boolean, methodName?: string, parameters?: Array<{key:string, value: any}> }
+    {
+        let simpleObject = request.body;
+        let parameters : Array<{key:string, value: any}>;
+
+        let responseWithBadRequest = (message, nonValid?) => {
+            let details : any = { errorDescription: message };
+            if (nonValid)
+                details.nonValid = nonValid;
+            this._responseWrapper.handledError( response, 'Unvalid payload', HttpStatus.BAD_REQUEST, details );
+
+            return { isValidPayload: false };
+        };
+
+        let operator = simpleObject.op;
+        if (!operator)
+            return responseWithBadRequest( 'The operator is required in the payload. { op: <operatorValue> }' );
+        
+        let methodInfo = this.entityInfo.getDefinedMethods().find( dm => dm.name == operator );
+        if (!methodInfo)
+            return responseWithBadRequest( `The entity ${this.entityInfo.name} does not contains a defined action "${operator}" that could be used as operation` );
+
+        let expectingParams =  methodInfo.parameters && methodInfo.parameters.length > 0;                
+        if ( expectingParams && !simpleObject.parameters )
+            return responseWithBadRequest( `The method ${operator} is expecting parameters` );
+
+        if ( !(simpleObject.parameters instanceof Array) )
+            return responseWithBadRequest( `The parameters field must be an Array of objects: { parameres: Array<{key,value}>}` );
+
+        if ( simpleObject.parameters.filter( a => !a.key || !a.value ).length > 0)
+            return responseWithBadRequest( `Each parameter has to define 'key' and 'value' properties: { parameters: Array<key,value>}` );
+
+        let emptyRequired: string;
+        let requiredParameters = methodInfo.parameters.filter( p => p.required );
+        for (let i = 0; i < requiredParameters.length; i++ )
+        {
+            let reqParam = requiredParameters[i];
+            let incomingParam = simpleObject.parameters.find( inParam => inParam.key == reqParam.name );
+            if (!incomingParam || !incomingParam.value)
+            {
+                emptyRequired = incomingParam.key;
+                break;
+            } 
+        }
+
+        if (emptyRequired)
+            return responseWithBadRequest( `The parameter "${emptyRequired}" is required for method "${operator}"` );
+
+
+        parameters = simpleObject.parameters;
+        delete simpleObject.op;
+        delete simpleObject.methodName;
+        delete simpleObject.parameters;
+        let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
+        
+        if ( nonValid )
+            return responseWithBadRequest( `There are unvalid data in the request`, nonValid );
+
+        return { isValidPayload: true, methodName: operator, parameters };
+
+
+
+    }
 
     //#endregion
     

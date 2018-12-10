@@ -26,16 +26,6 @@ declare class EMEntity extends Entity {
         readOnly?: any;
         nonValid?: any;
     };
-    static deserializeDefinedMethod(info: EntityInfo, simpleObject: any): {
-        isValidPayload: boolean;
-        message?: string;
-        methodName?: string;
-        parameters?: Array<{
-            key: string;
-            value: any;
-        }>;
-        nonValid?: any;
-    };
     save(): Promise<EntityMovementFlow>;
     delete(): Promise<EntityMovementFlow>;
     protected onSaving(): Promise<EntityMovementFlow>;
