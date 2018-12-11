@@ -11,7 +11,7 @@ class EMServiceSession {
         this._entitiesInfo = [];
         this._brokerChannels = new Array();
         //Mongo Configuration
-        this._urlMongoConnection = 'mongodb://' + mongoService;
+        this._mongoServiceConfig = mongoService;
         //AMQP Configuration
         if (amqpService) {
             this._urlAmqpConnection = 'amqp://' + amqpService;
@@ -21,7 +21,18 @@ class EMServiceSession {
         }
     }
     connect() {
-        let connectDb = () => { this._mongooseConnection = mongoose.createConnection(this._urlMongoConnection); };
+        let connectDb = () => {
+            if (typeof this._mongoServiceConfig == "string") {
+                let url = 'mongodb://' + this._mongoServiceConfig;
+                this._mongooseConnection = mongoose.createConnection(url);
+            }
+            else {
+                let config = this._mongoServiceConfig;
+                let base = config.base || 'mongodb://';
+                let url = base + config.url;
+                this._mongooseConnection = mongoose.createConnection(url, { user: config.user, pass: config.password });
+            }
+        };
         return new Promise((resolve, reject) => {
             connectDb();
             if (this._urlAmqpConnection)

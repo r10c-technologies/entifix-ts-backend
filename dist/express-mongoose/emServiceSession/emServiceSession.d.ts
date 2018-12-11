@@ -6,13 +6,14 @@ import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
+import { MongoServiceConfig } from '../base-entities/entifix-application';
 declare class EMServiceSession {
     private _serviceName;
     private _mongooseInstance;
     private _mongooseConnection;
     private _brokerConnection;
     private _brokerChannels;
-    private _urlMongoConnection;
+    private _mongoServiceConfig;
     private _urlAmqpConnection;
     private _periodAmqpRetry;
     private _limitAmqpRetry;
@@ -21,8 +22,8 @@ declare class EMServiceSession {
     private _amqpEventManager;
     private _devMode;
     private _entitiesInfo;
-    constructor(serviceName: string, mongoService: string);
-    constructor(serviceName: string, mongoService: string, amqpService: string);
+    constructor(serviceName: string, mongoService: string | MongoServiceConfig);
+    constructor(serviceName: string, mongoService: string | MongoServiceConfig, amqpService: string);
     connect(): Promise<void>;
     private atachToBroker;
     createAndBindEventManager(): AMQPEventManager;

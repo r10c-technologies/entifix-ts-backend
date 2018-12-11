@@ -6,7 +6,7 @@ import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
 interface EntifixAppConfig {
     serviceName: string;
-    mongoService: string;
+    mongoService: string | MongoServiceConfig;
     amqpService?: string;
     amqpDefaultInteraction?: boolean;
     authCacheService?: string;
@@ -23,6 +23,12 @@ interface EntifixAppConfig {
         header?: string;
         path?: string;
     };
+}
+interface MongoServiceConfig {
+    user: string;
+    password: string;
+    url: string;
+    base?: string;
 }
 declare abstract class EntifixApplication {
     private _expressApp;
@@ -63,4 +69,4 @@ declare abstract class EntifixApplication {
     protected readonly serviceSession: EMServiceSession;
     readonly useDefaultAMQPInteraction: boolean;
 }
-export { EntifixApplication, EntifixAppConfig };
+export { EntifixApplication, EntifixAppConfig, MongoServiceConfig };

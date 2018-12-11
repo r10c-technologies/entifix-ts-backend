@@ -11,7 +11,7 @@ import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels
 import { AMQPEvent } from '../../amqp-events/amqp-event/AMQPEvent';
 import { AMQPDelegate } from '../../amqp-events/amqp-delegate/AMQPDelegate';
 import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
-import { EIDRM } from 'constants';
+import { MongoServiceConfig } from '../base-entities/entifix-application';
 
 class EMServiceSession
 {
@@ -25,7 +25,7 @@ class EMServiceSession
     private _brokerChannels : Array<{ name:string, instance:amqp.Channel}>;
         
     //Configuraion properties
-    private _urlMongoConnection : string;
+    private _mongoServiceConfig : string | MongoServiceConfig;
     private _urlAmqpConnection : string;
     private _periodAmqpRetry;
     private _limitAmqpRetry;
@@ -53,16 +53,16 @@ class EMServiceSession
     
     //#region Methods
 
-    constructor (serviceName: string, mongoService : string);
-    constructor (serviceName: string, mongoService : string, amqpService : string);
-    constructor (serviceName: string, mongoService : string, amqpService? : string)
+    constructor (serviceName: string, mongoService : string | MongoServiceConfig);
+    constructor (serviceName: string, mongoService : string | MongoServiceConfig, amqpService : string);
+    constructor (serviceName: string, mongoService : string | MongoServiceConfig, amqpService? : string)
     {
         this._serviceName = serviceName;
         this._entitiesInfo = [];
         this._brokerChannels = new Array<{name:string, instance: amqp.Channel}>();
 
         //Mongo Configuration
-        this._urlMongoConnection = 'mongodb://' + mongoService;
+        this._mongoServiceConfig = mongoService;
 
         //AMQP Configuration
         if (amqpService)
@@ -77,8 +77,21 @@ class EMServiceSession
 
     connect( ) : Promise<void>
     {
-        let connectDb = () => { this._mongooseConnection = mongoose.createConnection(this._urlMongoConnection) };
-
+        let connectDb = () => { 
+            if (typeof this._mongoServiceConfig == "string")
+            {
+                let url = 'mongodb://' + this._mongoServiceConfig;
+                this._mongooseConnection = mongoose.createConnection(url); 
+            }
+            else
+            {
+                let config = this._mongoServiceConfig as MongoServiceConfig;
+                let base = config.base || 'mongodb://';
+                let url = base + config.url;
+                this._mongooseConnection = mongoose.createConnection( url, { user: config.user, pass: config.password } );
+            }            
+        };
+        
         return new Promise<void>((resolve,reject)=>{
             connectDb();
             if (this._urlAmqpConnection)

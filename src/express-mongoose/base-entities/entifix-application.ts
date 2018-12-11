@@ -20,7 +20,7 @@ import { EMSession } from '../emSession/emSession';
 interface EntifixAppConfig
 { 
     serviceName: string,
-    mongoService : string, 
+    mongoService : string | MongoServiceConfig, 
     amqpService? : string, 
     amqpDefaultInteraction?: boolean,
     authCacheService? : string,
@@ -32,6 +32,12 @@ interface EntifixAppConfig
     protectRoutes? : { enable: boolean, header?: string, path ? : string }
 }
 
+interface MongoServiceConfig {
+    user: string,
+    password: string,
+    url: string,
+    base?: string
+}
 
 abstract class EntifixApplication 
 {
@@ -469,4 +475,4 @@ function Consumer(idReq, resolvePromise)
     }
 }
 
-export { EntifixApplication, EntifixAppConfig }
+export { EntifixApplication, EntifixAppConfig, MongoServiceConfig }
