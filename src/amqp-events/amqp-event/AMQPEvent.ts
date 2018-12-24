@@ -6,6 +6,13 @@ import { AMQPSender } from '../amqp-sender/AMQPSender';
 import { AMQPEventArgs } from '../amqp-event-args/AMQPEventArgs';
 import { EMSession } from '../../express-mongoose/emSession/emSession';
 
+
+interface EventMovementFlow
+{
+    continue: boolean; 
+    data? : any;
+}
+
 abstract class AMQPEvent 
 {
     //#region Properties
@@ -27,34 +34,37 @@ abstract class AMQPEvent
     }
     
     constructMessage( data : any ) : Promise<AMQPEventMessage>
-    constructMessage( data : any, options: { session? : EMSession } ) : Promise<AMQPEventMessage>
-    constructMessage( data : any, options?: { session? : EMSession } ) : Promise<AMQPEventMessage>
+    constructMessage( data : any, options: { session? : EMSession, entityName? : string, actionName? : string, entityId? : string } ) : Promise<AMQPEventMessage>
+    constructMessage( data : any, options?: { session? : EMSession, entityName? : string, actionName? : string, entityId? : string } ) : Promise<AMQPEventMessage>
     {
-        let generalOptions = options;
-        return new Promise<AMQPEventMessage>( (resolve,reject)=>{
-            let resolvePromise = (data, options?) => {
-                let sender = new AMQPSender({
-                    sender: {
-                        serviceName : this.eventManager.serviceSession.serviceName,
-                        actionName : this.actionName,
-                        entityName : this.entityName,
-                        privateUserData : generalOptions && generalOptions.session ? generalOptions.session.privateUserData : null
-                    }
-                }, { publishOptions: options });
-                
-                let eventArgs = new AMQPEventArgs({
-                    eventArgs: { data }
-                });
+        let generalOptions = options || { };
+        return new Promise<AMQPEventMessage>( 
+            (resolve,reject) => {
+                let resolvePromise = (data, options?) => {
+                    let sender = new AMQPSender({
+                        sender: {
+                            serviceName : this.eventManager.serviceSession.serviceName,
+                            actionName : generalOptions.actionName,
+                            entityName : generalOptions.entityName,
+                            entityId : generalOptions.entityId,
+                            privateUserData : generalOptions && generalOptions.session ? generalOptions.session.privateUserData : null
+                        }
+                    }, { publishOptions: options });
+                    
+                    let eventArgs = new AMQPEventArgs({
+                        eventArgs: { data }
+                    });
 
-                resolve({ sender, eventArgs});
-            };
+                    resolve({ sender, eventArgs});
+                };
 
-            let onConstructionTask = this.onMessageConstruciton(data);
-            if (onConstructionTask)
-                onConstructionTask.then( result => resolvePromise(result.data, result.options)).catch( err => reject(err));
-            else
-                resolvePromise(data);
-        });
+                let onConstructionTask = this.onMessageConstruciton(data);
+                if (onConstructionTask)
+                    onConstructionTask.then( result => resolvePromise(result.data, result.options)).catch( err => reject(err));
+                else
+                    resolvePromise(data);
+            }
+        );
     }
 
     //#endregion
@@ -70,12 +80,6 @@ abstract class AMQPEvent
     get specificQueue() : string
     { return null; }
 
-    get entityName() : string
-    { return null; }
-
-    get actionName() : string
-    { return null; }
-
     get channelName () : string
     { return 'mainChannel' }
 
@@ -86,6 +90,6 @@ abstract class AMQPEvent
 
 }
 
-export { AMQPEvent }
+export { AMQPEvent, EventMovementFlow }
 
 

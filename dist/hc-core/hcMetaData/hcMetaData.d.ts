@@ -15,13 +15,17 @@ declare function DefinedAccessor(params?: {
     persistentAlias?: string;
     activator?: MemberActivator;
 }): (target: any, key: string, descriptor: PropertyDescriptor) => void;
-interface DefinedParam {
+interface DefinedMetaParam {
     name: string;
     index: number;
-    required: boolean;
+    required?: boolean;
+    special?: boolean;
 }
 declare function DefinedParam(paramName: string, required?: boolean): (target: Object, propertyKey: string | symbol, parameterIndex: number) => void;
-declare function DefinedMethod(params?: {}): (target: any, propertyName: string, descriptor: TypedPropertyDescriptor<Function>) => void;
+declare function SessionParam(): (target: Object, propertyKey: string | symbol, parameterIndex: number) => void;
+declare function DefinedMethod(params?: {
+    eventName?: string;
+}): (target: any, propertyName: string, descriptor: TypedPropertyDescriptor<Function>) => void;
 declare class EntityInfo {
     private _packageName;
     private _name;
@@ -96,8 +100,10 @@ declare class AccessorInfo extends MemberInfo {
 }
 declare class MethodInfo extends MemberInfo {
     private _parameters;
+    private _eventName;
     constructor();
-    parameters: DefinedParam[];
+    parameters: DefinedMetaParam[];
+    eventName: string;
 }
 interface IMetaDataInfo {
     entityInfo: EntityInfo;
@@ -114,4 +120,4 @@ declare enum MemberBindingType {
     Reference = 1,
     Snapshot = 2
 }
-export { MemberBindingType, ExpositionType, EntityInfo, DefinedAccessor, DefinedEntity, DefinedMethod, DefinedParam, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo, MemberActivator };
+export { MemberBindingType, ExpositionType, EntityInfo, DefinedAccessor, DefinedEntity, DefinedMethod, DefinedParam, SessionParam, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo, MemberActivator };

@@ -32,6 +32,8 @@ abstract class Entity implements IMetaDataInfo
         return this.prototype.entityInfo;
     }
 
+    abstract equals( otherEntity : Entity ) : boolean;
+    
     //#endregion
 
 

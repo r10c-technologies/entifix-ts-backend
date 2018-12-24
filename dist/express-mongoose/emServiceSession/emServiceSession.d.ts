@@ -2,7 +2,7 @@ import mongoose = require('mongoose');
 import amqp = require('amqplib/callback_api');
 import { ExchangeDescription, QueueBindDescription } from '../../amqp-events/amqp-connection/amqpConnectionDynamic';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
-import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
+import { EntityInfo, MethodInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
@@ -22,12 +22,14 @@ declare class EMServiceSession {
     private _amqpEventManager;
     private _devMode;
     private _entitiesInfo;
+    private _userDevDataNotification;
     constructor(serviceName: string, mongoService: string | MongoServiceConfig);
     constructor(serviceName: string, mongoService: string | MongoServiceConfig, amqpService: string);
     connect(): Promise<void>;
     private atachToBroker;
     createAndBindEventManager(): AMQPEventManager;
     publishAMQPMessage(session: EMSession, eventName: string, data: any): void;
+    publishAMQPAction(session: EMSession, methodInfo: MethodInfo, entityId: string, data: any): void;
     getInfo(entityName: string): EntityInfo;
     getModel<TDocument extends EntityDocument>(entityName: string, systemOwner: string): mongoose.Model<TDocument>;
     registerEntity<TDocument extends mongoose.Document, TEntity extends EMEntity>(type: {
@@ -38,6 +40,8 @@ declare class EMServiceSession {
     enableDevMode(): void;
     disableDevMode(): void;
     throwException(message: string): void;
+    logInDevMode(message: string): any;
+    logInDevMode(message: string, type: string): any;
     throwInfo(message: string): void;
     throwInfo(message: string, warnDevMode: boolean): void;
     createError(error: any, message: string): EMSessionError;

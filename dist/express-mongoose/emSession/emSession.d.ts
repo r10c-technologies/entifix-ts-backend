@@ -1,7 +1,7 @@
 import mongoose = require('mongoose');
 import express = require('express');
 import { HcSession } from '../../hc-core/hcSession/hcSession';
-import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
+import { EntityInfo, MethodInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
@@ -51,6 +51,7 @@ declare class EMSession extends HcSession {
     private parseMongoFilter;
     private resolveToMongoSorting;
     publishAMQPMessage(eventName: string, data: any): void;
+    publishAMQPAction(methodInfo: MethodInfo, entityId: string, data: any): void;
     throwException(message: string): void;
     throwInfo(message: string): void;
     throwInfo(message: string, warnDevMode: boolean): void;

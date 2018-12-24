@@ -88,10 +88,11 @@ function DefinedProperty ()
 
 
 const definedParamKey = Symbol("definedParam");
-interface DefinedParam {
+interface DefinedMetaParam {
     name: string;
     index: number;
-    required: boolean;
+    required?: boolean;
+    special?: boolean;
 }
 
 function DefinedParam( paramName : string, required? : boolean )
@@ -102,37 +103,60 @@ function DefinedParam( paramName : string, required? : boolean )
     return function(target: Object, propertyKey: string | symbol, parameterIndex: number) 
     {
         required = required != null ? required : false; 
-        let definedParameters: Array<DefinedParam> = Reflect.getOwnMetadata(definedParamKey, target, propertyKey) || new Array<DefinedParam>();
+        let definedParameters: Array<DefinedMetaParam> = Reflect.getOwnMetadata(definedParamKey, target, propertyKey) || new Array<DefinedMetaParam>();
         definedParameters.push({ name: paramName, index: parameterIndex, required });
 
         Reflect.defineMetadata(definedParamKey, definedParameters, target, propertyKey);
     }
 }
 
-function DefinedMethod( params? : { } )
+function SessionParam( )
+{
+    return function(target: Object, propertyKey: string | symbol, parameterIndex: number) 
+    {
+        let definedParameters: Array<DefinedMetaParam> = Reflect.getOwnMetadata(definedParamKey, target, propertyKey) || new Array<DefinedMetaParam>();
+        definedParameters.push({ name: 'session', index: parameterIndex, special: true });
+
+        Reflect.defineMetadata(definedParamKey, definedParameters, target, propertyKey);
+    }
+}
+
+
+function DefinedMethod( params? : { eventName?: string } )
 {
     return function(target: any, propertyName: string, descriptor: TypedPropertyDescriptor<Function>)
     {
+        params = params || {};
         let entityInfo = defineMetaData(target, CreationType.member);
         
         let methodInfo = new MethodInfo();
         methodInfo.name = propertyName;
         methodInfo.className = target.constructor.name;
         methodInfo.parameters = Reflect.getOwnMetadata( definedParamKey, target, propertyName );
+        methodInfo.eventName = params.eventName;
         entityInfo.addMethodInfo(methodInfo);
 
         let originalMethod = descriptor.value;
-
         descriptor.value = function()
         {
             let params = new Array<any>();
-            let argumetsArray = new Array<{key,value}>();
+            let userParamArray = new Array<{key,value}>();
+            let specialParamArray = new Array<{key,value}>()
 
             for (let a in arguments)
             {
-                let key = arguments[a].key;
-                let value = arguments[a].value;
-                argumetsArray.push( { key, value } );
+                let argument = arguments[a];
+                
+                if ( (argument as Object).hasOwnProperty('key') && (argument as Object).hasOwnProperty('key') )
+                {
+                    let key = arguments[a].key;
+                    let value = arguments[a].value;
+                    userParamArray.push( { key, value } );
+                }
+                else if ( argument instanceof HcSession )
+                {
+                    specialParamArray.push( { key: 'session', value: argument } );
+                }
             }
                 
             let limit = Math.max( ...methodInfo.parameters.map( dp => dp.index ) );
@@ -142,7 +166,12 @@ function DefinedMethod( params? : { } )
                 let defParam = methodInfo.parameters.find( dp => dp.index == i );
                 if (defParam)
                 {
-                    let arg = argumetsArray.find( a => a.key == defParam.name );
+                    let arg : {key,value};
+                    if (defParam.special == true)
+                        arg = specialParamArray.find( a => a.key == defParam.name );
+                    else
+                        arg = userParamArray.find( a => a.key == defParam.name );
+                        
                     params.push(arg ? arg.value : null);
                 }
                 else
@@ -508,7 +537,8 @@ class MethodInfo extends MemberInfo
 {
     //#region Properties
 
-    private _parameters : Array<DefinedParam>;
+    private _parameters : Array<DefinedMetaParam>;
+    private _eventName : string;
 
     //#endregion
 
@@ -518,7 +548,7 @@ class MethodInfo extends MemberInfo
     {
         super();
 
-        this._parameters = new Array<DefinedParam>();
+        this._parameters = new Array<DefinedMetaParam>();
     }
 
     //#endregion
@@ -529,6 +559,11 @@ class MethodInfo extends MemberInfo
     { return this._parameters; }
     set parameters ( value )
     { this._parameters = value; }
+
+    get eventName ()
+    { return this._eventName; }
+    set eventName ( value )
+    { this._eventName = value; }
 
     //#endregion
 }
@@ -565,6 +600,7 @@ export {
     DefinedEntity, 
     DefinedMethod,
     DefinedParam,
+    SessionParam,
     IMetaDataInfo, 
     PersistenceType,
     AccessorInfo,

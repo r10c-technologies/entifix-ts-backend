@@ -16,6 +16,7 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
         resourceName?: string;
     });
     private createRoutes;
+    private isMultiKeyEntity;
     retrieve(request: express.Request, response: express.Response): void;
     retrieveById(request: express.Request, response: express.Response): void;
     retrieveById(request: express.Request, response: express.Response, options: {
@@ -33,6 +34,7 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     action(request: express.Request, response: express.Response, options: {
         paramId?: string;
     }): void;
+    retrieveByKey(request: express.Request, response: express.Response, next: express.NextFunction): void;
     private createSession;
     private validateQueryParams;
     validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;

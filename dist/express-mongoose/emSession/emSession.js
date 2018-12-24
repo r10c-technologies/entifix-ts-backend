@@ -9,10 +9,15 @@ class EMSession extends hcSession_1.HcSession {
         this._serviceSession = serviceSession;
         this._request = options.request;
         this._response = options.response;
-        if (options.privateUserData)
-            this._privateUserData = options.privateUserData;
+        if (!options.privateUserData) {
+            this._privateUserData = this._request ? this._request.privateUserData : null;
+            if (!this._privateUserData)
+                this._privateUserData = this._serviceSession.developerUserData;
+        }
         else
-            this._privateUserData = this._request && this._request.privateUserData ? this._request.privateUserData : this._serviceSession.developerUserData;
+            this._privateUserData = options.privateUserData;
+        if (!this._privateUserData)
+            this.serviceSession.throwException('There is no private user data for the session');
         this._serviceSession.verifySystemOwnerModels(this._privateUserData.systemOwner);
     }
     getModel(entityName) {
@@ -403,6 +408,9 @@ class EMSession extends hcSession_1.HcSession {
     }
     publishAMQPMessage(eventName, data) {
         this._serviceSession.publishAMQPMessage(this, eventName, data);
+    }
+    publishAMQPAction(methodInfo, entityId, data) {
+        this._serviceSession.publishAMQPAction(this, methodInfo, entityId, data);
     }
     throwException(message) {
         this._serviceSession.throwException(message);

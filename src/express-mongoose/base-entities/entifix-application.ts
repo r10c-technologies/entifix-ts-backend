@@ -397,10 +397,11 @@ abstract class EntifixApplication
     protected get routerManager()
     { return this._routerManager }
 
+    protected get eventManager()
+    { return this._eventManager }
+
     private get cacheExpiration()
-    {
-        return this.serviceConfiguration.authCacheDuration || (60 * 5);
-    }
+    { return this.serviceConfiguration.authCacheDuration || (60 * 5); }
 
     protected get serviceSession ()
     { return this._serviceSession; }

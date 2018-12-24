@@ -12,14 +12,15 @@ class AMQPEvent {
         return null;
     }
     constructMessage(data, options) {
-        let generalOptions = options;
+        let generalOptions = options || {};
         return new Promise((resolve, reject) => {
             let resolvePromise = (data, options) => {
                 let sender = new AMQPSender_1.AMQPSender({
                     sender: {
                         serviceName: this.eventManager.serviceSession.serviceName,
-                        actionName: this.actionName,
-                        entityName: this.entityName,
+                        actionName: generalOptions.actionName,
+                        entityName: generalOptions.entityName,
+                        entityId: generalOptions.entityId,
                         privateUserData: generalOptions && generalOptions.session ? generalOptions.session.privateUserData : null
                     }
                 }, { publishOptions: options });
@@ -40,8 +41,6 @@ class AMQPEvent {
     get exchangeName() { return null; }
     get routingKey() { return null; }
     get specificQueue() { return null; }
-    get entityName() { return null; }
-    get actionName() { return null; }
     get channelName() { return 'mainChannel'; }
     get eventManager() { return this._eventManager; }
 }

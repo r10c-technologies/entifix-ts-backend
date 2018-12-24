@@ -4,6 +4,7 @@ import amqp = require('amqplib/callback_api');
 import { TokenValidationRequest, TokenValidationResponse } from '../../hc-core/hcUtilities/interactionDataModels';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
+import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 interface EntifixAppConfig {
     serviceName: string;
     mongoService: string | MongoServiceConfig;
@@ -65,6 +66,7 @@ declare abstract class EntifixApplication {
     private readonly isMainService;
     readonly expressApp: express.Application;
     protected readonly routerManager: EMRouterManager;
+    protected readonly eventManager: AMQPEventManager;
     private readonly cacheExpiration;
     protected readonly serviceSession: EMServiceSession;
     readonly useDefaultAMQPInteraction: boolean;

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 require("reflect-metadata");
 const util_1 = require("util");
+const hcSession_1 = require("../hcSession/hcSession");
 function DefinedEntity(params) {
     return function (target) {
         //var entityInfo = checkMetadata(target);
@@ -66,28 +67,49 @@ function DefinedParam(paramName, required) {
     };
 }
 exports.DefinedParam = DefinedParam;
+function SessionParam() {
+    return function (target, propertyKey, parameterIndex) {
+        let definedParameters = Reflect.getOwnMetadata(definedParamKey, target, propertyKey) || new Array();
+        definedParameters.push({ name: 'session', index: parameterIndex, special: true });
+        Reflect.defineMetadata(definedParamKey, definedParameters, target, propertyKey);
+    };
+}
+exports.SessionParam = SessionParam;
 function DefinedMethod(params) {
     return function (target, propertyName, descriptor) {
+        params = params || {};
         let entityInfo = defineMetaData(target, CreationType.member);
         let methodInfo = new MethodInfo();
         methodInfo.name = propertyName;
         methodInfo.className = target.constructor.name;
         methodInfo.parameters = Reflect.getOwnMetadata(definedParamKey, target, propertyName);
+        methodInfo.eventName = params.eventName;
         entityInfo.addMethodInfo(methodInfo);
         let originalMethod = descriptor.value;
         descriptor.value = function () {
             let params = new Array();
-            let argumetsArray = new Array();
+            let userParamArray = new Array();
+            let specialParamArray = new Array();
             for (let a in arguments) {
-                let key = arguments[a].key;
-                let value = arguments[a].value;
-                argumetsArray.push({ key, value });
+                let argument = arguments[a];
+                if (argument.hasOwnProperty('key') && argument.hasOwnProperty('key')) {
+                    let key = arguments[a].key;
+                    let value = arguments[a].value;
+                    userParamArray.push({ key, value });
+                }
+                else if (argument instanceof hcSession_1.HcSession) {
+                    specialParamArray.push({ key: 'session', value: argument });
+                }
             }
             let limit = Math.max(...methodInfo.parameters.map(dp => dp.index));
             for (let i = 0; i <= limit; i++) {
                 let defParam = methodInfo.parameters.find(dp => dp.index == i);
                 if (defParam) {
-                    let arg = argumetsArray.find(a => a.key == defParam.name);
+                    let arg;
+                    if (defParam.special == true)
+                        arg = specialParamArray.find(a => a.key == defParam.name);
+                    else
+                        arg = userParamArray.find(a => a.key == defParam.name);
                     params.push(arg ? arg.value : null);
                 }
                 else
@@ -286,6 +308,8 @@ class MethodInfo extends MemberInfo {
     //#region Accessors
     get parameters() { return this._parameters; }
     set parameters(value) { this._parameters = value; }
+    get eventName() { return this._eventName; }
+    set eventName(value) { this._eventName = value; }
 }
 exports.MethodInfo = MethodInfo;
 var PersistenceType;

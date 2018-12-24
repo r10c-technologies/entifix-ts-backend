@@ -5,7 +5,7 @@ import express = require ('express');
 
 //CORE FRAMEWORK
 import { HcSession } from '../../hc-core/hcSession/hcSession';
-import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType} from '../../hc-core/hcMetaData/hcMetaData';
+import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType, MethodInfo} from '../../hc-core/hcMetaData/hcMetaData';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMServiceSession } from '../emServiceSession/emServiceSession'; 
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
@@ -36,11 +36,19 @@ class EMSession extends HcSession
         this._request = options.request;
         this._response = options.response;
 
-        if (options.privateUserData)
-            this._privateUserData = options.privateUserData;
-        else
-            this._privateUserData = this._request && (this._request as any).privateUserData ? (this._request as any).privateUserData : this._serviceSession.developerUserData;
+        if (!options.privateUserData)
+        {
+            this._privateUserData = this._request ? (this._request as any).privateUserData : null;
 
+            if (!this._privateUserData)
+                this._privateUserData = this._serviceSession.developerUserData;            
+        }
+        else
+            this._privateUserData = options.privateUserData;
+
+        if (!this._privateUserData)
+            this.serviceSession.throwException('There is no private user data for the session');
+        
         this._serviceSession.verifySystemOwnerModels(this._privateUserData.systemOwner);
     }
     
@@ -53,7 +61,7 @@ class EMSession extends HcSession
     {
         return this._serviceSession.getInfo(entityName);
     }
-        
+         
     createDocument<T extends EntityDocument>(entityName: string, document: T ) : Promise<T>
     {   
         return new Promise<T>((resolve, reject)=>{
@@ -600,6 +608,11 @@ class EMSession extends HcSession
     publishAMQPMessage(eventName : string, data : any) : void
     {
         this._serviceSession.publishAMQPMessage(this, eventName, data);
+    }
+
+    publishAMQPAction( methodInfo : MethodInfo, entityId: string, data: any ) : void
+    {
+        this._serviceSession.publishAMQPAction( this, methodInfo, entityId, data );
     }
 
     throwException (message : string) : void

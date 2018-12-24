@@ -5,7 +5,7 @@ import amqp = require('amqplib/callback_api');
 //CORE FRAMEWORK
 import { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription } from '../../amqp-events/amqp-connection/amqpConnectionDynamic';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
-import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType} from '../../hc-core/hcMetaData/hcMetaData';
+import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType, MethodInfo} from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import { AMQPEvent } from '../../amqp-events/amqp-event/AMQPEvent';
@@ -46,6 +46,8 @@ class EMServiceSession
         modelActivator : any
     }>;
 
+    //Utilities
+    private _userDevDataNotification = false;
 
     //#endregion
 
@@ -127,6 +129,14 @@ class EMServiceSession
             this.throwException('No AMQP Event manager binded');
     }
     
+    publishAMQPAction( session : EMSession, methodInfo : MethodInfo, entityId: string, data : any ) : void
+    {
+        if (this._amqpEventManager)
+            this._amqpEventManager.publish(methodInfo.eventName, data, { session, entityName: methodInfo.className, actionName: methodInfo.name, entityId });
+        else
+            this.throwException('No AMQP Event manager binded');
+    }
+
     getInfo(entityName : string) : EntityInfo
     {
         let infoRegister = this._entitiesInfo.find( e => e.name == entityName);
@@ -221,6 +231,31 @@ class EMServiceSession
             throw new Error(message);
     }
     
+    logInDevMode( message : string );
+    logInDevMode( message : string, type : string);
+    logInDevMode( message : string, type? : string)
+    {
+        if (this._devMode == true)
+        {
+            let msg = 'DEV-MODE: ' + message;
+
+            switch (type)
+            {
+                case 'error':
+                    console.error(msg);
+                    break;
+                case 'warn':
+                    console.warn(msg);
+                    break;
+                case 'info':
+                    console.info(msg);
+                    break;
+                default:
+                    console.log(msg);
+            }
+        }
+    }
+
     throwInfo(message : string) : void;
     throwInfo(message : string, warnDevMode : boolean) : void;
     throwInfo(message : string, warnDevMode? : boolean) : void
@@ -309,6 +344,12 @@ class EMServiceSession
     {
         if (this.isDevMode) 
         {
+            if (!this._userDevDataNotification)
+            {
+                this.logInDevMode('Using private user data for developer in the created sessions');
+                this._userDevDataNotification = true;
+            }
+            
             return {
                 name: 'LOCAL DEVELOPER',
                 userName: 'DEVELOPER',

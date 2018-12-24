@@ -57,8 +57,8 @@ class AMQPEventManager
     }
 
     publish( eventName: string, data : any) : void;
-    publish( eventName: string, data : any, options: { session? : EMSession } ) : void;
-    publish( eventName: string, data : any, options?: { session? : EMSession } ) : void
+    publish( eventName: string, data : any, options: { session? : EMSession, entityName?: string, actionName?: string, entityId?: string } ) : void;
+    publish( eventName: string, data : any, options?: { session? : EMSession, entityName?: string, actionName?: string, entityId?: string } ) : void
     {
         this._serviceSession.checkAMQPConnection();
 

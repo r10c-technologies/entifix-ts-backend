@@ -9,10 +9,11 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+var EMEntity_1;
 const hcEntity_1 = require("../../hc-core/hcEntity/hcEntity");
 const emSession_1 = require("../emSession/emSession");
 const hcMetaData_1 = require("../../hc-core/hcMetaData/hcMetaData");
-let EMEntity = class EMEntity extends hcEntity_1.Entity {
+let EMEntity = EMEntity_1 = class EMEntity extends hcEntity_1.Entity {
     constructor(session, document) {
         super();
         this._session = session;
@@ -134,6 +135,12 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
     getDocument() {
         return this._document;
     }
+    equals(otherEntity) {
+        if (otherEntity instanceof EMEntity_1)
+            return this._id.toString() == otherEntity._id.toString();
+        else
+            return false;
+    }
     syncActibableAccessors() {
         this.entityInfo.getAccessors().filter(a => a.activator != null && (a.type == 'Array' || a.activator.bindingType == hcMetaData_1.MemberBindingType.Snapshot)).forEach(accessor => {
             let thisObject = this;
@@ -161,6 +168,7 @@ let EMEntity = class EMEntity extends hcEntity_1.Entity {
     }
     set instancedChanges(value) { this._instancedChanges = value; }
     get isNew() { return this._document.isNew; }
+    get key() { return { service: this._session.serviceSession.serviceName, entityName: this.entityInfo.name, id: this._id.toString() }; }
     get createdBy() { return this._document.createdBy; }
     get modifiedBy() { return this._document.modifiedBy; }
     get deletedBy() { return this._document.deletedBy; }
@@ -210,7 +218,7 @@ __decorate([
     __metadata("design:type", String),
     __metadata("design:paramtypes", [])
 ], EMEntity.prototype, "deletedBy", null);
-EMEntity = __decorate([
+EMEntity = EMEntity_1 = __decorate([
     hcMetaData_1.DefinedEntity({ packageName: 'CORE', abstract: true }),
     __metadata("design:paramtypes", [emSession_1.EMSession, Object])
 ], EMEntity);

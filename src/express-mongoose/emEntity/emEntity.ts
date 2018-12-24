@@ -223,6 +223,14 @@ class EMEntity extends Entity
         return this._document;
     }
 
+    equals( otherEntity : Entity ) : boolean
+    {
+        if (otherEntity instanceof EMEntity)
+            return this._id.toString() == (otherEntity as EMEntity)._id.toString();
+        else 
+            return false;
+    }
+
     private syncActibableAccessors() : void
     {
         this.entityInfo.getAccessors().filter( a => a.activator != null && (a.type == 'Array' || a.activator.bindingType == MemberBindingType.Snapshot) ).forEach( accessor => {
@@ -282,6 +290,9 @@ class EMEntity extends Entity
 
     get isNew()
     { return this._document.isNew; }
+
+    get key()
+    { return { service: this._session.serviceSession.serviceName, entityName: this.entityInfo.name, id: this._id.toString() }; }
 
     @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: String, require: false } })
     get createdBy () : string

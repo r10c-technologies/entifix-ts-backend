@@ -10,6 +10,7 @@ declare abstract class Entity implements IMetaDataInfo {
     protected abstract onSaved(): void;
     abstract serializeExposedAccessors(): any;
     static getInfo(): EntityInfo;
+    abstract equals(otherEntity: Entity): boolean;
 }
 interface EntityMovementFlow {
     continue: boolean;

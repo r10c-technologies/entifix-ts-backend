@@ -2,6 +2,10 @@ import amqp = require('amqplib/callback_api');
 import { AMQPEventMessage } from '../amqp-models/amqp-models';
 import { AMQPEventManager } from '../amqp-event-manager/AMQPEventManager';
 import { EMSession } from '../../express-mongoose/emSession/emSession';
+interface EventMovementFlow {
+    continue: boolean;
+    data?: any;
+}
 declare abstract class AMQPEvent {
     private _eventManager;
     constructor(eventManager: AMQPEventManager);
@@ -12,13 +16,14 @@ declare abstract class AMQPEvent {
     constructMessage(data: any): Promise<AMQPEventMessage>;
     constructMessage(data: any, options: {
         session?: EMSession;
+        entityName?: string;
+        actionName?: string;
+        entityId?: string;
     }): Promise<AMQPEventMessage>;
     readonly exchangeName: string;
     readonly routingKey: string;
     readonly specificQueue: string;
-    readonly entityName: string;
-    readonly actionName: string;
     readonly channelName: string;
     readonly eventManager: AMQPEventManager;
 }
-export { AMQPEvent };
+export { AMQPEvent, EventMovementFlow };

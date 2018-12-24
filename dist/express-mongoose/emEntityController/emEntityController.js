@@ -17,7 +17,8 @@ class EMEntityController {
         this.createRoutes();
     }
     createRoutes() {
-        // It is important to consider the order of the class methods setted for the HTTP Methods 
+        // It is important to consider the order of the class methods setted for the HTTP Methods
+        //CRUD methods
         this._router.get('/' + this._resourceName, (request, response, next) => this.retrieve(request, response));
         this._router.get('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexRetrieveMethod(request, response, next));
         this._router.post('/' + this._resourceName, (request, response, next) => this.create(request, response));
@@ -25,8 +26,21 @@ class EMEntityController {
         this._router.put('/' + this._resourceName, (request, response, next) => this.update(request, response));
         this._router.put('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexUpdateMethod(request, response, next));
         this._router.delete('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexDeleteMethod(request, response, next));
+        //Operator methods
         if (this.entityInfo.getDefinedMethods().length > 0)
             this._router.patch('/' + this._resourceName + '/:_id', (request, response, next) => this.action(request, response));
+        //Multikey manage methods
+        if (this.isMultiKeyEntity())
+            this._router.get('/key/:service/:entity/:id', (request, response, next) => this.retrieveByKey(request, response, next));
+    }
+    isMultiKeyEntity() {
+        let base = this.entityInfo.base;
+        let isMultiKeyEntity = base ? base.name == 'EMEntityMultiKey' : false;
+        while (base != null && !isMultiKeyEntity) {
+            isMultiKeyEntity = base.name == 'EMEntityMultiKey';
+            base = base.base;
+        }
+        return isMultiKeyEntity;
     }
     //#endregion
     //#region On request/response session  methods
@@ -150,11 +164,53 @@ class EMEntityController {
                     let id = request.params[paramId];
                     session.findEntity(this.entityInfo, id).then(entity => {
                         let methodInstace = entity[validation.methodName];
-                        methodInstace(...validation.parameters);
+                        let specialParameters = [{ key: 'session', value: session }];
+                        let returnedFromAction = methodInstace(...validation.parameters, specialParameters);
+                        let methodInfo = this.entityInfo.getDefinedMethods().find(dm => dm.name == validation.methodName);
+                        if (methodInfo.eventName) {
+                            let checkAndPublishData = resultData => {
+                                if (resultData.continue != null) {
+                                    if (resultData.continue == true)
+                                        session.publishAMQPAction(methodInfo, id, resultData.data);
+                                }
+                                else
+                                    session.publishAMQPAction(methodInfo, id, resultData);
+                            };
+                            if (returnedFromAction instanceof Promise)
+                                returnedFromAction.then(result => checkAndPublishData(result));
+                            else
+                                checkAndPublishData(returnedFromAction);
+                        }
                     }).catch(e => this._responseWrapper.exception(response, e));
                 }
             });
         }
+    }
+    retrieveByKey(request, response, next) {
+        this.createSession(request, response).then(session => {
+            if (session) {
+                let serviceName = request.params.service;
+                let entityName = request.params.entity;
+                let id = request.params.id;
+                if (serviceName && entityName && id) {
+                    let filters = {
+                        keys: { serviceName, entityName, value: id }
+                    };
+                    session.listEntitiesByQuery(this.entityInfo, filters).then(entities => {
+                        this._responseWrapper.entityCollection(response, entities);
+                    }).catch(err => this._responseWrapper.exception(response, err));
+                }
+                else {
+                    let responseWithError = messageDetails => this._responseWrapper.handledError(response, 'Incomplete request', HttpStatus.BAD_REQUEST, { details: messageDetails });
+                    if (!serviceName)
+                        responseWithError('It is necessary a service name: /key/<ServiceName>/<Entity>/<id>');
+                    else if (!entityName)
+                        responseWithError('It is necessary an entity name: /key/<ServiceName>/<Entity>/<id>');
+                    else if (!id)
+                        responseWithError('It is necessary an id: /key/<ServiceName>/<Entity>/<id>');
+                }
+            }
+        });
     }
     //#endregion
     //#region Utility methods

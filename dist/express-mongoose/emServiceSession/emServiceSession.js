@@ -7,6 +7,8 @@ const amqpConnectionDynamic_1 = require("../../amqp-events/amqp-connection/amqpC
 const AMQPEventManager_1 = require("../../amqp-events/amqp-event-manager/AMQPEventManager");
 class EMServiceSession {
     constructor(serviceName, mongoService, amqpService) {
+        //Utilities
+        this._userDevDataNotification = false;
         this._serviceName = serviceName;
         this._entitiesInfo = [];
         this._brokerChannels = new Array();
@@ -56,6 +58,12 @@ class EMServiceSession {
     publishAMQPMessage(session, eventName, data) {
         if (this._amqpEventManager)
             this._amqpEventManager.publish(eventName, data, { session });
+        else
+            this.throwException('No AMQP Event manager binded');
+    }
+    publishAMQPAction(session, methodInfo, entityId, data) {
+        if (this._amqpEventManager)
+            this._amqpEventManager.publish(methodInfo.eventName, data, { session, entityName: methodInfo.className, actionName: methodInfo.name, entityId });
         else
             this.throwException('No AMQP Event manager binded');
     }
@@ -125,6 +133,24 @@ class EMServiceSession {
         else
             throw new Error(message);
     }
+    logInDevMode(message, type) {
+        if (this._devMode == true) {
+            let msg = 'DEV-MODE: ' + message;
+            switch (type) {
+                case 'error':
+                    console.error(msg);
+                    break;
+                case 'warn':
+                    console.warn(msg);
+                    break;
+                case 'info':
+                    console.info(msg);
+                    break;
+                default:
+                    console.log(msg);
+            }
+        }
+    }
     throwInfo(message, warnDevMode) {
         warnDevMode = warnDevMode != null ? warnDevMode : true;
         if (warnDevMode && this._devMode)
@@ -169,6 +195,10 @@ class EMServiceSession {
     }
     get developerUserData() {
         if (this.isDevMode) {
+            if (!this._userDevDataNotification) {
+                this.logInDevMode('Using private user data for developer in the created sessions');
+                this._userDevDataNotification = true;
+            }
             return {
                 name: 'LOCAL DEVELOPER',
                 userName: 'DEVELOPER',

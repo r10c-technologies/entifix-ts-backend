@@ -16,6 +16,9 @@ declare class AMQPEventManager {
     publish(eventName: string, data: any): void;
     publish(eventName: string, data: any, options: {
         session?: EMSession;
+        entityName?: string;
+        actionName?: string;
+        entityId?: string;
     }): void;
     registerDelegate<TDelegate extends AMQPDelegate>(type: {
         new (session: AMQPEventManager): TDelegate;

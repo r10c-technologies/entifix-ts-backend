@@ -34,6 +34,7 @@ declare class EMEntity extends Entity {
     protected onDeleted(): void;
     static getSchema(): any;
     getDocument(): EntityDocument;
+    equals(otherEntity: Entity): boolean;
     private syncActibableAccessors;
     readonly session: EMSession;
     created: Date;
@@ -48,6 +49,11 @@ declare class EMEntity extends Entity {
         newValue: any;
     }[];
     readonly isNew: boolean;
+    readonly key: {
+        service: string;
+        entityName: string;
+        id: any;
+    };
     readonly createdBy: string;
     readonly modifiedBy: string;
     readonly deletedBy: string;

@@ -242,9 +242,8 @@ class EntifixApplication {
     }
     get expressApp() { return this._expressApp; }
     get routerManager() { return this._routerManager; }
-    get cacheExpiration() {
-        return this.serviceConfiguration.authCacheDuration || (60 * 5);
-    }
+    get eventManager() { return this._eventManager; }
+    get cacheExpiration() { return this.serviceConfiguration.authCacheDuration || (60 * 5); }
     get serviceSession() { return this._serviceSession; }
     get useDefaultAMQPInteraction() {
         return (this.serviceConfiguration.amqpService != null) && (this.serviceConfiguration.amqpDefaultInteraction != false);
