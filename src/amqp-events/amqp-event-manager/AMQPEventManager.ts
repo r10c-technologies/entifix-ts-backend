@@ -8,19 +8,26 @@ import { AMQPSender } from '../amqp-sender/AMQPSender';
 import { AMQPEventArgs } from '../amqp-event-args/AMQPEventArgs';
 import { EMSession } from '../../express-mongoose/emSession/emSession';
 
-interface ExchangeDescription 
-{
-    name: string,
-    type: string,
-    durable : boolean
-}
-
 interface QueueBindDescription
 {
     name: string,
     exchangeName: string,
     routingKey : string,
     exclusive : boolean
+}
+
+interface ExchangeDescription
+{
+    name: string,
+    type: ExchangeType,
+    durable: boolean
+}
+
+enum ExchangeType
+{
+    topic = 'topic',
+    fanout = 'fanout',
+    direct = 'direct'
 }
 
 class AMQPEventManager
@@ -44,6 +51,7 @@ class AMQPEventManager
 
         this._events = new Array<{name: string, instance : AMQPEvent}>();
         this._delegates = new Array<{name: string, instance: AMQPDelegate}>();
+        this._exchangesDescription = new Array<ExchangeDescription>();
     }
 
     registerEvent<TEvent extends AMQPEvent>( type: { new( session: AMQPEventManager) : TEvent } ) : TEvent
@@ -51,6 +59,9 @@ class AMQPEventManager
         this._serviceSession.checkAMQPConnection();
 
         let instance = new type(this);
+        if (instance.exchangeDescription)
+            this.verifyExchageDescription(instance.exchangeDescription);
+
         this._events.push({ name: type.name, instance });
 
         return instance;
@@ -76,10 +87,11 @@ class AMQPEventManager
             this.assertEventChannel(pub.instance).then( c => {
                 let content = new Buffer(JSON.stringify(message));
     
-                if (pub.instance.specificQueue)
-                    c.sendToQueue( pub.instance.specificQueue, content, amqpMessage.sender.publishOptions )
+                if (!pub.instance.specificQueue)
+                    c.publish( pub.instance.exchangeDescription.name, pub.instance.routingKey, content, amqpMessage.sender.publishOptions );
                 else
-                    c.publish( pub.instance.exchangeName, pub.instance.routingKey, content, amqpMessage.sender.publishOptions );
+                    c.sendToQueue( pub.instance.specificQueue, content, amqpMessage.sender.publishOptions );
+
             });
         });
     }
@@ -100,22 +112,29 @@ class AMQPEventManager
 
     assertDelegateChannel( delegate : AMQPDelegate ) : Promise<amqp.Channel>
     {
-        return this.assertChannel(delegate.channelName);
+        return this.assertChannel(delegate.channelName).then( channelResult => channelResult.channel );
     };
 
     assertEventChannel( event : AMQPEvent ) : Promise<amqp.Channel>
     {
-        return this.assertChannel(event.channelName);
+        return this.assertChannel(event.channelName).then( 
+            channelResult => {
+                if (channelResult.isNew && !event.specificQueue && event.exchangeDescription)
+                    channelResult.channel.assertExchange( event.exchangeDescription.name, event.exchangeDescription.type, { durable: event.exchangeDescription.durable} );
+
+                return channelResult.channel
+            }
+        );
     }
 
     createAnonymousChannel() : Promise<amqp.Channel>
     {
-        return this.assertChannel(null);
+        return this.assertChannel(null).then( channelResult => channelResult.channel );
     }
 
-    private assertChannel( name : string ) : Promise<amqp.Channel>
+    private assertChannel( name : string ) : Promise<{ channel : amqp.Channel, isNew : boolean }>
     {
-        return new Promise<amqp.Channel>( (resolve,reject)=>{
+        return new Promise<{ channel : amqp.Channel, isNew : boolean }>( (resolve,reject)=>{
     
             if (name)
                 var ch = this._serviceSession.brokerChannels.find( c => c.name == name );
@@ -126,15 +145,50 @@ class AMQPEventManager
                     if (!err)
                     {
                         this._serviceSession.brokerChannels.push( { name, instance: channel } );
-                        resolve(channel);
+                        resolve({ channel, isNew: true});
                     }
                     else
                         reject(err);
                 });
             } 
             else
-                resolve(ch.instance);
+                resolve({ channel: ch.instance, isNew: false });
         });
+    }
+
+    private verifyExchageDescription( exchangeDescription : ExchangeDescription ) : void
+    {
+        let existingExchange = this._exchangesDescription.find( e => e.name == exchangeDescription.name );
+
+        if (existingExchange)
+        {
+            let inconsistence = false;
+            for ( let p in existingExchange )
+            {
+                if ( existingExchange[p] != exchangeDescription[p] )
+                    inconsistence = true;
+            }
+
+            if (inconsistence)
+                this.serviceSession.throwException(`There are inconsistences with the exchange '${exchangeDescription.name}'. Please check if all connections are using it in the same way`);
+        }
+        else
+            this._exchangesDescription.push( exchangeDescription );
+    }
+
+    defineExchange( exchangeDescription : ExchangeDescription ) : void
+    {
+        this.verifyExchageDescription(exchangeDescription);
+    }
+    
+    getExchangeDescription( exchangeName ) : ExchangeDescription
+    {
+        let e = this._exchangesDescription.find( e => e.name == exchangeName );
+
+        if (!e)
+            this.serviceSession.throwException(`There is no defined exchange with name '${exchangeName}'`);
+
+        return e;
     }
 
     //#endregion
@@ -147,4 +201,4 @@ class AMQPEventManager
     //#endregion
 }
 
-export { AMQPEventManager }
+export { AMQPEventManager, ExchangeDescription, ExchangeType }

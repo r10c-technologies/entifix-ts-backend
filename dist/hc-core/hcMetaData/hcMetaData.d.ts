@@ -5,6 +5,7 @@ declare function DefinedEntity(): any;
 declare function DefinedEntity(params: {
     packageName?: string;
     abstract?: boolean;
+    fixedSystemOwner?: string;
 }): any;
 declare function DefinedAccessor(params?: {
     exposition?: ExpositionType;
@@ -32,7 +33,11 @@ declare class EntityInfo {
     private _definedMembers;
     private _base;
     private _isAbstract;
+    private _fixedSystemOwner;
     constructor(name: string);
+    constructor(name: string, options: {
+        fixedSystemOwner?: string;
+    });
     addAccessorInfo(accessorInfo: AccessorInfo): void;
     addPropertyInfo(propertyInfo: PropertyInfo): void;
     addMethodInfo(methodInfo: MethodInfo): void;
@@ -52,6 +57,7 @@ declare class EntityInfo {
     packageName: string;
     readonly base: EntityInfo;
     readonly isAbstract: boolean;
+    readonly fixedSystemOwner: string;
 }
 declare abstract class MemberActivator {
     private _entityInfo;

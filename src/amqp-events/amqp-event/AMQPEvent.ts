@@ -1,7 +1,7 @@
 import amqp = require('amqplib/callback_api');
 
 import { AMQPEventMessage } from '../amqp-models/amqp-models';
-import { AMQPEventManager } from '../amqp-event-manager/AMQPEventManager';
+import { AMQPEventManager, ExchangeDescription, ExchangeType } from '../amqp-event-manager/AMQPEventManager';
 import { AMQPSender } from '../amqp-sender/AMQPSender';
 import { AMQPEventArgs } from '../amqp-event-args/AMQPEventArgs';
 import { EMSession } from '../../express-mongoose/emSession/emSession';
@@ -28,7 +28,7 @@ abstract class AMQPEvent
         this._eventManager = eventManager;
     }
 
-    protected onMessageConstruciton(data : any) : Promise<{ data : any, options? : amqp.Options.Publish}>
+    protected onMessageConstruction(data : any) : Promise<{ data : any, options? : amqp.Options.Publish}>
     {
         return null;
     }
@@ -58,7 +58,7 @@ abstract class AMQPEvent
                     resolve({ sender, eventArgs});
                 };
 
-                let onConstructionTask = this.onMessageConstruciton(data);
+                let onConstructionTask = this.onMessageConstruction(data);
                 if (onConstructionTask)
                     onConstructionTask.then( result => resolvePromise(result.data, result.options)).catch( err => reject(err));
                 else
@@ -71,7 +71,7 @@ abstract class AMQPEvent
 
     //#region Accessors
 
-    get exchangeName () : string
+    get exchangeDescription() : ExchangeDescription
     { return null; }
     
     get routingKey() : string

@@ -5,8 +5,8 @@ import { HcSession } from '../hcSession/hcSession';
 import { method } from 'bluebird';
 
 function DefinedEntity( );
-function DefinedEntity( params : { packageName? : string, abstract? : boolean } );
-function DefinedEntity( params? : { packageName : string, abstract? : boolean } )
+function DefinedEntity( params : { packageName? : string, abstract? : boolean, fixedSystemOwner? : string } );
+function DefinedEntity( params? : { packageName : string, abstract? : boolean, fixedSystemOwner? : string } )
 {    
     return function(target : Function)
     {
@@ -15,7 +15,7 @@ function DefinedEntity( params? : { packageName : string, abstract? : boolean } 
 
         let tempPackageName = params != null && params.packageName != null ? params.packageName : 'app';
         let tempIsAbstract = params != null && params.abstract != null ? params.abstract : false; 
-
+        
         //let info = defineMetaData( target, CreationType.class );
         
         if (!target.prototype.entityInfo)
@@ -25,7 +25,11 @@ function DefinedEntity( params? : { packageName : string, abstract? : boolean } 
 
         if (info.name != target.name)
         {
-            let newInfo = new EntityInfo(target.name);
+            let options = {
+                fixedSystemOwner: params ? params.fixedSystemOwner : null
+            };
+
+            let newInfo = new EntityInfo(target.name, options );
             newInfo.implementBaseInfo(info, tempIsAbstract );
             newInfo.packageName = tempPackageName;
             
@@ -147,10 +151,10 @@ function DefinedMethod( params? : { eventName?: string } )
             {
                 let argument = arguments[a];
                 
-                if ( (argument as Object).hasOwnProperty('key') && (argument as Object).hasOwnProperty('key') )
+                if ( (argument as Object).hasOwnProperty('key') && (argument as Object).hasOwnProperty('value') )
                 {
-                    let key = arguments[a].key;
-                    let value = arguments[a].value;
+                    let key = argument.key;
+                    let value = argument.value;
                     userParamArray.push( { key, value } );
                 }
                 else if ( argument instanceof HcSession )
@@ -246,15 +250,23 @@ class EntityInfo
     private _definedMembers : Array<MemberInfo>;
     private _base : EntityInfo;
     private _isAbstract : boolean;
-    
+    private _fixedSystemOwner : string;
+
     //#endregion
 
     //#region Methods
-    constructor( name : string )
+    constructor( name : string );
+    constructor( name : string, options: { fixedSystemOwner? : string } );
+    constructor( name : string, options?: { fixedSystemOwner? : string } )
     {   
         this._name = name;
         this._definedMembers = new Array<MemberInfo>();    
         this._isAbstract = true;
+
+        if ( options )
+        {
+            this._fixedSystemOwner = options.fixedSystemOwner;
+        }
     }
 
     addAccessorInfo( accessorInfo : AccessorInfo ) : void
@@ -366,6 +378,9 @@ class EntityInfo
     
     get isAbstract ()
     { return this._isAbstract; }
+
+    get fixedSystemOwner()
+    { return this._fixedSystemOwner; }
 
     //#endregion
 }

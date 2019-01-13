@@ -3,6 +3,16 @@ import { EMServiceSession } from '../../express-mongoose/emServiceSession/emServ
 import { AMQPDelegate } from '../amqp-delegate/AMQPDelegate';
 import { AMQPEvent } from '../amqp-event/AMQPEvent';
 import { EMSession } from '../../express-mongoose/emSession/emSession';
+interface ExchangeDescription {
+    name: string;
+    type: ExchangeType;
+    durable: boolean;
+}
+declare enum ExchangeType {
+    topic = "topic",
+    fanout = "fanout",
+    direct = "direct"
+}
 declare class AMQPEventManager {
     private _serviceSession;
     private _events;
@@ -27,6 +37,9 @@ declare class AMQPEventManager {
     assertEventChannel(event: AMQPEvent): Promise<amqp.Channel>;
     createAnonymousChannel(): Promise<amqp.Channel>;
     private assertChannel;
+    private verifyExchageDescription;
+    defineExchange(exchangeDescription: ExchangeDescription): void;
+    getExchangeDescription(exchangeName: any): ExchangeDescription;
     readonly serviceSession: EMServiceSession;
 }
-export { AMQPEventManager };
+export { AMQPEventManager, ExchangeDescription, ExchangeType };

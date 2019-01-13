@@ -8,7 +8,7 @@ class AMQPEvent {
     constructor(eventManager) {
         this._eventManager = eventManager;
     }
-    onMessageConstruciton(data) {
+    onMessageConstruction(data) {
         return null;
     }
     constructMessage(data, options) {
@@ -29,7 +29,7 @@ class AMQPEvent {
                 });
                 resolve({ sender, eventArgs });
             };
-            let onConstructionTask = this.onMessageConstruciton(data);
+            let onConstructionTask = this.onMessageConstruction(data);
             if (onConstructionTask)
                 onConstructionTask.then(result => resolvePromise(result.data, result.options)).catch(err => reject(err));
             else
@@ -38,7 +38,7 @@ class AMQPEvent {
     }
     //#endregion
     //#region Accessors
-    get exchangeName() { return null; }
+    get exchangeDescription() { return null; }
     get routingKey() { return null; }
     get specificQueue() { return null; }
     get channelName() { return 'mainChannel'; }

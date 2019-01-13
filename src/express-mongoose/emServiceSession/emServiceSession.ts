@@ -31,11 +31,11 @@ class EMServiceSession
     private _limitAmqpRetry;
     private _amqpExchangesDescription : Array<ExchangeDescription>;
     private _amqpQueueBindsDescription : Array<QueueBindDescription>;
-    
+    private _devMode : boolean;
+    private _allowFixedSystemOwners : boolean;
+
     //Main artifact instances
     private _amqpEventManager : AMQPEventManager;
-
-    private _devMode : boolean;
     
     private _entitiesInfo : Array<{ 
         name: string, 
@@ -62,6 +62,7 @@ class EMServiceSession
         this._serviceName = serviceName;
         this._entitiesInfo = [];
         this._brokerChannels = new Array<{name:string, instance: amqp.Channel}>();
+        this._allowFixedSystemOwners = false;
 
         //Mongo Configuration
         this._mongoServiceConfig = mongoService;
@@ -286,6 +287,11 @@ class EMServiceSession
             this.throwException('No AMQP service enabled');
     }
 
+    enableFixedSystemOwners() : void
+    {
+        this._allowFixedSystemOwners = true;
+    }
+
     //#endregion
 
 
@@ -363,6 +369,9 @@ class EMServiceSession
             return null;
         }
     }
+
+    get allowFixedSystemOwners ()
+    { return this._allowFixedSystemOwners; }
 
     //#endregion
 }

@@ -12,6 +12,7 @@ class EMServiceSession {
         this._serviceName = serviceName;
         this._entitiesInfo = [];
         this._brokerChannels = new Array();
+        this._allowFixedSystemOwners = false;
         //Mongo Configuration
         this._mongoServiceConfig = mongoService;
         //AMQP Configuration
@@ -171,6 +172,9 @@ class EMServiceSession {
         if (!this._urlAmqpConnection || !this._brokerConnection)
             this.throwException('No AMQP service enabled');
     }
+    enableFixedSystemOwners() {
+        this._allowFixedSystemOwners = true;
+    }
     //#endregion
     //#region Accessors
     get serviceName() { return this._serviceName; }
@@ -211,6 +215,7 @@ class EMServiceSession {
             return null;
         }
     }
+    get allowFixedSystemOwners() { return this._allowFixedSystemOwners; }
 }
 exports.EMServiceSession = EMServiceSession;
 class ModelActivator {

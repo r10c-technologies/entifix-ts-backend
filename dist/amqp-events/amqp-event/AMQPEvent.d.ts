@@ -1,6 +1,6 @@
 import amqp = require('amqplib/callback_api');
 import { AMQPEventMessage } from '../amqp-models/amqp-models';
-import { AMQPEventManager } from '../amqp-event-manager/AMQPEventManager';
+import { AMQPEventManager, ExchangeDescription } from '../amqp-event-manager/AMQPEventManager';
 import { EMSession } from '../../express-mongoose/emSession/emSession';
 interface EventMovementFlow {
     continue: boolean;
@@ -9,7 +9,7 @@ interface EventMovementFlow {
 declare abstract class AMQPEvent {
     private _eventManager;
     constructor(eventManager: AMQPEventManager);
-    protected onMessageConstruciton(data: any): Promise<{
+    protected onMessageConstruction(data: any): Promise<{
         data: any;
         options?: amqp.Options.Publish;
     }>;
@@ -20,7 +20,7 @@ declare abstract class AMQPEvent {
         actionName?: string;
         entityId?: string;
     }): Promise<AMQPEventMessage>;
-    readonly exchangeName: string;
+    readonly exchangeDescription: ExchangeDescription;
     readonly routingKey: string;
     readonly specificQueue: string;
     readonly channelName: string;

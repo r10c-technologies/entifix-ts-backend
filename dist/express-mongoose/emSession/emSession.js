@@ -21,7 +21,9 @@ class EMSession extends hcSession_1.HcSession {
         this._serviceSession.verifySystemOwnerModels(this._privateUserData.systemOwner);
     }
     getModel(entityName) {
-        return this._serviceSession.getModel(entityName, this._privateUserData.systemOwner);
+        let info = this.getInfo(entityName);
+        let systemOwner = this.serviceSession.allowFixedSystemOwners && info.fixedSystemOwner ? info.fixedSystemOwner : this._privateUserData.systemOwner;
+        return this._serviceSession.getModel(entityName, systemOwner);
     }
     getInfo(entityName) {
         return this._serviceSession.getInfo(entityName);

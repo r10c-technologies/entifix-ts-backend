@@ -164,8 +164,8 @@ class EMEntityController {
                     let id = request.params[paramId];
                     session.findEntity(this.entityInfo, id).then(entity => {
                         let methodInstace = entity[validation.methodName];
-                        let specialParameters = [{ key: 'session', value: session }];
-                        let returnedFromAction = methodInstace(...validation.parameters, specialParameters);
+                        let specialParameters = [session];
+                        let returnedFromAction = methodInstace.apply(entity, [...validation.parameters, specialParameters]);
                         let methodInfo = this.entityInfo.getDefinedMethods().find(dm => dm.name == validation.methodName);
                         if (methodInfo.eventName) {
                             let checkAndPublishData = resultData => {

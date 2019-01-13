@@ -14,7 +14,10 @@ function DefinedEntity(params) {
             target.prototype.entityInfo = new EntityInfo(target.name);
         let info = target.prototype.entityInfo;
         if (info.name != target.name) {
-            let newInfo = new EntityInfo(target.name);
+            let options = {
+                fixedSystemOwner: params ? params.fixedSystemOwner : null
+            };
+            let newInfo = new EntityInfo(target.name, options);
             newInfo.implementBaseInfo(info, tempIsAbstract);
             newInfo.packageName = tempPackageName;
             target.prototype.entityInfo = newInfo;
@@ -92,9 +95,9 @@ function DefinedMethod(params) {
             let specialParamArray = new Array();
             for (let a in arguments) {
                 let argument = arguments[a];
-                if (argument.hasOwnProperty('key') && argument.hasOwnProperty('key')) {
-                    let key = arguments[a].key;
-                    let value = arguments[a].value;
+                if (argument.hasOwnProperty('key') && argument.hasOwnProperty('value')) {
+                    let key = argument.key;
+                    let value = argument.value;
                     userParamArray.push({ key, value });
                 }
                 else if (argument instanceof hcSession_1.HcSession) {
@@ -161,12 +164,13 @@ function isMetaDataInfo(object) {
     return 'entityInfo' in object;
 }
 class EntityInfo {
-    //#endregion
-    //#region Methods
-    constructor(name) {
+    constructor(name, options) {
         this._name = name;
         this._definedMembers = new Array();
         this._isAbstract = true;
+        if (options) {
+            this._fixedSystemOwner = options.fixedSystemOwner;
+        }
     }
     addAccessorInfo(accessorInfo) {
         this._definedMembers.push(accessorInfo);
@@ -231,6 +235,7 @@ class EntityInfo {
     set packageName(value) { this._packageName = value; }
     get base() { return this._base; }
     get isAbstract() { return this._isAbstract; }
+    get fixedSystemOwner() { return this._fixedSystemOwner; }
 }
 exports.EntityInfo = EntityInfo;
 class MemberActivator {

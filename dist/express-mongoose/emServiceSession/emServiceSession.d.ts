@@ -19,8 +19,9 @@ declare class EMServiceSession {
     private _limitAmqpRetry;
     private _amqpExchangesDescription;
     private _amqpQueueBindsDescription;
-    private _amqpEventManager;
     private _devMode;
+    private _allowFixedSystemOwners;
+    private _amqpEventManager;
     private _entitiesInfo;
     private _userDevDataNotification;
     constructor(serviceName: string, mongoService: string | MongoServiceConfig);
@@ -46,6 +47,7 @@ declare class EMServiceSession {
     throwInfo(message: string, warnDevMode: boolean): void;
     createError(error: any, message: string): EMSessionError;
     checkAMQPConnection(): void;
+    enableFixedSystemOwners(): void;
     readonly serviceName: string;
     readonly entitiesInfo: {
         name: string;
@@ -71,6 +73,7 @@ declare class EMServiceSession {
     amqpQueueBindsDescription: QueueBindDescription[];
     readonly mainChannel: amqp.Channel;
     readonly developerUserData: PrivateUserData;
+    readonly allowFixedSystemOwners: boolean;
 }
 declare class EMSessionError {
     private _code;
