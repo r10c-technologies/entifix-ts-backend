@@ -11,7 +11,7 @@ class EMEntityController {
         this._entityName = entityName;
         this._routerManager = routerManager;
         this._useEntities = true;
-        this._responseWrapper = new emWrapper_1.EMResponseWrapper(routerManager.serviceSession);
+        this._responseWrapper = new emWrapper_1.EMResponseEntityWrapper(routerManager.serviceSession);
         this._resourceName = options && options.resourceName ? options.resourceName : entityName.toLowerCase();
         this._router = express.Router();
         this._definedRouteMethods = this.getDefinedRouteMethods();
@@ -19,13 +19,9 @@ class EMEntityController {
     }
     createRoutes() {
         // It is important to consider the order of the class methods setted for the HTTP Methods
-        let dfmext = this.getDefinedRouteMethods();
         //CRUD methods
         this._router.get('/' + this._resourceName, (request, response, next) => this.retrieve(request, response));
-        this._router.get('/' + this._resourceName + '/:path*', ((dfm) => {
-            let a = dfm;
-            return (request, response, next) => this.resolveComplexRetrieveMethod(request, response, next, dfm);
-        })(dfmext));
+        this._router.get('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexRetrieveMethod(request, response, next));
         this._router.post('/' + this._resourceName, (request, response, next) => this.create(request, response));
         this._router.post('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexCreateMethod(request, response, next));
         this._router.put('/' + this._resourceName, (request, response, next) => this.update(request, response));
@@ -429,7 +425,7 @@ class EMEntityController {
         else
             return null;
     }
-    resolveComplexRetrieveMethod(request, response, next, dfm) {
+    resolveComplexRetrieveMethod(request, response, next) {
         let arrayPath = this.getArrayPath(request);
         if (arrayPath.length > 1) {
             let mappingPath = this.createMappingPath(arrayPath);
@@ -443,13 +439,14 @@ class EMEntityController {
                 next();
         }
         else {
-            let arrayPathValue = arrayPath[0];
-            let a = dfm;
-            let definedPathMethod = this._definedRouteMethods.find(drm => drm.httpMethod == 'GET' && drm.pathName == arrayPathValue);
-            if (definedPathMethod)
-                definedPathMethod.method(request, response, next);
-            else
-                this.retrieveById(request, response, { paramName: 'path' });
+            switch (arrayPath[0]) {
+                case 'metadata':
+                    this.retriveMetadata(request, response, next);
+                    break;
+                default:
+                    this.retrieveById(request, response, { paramName: 'path' });
+                    break;
+            }
         }
     }
     resolveComplexCreateMethod(request, response, next) {

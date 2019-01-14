@@ -53,13 +53,23 @@ class EMRouterManager {
         this._expressAppInstance.use('/' + basePath, entityController.router);
     }
 
+    atachController( controller : EMSimpleController );
+    atachController( controller : EMSimpleController, options : { basePath? : string } );
+    atachController( controller : EMSimpleController, options? : { basePath? : string } )
+    {
+        let basePath = options && options.basePath ? options.basePath : 'api';
+        controller.createRoutes();
+        this._expressAppInstance.use('/'+ basePath, controller.router);
+        this._routers.push( { entityName : null, controller: controller, basePath }) ;
+    }
+
     exposeEnumeration( name: string, enumerator : any ) : void;
     exposeEnumeration( name: string, enumerator : any, options : { basePath? : string, resourceName? : string } ) : void;
     exposeEnumeration( name: string, enumerator : any, options?  : { basePath? : string, resourceName? : string } ) : void
     {
         let basePath = options && options.basePath ? options.basePath : 'api';
         let resourceName = options && options.resourceName ? options.resourceName : name.toLowerCase();
-        let newController = new EMSimpleController(resourceName);
+        let newController = new EMSimpleController(this, resourceName);
 
         let keys = Object.keys( enumerator );
 
@@ -266,16 +276,20 @@ class EMSimpleController
     private _updateMethod : ( request : express.Request, response : express.Response, next : express.NextFunction ) => void;
     private _deleteMethod : ( request : express.Request, response : express.Response, next : express.NextFunction ) => void;
     
-    private _router : express.Router;
-    
+    private _router : express.Router;    
     private _resourceName : string;
+    private _routerManager : EMRouterManager;
+    private _responseWrapper : EMResponseWrapper;
+
     //#endregion
 
     //#region Methods
 
-    constructor( resourceName )
+    constructor( routerManager : EMRouterManager, resourceName : string )
     {
         this._resourceName = resourceName;
+        this._routerManager = routerManager;             
+        this._responseWrapper = new EMResponseWrapper(routerManager.serviceSession);
     }
 
     createRoutes( ) : void
@@ -297,6 +311,27 @@ class EMSimpleController
         if (this._deleteMethod)
             this._router.delete('/' + this._resourceName + '/:_id' , (request, response, next) => this._deleteMethod(request, response, next ) );
 
+    }
+
+    protected createSession( request : express.Request, response : express.Response ) : Promise<EMSession | void>
+    {
+        let responseWithException = error => {
+            let e = this._routerManager.serviceSession.createError( error, 'Error on create session for the request' );
+            this._responseWrapper.exception( response, e );
+        }
+
+        return new Promise<EMSession>( (resolve, reject ) => {
+            let newSession = new EMSession( this._routerManager.serviceSession, { request, response } );
+
+            //Execute another async tasks before using the new session
+            //...
+            //...
+            //...
+
+            resolve( newSession );
+        })
+        .then( session => session )        
+        .catch( error => responseWithException(error) );
     }
 
     //#endregion
@@ -330,6 +365,12 @@ class EMSimpleController
     { return this._deleteMethod; }
     set deleteMethod( value ) 
     { this._deleteMethod = value; }
+
+    protected get responseWrapper()
+    {
+        return this._responseWrapper;
+    }
+
 
     //#endregion
 }

@@ -6,7 +6,8 @@ import { EMEntity } from '../emEntity/emEntity';
 import { EMServiceSession, EMSessionError } from '../emServiceSession/emServiceSession';
 import HttpStatus = require('http-status-codes');
 
-class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EMEntity>
+
+class EMResponseWrapper 
 {
     //#region Properties
 
@@ -31,61 +32,7 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
         response.send( Wrapper.wrapObject(false, null, object, { devData }).serializeSimpleObject() );
     }
     
-    document( response : express.Response, document : TDocument) : void;
-    document( response : express.Response, document : TDocument, options : { devData? : any, status? : number }) : void;
-    document( response : express.Response, document : TDocument, options? : { devData? : any, status? : number  }) : void
-    {
-        let devData = options != null ? options.devData : null;
-        response.send( Wrapper.wrapObject(false, null, document, { isEntity: false, devData }).serializeSimpleObject() );
-    }
-
-    entity( response : express.Response, entity : TEntity) : void;
-    entity( response : express.Response, entity : TEntity, options : { devData? : any }) : void;
-    entity( response : express.Response, entity : TEntity, options? : { devData? : any })
-    {
-        let devData = options != null ? options.devData : null;
-        let serializedEntity = entity ? entity.serializeExposedAccessors() : {};
-        response.send( Wrapper.wrapObject(false, null, serializedEntity, { isEntity: true, devData } ).serializeSimpleObject() );
-    }
-
-    documentCollection( response : express.Response, documents : Array<TDocument>);
-    documentCollection( response : express.Response, documents : Array<TDocument>, options : { devData? : any, total?: number, skip?: number, take? : number } );
-    documentCollection( response : express.Response, documents : Array<TDocument>, options? : { devData? : any, total?: number, skip?: number, take? : number } )
-    {
-        let devData = options != null ? options.devData : null;
-        let count = documents ? documents.length : 0;
-        let total = options && options.total ? options.total : count;
-        let take = options && options.take ? options.take : count;
-
-        let page : number;
-        if (take > 0)
-            page = Math.trunc(total / take) + 1;
-        else
-            page = 1;
-
-        response.send( Wrapper.wrapCollection(false, null, documents, { devData, total, page, count, take }).serializeSimpleObject() );
-    }
-
-    entityCollection( response : express.Response, entities : Array<TEntity>);
-    entityCollection( response : express.Response, entities : Array<TEntity>, options : { devData? : any, total?: number, skip?: number, take? : number } );
-    entityCollection( response : express.Response, entities : Array<TEntity>, options? : { devData? : any, total?: number, skip?: number, take? : number } )
-    {
-        let devData = options != null ? options.devData : null;
-        let count = entities ? entities.length : 0;
-        let total = options && options.total ? options.total : count;
-        let take = options && options.take ? options.take : count;
-        let page : number;
-
-        if (take > 0)
-            page = Math.trunc(total / take) + 1;
-        else
-            page = 1;
-
-        let serializedEntities = entities ? entities.map(a => a.serializeExposedAccessors()) : [];
-        
-        response.send( Wrapper.wrapCollection(false, null, serializedEntities, { devData, total, page, count, take } ).serializeSimpleObject() );
-    }
-
+    
     exception( response: express.Response, error : any)
     {
         response.statusCode = 500;
@@ -186,4 +133,63 @@ class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EME
     //#endregion
 }
 
-export { EMResponseWrapper }
+
+class EMResponseEntityWrapper<TDocument extends mongoose.Document, TEntity extends EMEntity> extends EMResponseWrapper
+{
+    document( response : express.Response, document : TDocument) : void;
+    document( response : express.Response, document : TDocument, options : { devData? : any, status? : number }) : void;
+    document( response : express.Response, document : TDocument, options? : { devData? : any, status? : number  }) : void
+    {
+        let devData = options != null ? options.devData : null;
+        response.send( Wrapper.wrapObject(false, null, document, { isEntity: false, devData }).serializeSimpleObject() );
+    }
+
+    entity( response : express.Response, entity : TEntity) : void;
+    entity( response : express.Response, entity : TEntity, options : { devData? : any }) : void;
+    entity( response : express.Response, entity : TEntity, options? : { devData? : any })
+    {
+        let devData = options != null ? options.devData : null;
+        let serializedEntity = entity ? entity.serializeExposedAccessors() : {};
+        response.send( Wrapper.wrapObject(false, null, serializedEntity, { isEntity: true, devData } ).serializeSimpleObject() );
+    }
+
+    documentCollection( response : express.Response, documents : Array<TDocument>);
+    documentCollection( response : express.Response, documents : Array<TDocument>, options : { devData? : any, total?: number, skip?: number, take? : number } );
+    documentCollection( response : express.Response, documents : Array<TDocument>, options? : { devData? : any, total?: number, skip?: number, take? : number } )
+    {
+        let devData = options != null ? options.devData : null;
+        let count = documents ? documents.length : 0;
+        let total = options && options.total ? options.total : count;
+        let take = options && options.take ? options.take : count;
+
+        let page : number;
+        if (take > 0)
+            page = Math.trunc(total / take) + 1;
+        else
+            page = 1;
+
+        response.send( Wrapper.wrapCollection(false, null, documents, { devData, total, page, count, take }).serializeSimpleObject() );
+    }
+
+    entityCollection( response : express.Response, entities : Array<TEntity>);
+    entityCollection( response : express.Response, entities : Array<TEntity>, options : { devData? : any, total?: number, skip?: number, take? : number } );
+    entityCollection( response : express.Response, entities : Array<TEntity>, options? : { devData? : any, total?: number, skip?: number, take? : number } )
+    {
+        let devData = options != null ? options.devData : null;
+        let count = entities ? entities.length : 0;
+        let total = options && options.total ? options.total : count;
+        let take = options && options.take ? options.take : count;
+        let page : number;
+
+        if (take > 0)
+            page = Math.trunc(total / take) + 1;
+        else
+            page = 1;
+
+        let serializedEntities = entities ? entities.map(a => a.serializeExposedAccessors()) : [];
+        
+        response.send( Wrapper.wrapCollection(false, null, serializedEntities, { devData, total, page, count, take } ).serializeSimpleObject() );
+    }
+}
+
+export { EMResponseWrapper, EMResponseEntityWrapper }

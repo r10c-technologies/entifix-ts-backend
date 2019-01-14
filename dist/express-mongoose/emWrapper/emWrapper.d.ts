@@ -2,7 +2,7 @@ import mongoose = require('mongoose');
 import express = require('express');
 import { EMEntity } from '../emEntity/emEntity';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
-declare class EMResponseWrapper<TDocument extends mongoose.Document, TEntity extends EMEntity> {
+declare class EMResponseWrapper {
     private _serviceSession;
     constructor(serviceSession: EMServiceSession);
     object(response: express.Response, object: any): any;
@@ -10,6 +10,18 @@ declare class EMResponseWrapper<TDocument extends mongoose.Document, TEntity ext
         devData?: any;
         status?: number;
     }): any;
+    exception(response: express.Response, error: any): void;
+    handledError(response: express.Response, message: string, status: number): void;
+    handledError(response: express.Response, message: string, status: number, errorDetails: any): void;
+    logicError(response: express.Response, message: string): void;
+    logicError(response: express.Response, message: string, options: {
+        errorDetails?: any;
+        devData?: any;
+    }): void;
+    logicAccept(response: express.Response, message: string): any;
+    logicAccept(response: express.Response, message: string, details: any): any;
+}
+declare class EMResponseEntityWrapper<TDocument extends mongoose.Document, TEntity extends EMEntity> extends EMResponseWrapper {
     document(response: express.Response, document: TDocument): void;
     document(response: express.Response, document: TDocument, options: {
         devData?: any;
@@ -33,15 +45,5 @@ declare class EMResponseWrapper<TDocument extends mongoose.Document, TEntity ext
         skip?: number;
         take?: number;
     }): any;
-    exception(response: express.Response, error: any): void;
-    handledError(response: express.Response, message: string, status: number): void;
-    handledError(response: express.Response, message: string, status: number, errorDetails: any): void;
-    logicError(response: express.Response, message: string): void;
-    logicError(response: express.Response, message: string, options: {
-        errorDetails?: any;
-        devData?: any;
-    }): void;
-    logicAccept(response: express.Response, message: string): any;
-    logicAccept(response: express.Response, message: string, details: any): any;
 }
-export { EMResponseWrapper };
+export { EMResponseWrapper, EMResponseEntityWrapper };

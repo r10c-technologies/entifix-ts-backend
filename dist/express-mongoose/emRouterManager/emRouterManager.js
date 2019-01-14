@@ -1,7 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express = require("express");
+const emSession_1 = require("../emSession/emSession");
 const emEntityController_1 = require("../emEntityController/emEntityController");
+const emWrapper_1 = require("../emWrapper/emWrapper");
 const hcWrapper_1 = require("../../hc-core/hcWrapper/hcWrapper");
 class IExpositionDetail {
 }
@@ -24,10 +26,16 @@ class EMRouterManager {
         this._routers.push({ entityName: entityName, controller: entityController, basePath });
         this._expressAppInstance.use('/' + basePath, entityController.router);
     }
+    atachController(controller, options) {
+        let basePath = options && options.basePath ? options.basePath : 'api';
+        controller.createRoutes();
+        this._expressAppInstance.use('/' + basePath, controller.router);
+        this._routers.push({ entityName: null, controller: controller, basePath });
+    }
     exposeEnumeration(name, enumerator, options) {
         let basePath = options && options.basePath ? options.basePath : 'api';
         let resourceName = options && options.resourceName ? options.resourceName : name.toLowerCase();
-        let newController = new EMSimpleController(resourceName);
+        let newController = new EMSimpleController(this, resourceName);
         let keys = Object.keys(enumerator);
         let arrayToExpose = new Array();
         keys.forEach(k => {
@@ -167,8 +175,10 @@ exports.EMRouterManager = EMRouterManager;
 class EMSimpleController {
     //#endregion
     //#region Methods
-    constructor(resourceName) {
+    constructor(routerManager, resourceName) {
         this._resourceName = resourceName;
+        this._routerManager = routerManager;
+        this._responseWrapper = new emWrapper_1.EMResponseWrapper(routerManager.serviceSession);
     }
     createRoutes() {
         this._router = express.Router();
@@ -183,6 +193,22 @@ class EMSimpleController {
         if (this._deleteMethod)
             this._router.delete('/' + this._resourceName + '/:_id', (request, response, next) => this._deleteMethod(request, response, next));
     }
+    createSession(request, response) {
+        let responseWithException = error => {
+            let e = this._routerManager.serviceSession.createError(error, 'Error on create session for the request');
+            this._responseWrapper.exception(response, e);
+        };
+        return new Promise((resolve, reject) => {
+            let newSession = new emSession_1.EMSession(this._routerManager.serviceSession, { request, response });
+            //Execute another async tasks before using the new session
+            //...
+            //...
+            //...
+            resolve(newSession);
+        })
+            .then(session => session)
+            .catch(error => responseWithException(error));
+    }
     //#endregion
     //#region Accessors
     get router() { return this._router; }
@@ -196,6 +222,9 @@ class EMSimpleController {
     set updateMethod(value) { this._updateMethod = value; }
     get deleteMethod() { return this._deleteMethod; }
     set deleteMethod(value) { this._deleteMethod = value; }
+    get responseWrapper() {
+        return this._responseWrapper;
+    }
 }
 exports.EMSimpleController = EMSimpleController;
 //# sourceMappingURL=emRouterManager.js.map

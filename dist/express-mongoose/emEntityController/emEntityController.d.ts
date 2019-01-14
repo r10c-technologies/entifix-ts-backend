@@ -1,6 +1,6 @@
 import { EMSession } from '../emSession/emSession';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
-import { EMResponseWrapper } from '../emWrapper/emWrapper';
+import { EMResponseEntityWrapper } from '../emWrapper/emWrapper';
 import express = require('express');
 import { EntityInfo, AccessorInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
@@ -66,7 +66,7 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
         endAccessorInfo: AccessorInfo;
         pathOverInstance: Array<string>;
     };
-    resolveComplexRetrieveMethod(request: express.Request, response: express.Response, next: express.NextFunction, dfm: any): void;
+    resolveComplexRetrieveMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
     resolveComplexCreateMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
     resolveComplexUpdateMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
     resolveComplexDeleteMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
@@ -80,7 +80,7 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     readonly entityName: string;
     useEntities: boolean;
     readonly router: express.Router;
-    readonly responseWrapper: EMResponseWrapper<TDocument, TEntity>;
+    readonly responseWrapper: EMResponseEntityWrapper<TDocument, TEntity>;
     readonly resourceName: string;
 }
 interface RequestValidation<TDocument> {

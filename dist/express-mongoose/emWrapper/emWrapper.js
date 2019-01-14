@@ -14,40 +14,6 @@ class EMResponseWrapper {
         response.statusCode = options != null && options.status != null ? options.status : HttpStatus.OK;
         response.send(hcWrapper_1.Wrapper.wrapObject(false, null, object, { devData }).serializeSimpleObject());
     }
-    document(response, document, options) {
-        let devData = options != null ? options.devData : null;
-        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, document, { isEntity: false, devData }).serializeSimpleObject());
-    }
-    entity(response, entity, options) {
-        let devData = options != null ? options.devData : null;
-        let serializedEntity = entity ? entity.serializeExposedAccessors() : {};
-        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, serializedEntity, { isEntity: true, devData }).serializeSimpleObject());
-    }
-    documentCollection(response, documents, options) {
-        let devData = options != null ? options.devData : null;
-        let count = documents ? documents.length : 0;
-        let total = options && options.total ? options.total : count;
-        let take = options && options.take ? options.take : count;
-        let page;
-        if (take > 0)
-            page = Math.trunc(total / take) + 1;
-        else
-            page = 1;
-        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, documents, { devData, total, page, count, take }).serializeSimpleObject());
-    }
-    entityCollection(response, entities, options) {
-        let devData = options != null ? options.devData : null;
-        let count = entities ? entities.length : 0;
-        let total = options && options.total ? options.total : count;
-        let take = options && options.take ? options.take : count;
-        let page;
-        if (take > 0)
-            page = Math.trunc(total / take) + 1;
-        else
-            page = 1;
-        let serializedEntities = entities ? entities.map(a => a.serializeExposedAccessors()) : [];
-        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, serializedEntities, { devData, total, page, count, take }).serializeSimpleObject());
-    }
     exception(response, error) {
         response.statusCode = 500;
         if (error instanceof emServiceSession_1.EMSessionError) {
@@ -111,4 +77,41 @@ class EMResponseWrapper {
     }
 }
 exports.EMResponseWrapper = EMResponseWrapper;
+class EMResponseEntityWrapper extends EMResponseWrapper {
+    document(response, document, options) {
+        let devData = options != null ? options.devData : null;
+        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, document, { isEntity: false, devData }).serializeSimpleObject());
+    }
+    entity(response, entity, options) {
+        let devData = options != null ? options.devData : null;
+        let serializedEntity = entity ? entity.serializeExposedAccessors() : {};
+        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, serializedEntity, { isEntity: true, devData }).serializeSimpleObject());
+    }
+    documentCollection(response, documents, options) {
+        let devData = options != null ? options.devData : null;
+        let count = documents ? documents.length : 0;
+        let total = options && options.total ? options.total : count;
+        let take = options && options.take ? options.take : count;
+        let page;
+        if (take > 0)
+            page = Math.trunc(total / take) + 1;
+        else
+            page = 1;
+        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, documents, { devData, total, page, count, take }).serializeSimpleObject());
+    }
+    entityCollection(response, entities, options) {
+        let devData = options != null ? options.devData : null;
+        let count = entities ? entities.length : 0;
+        let total = options && options.total ? options.total : count;
+        let take = options && options.take ? options.take : count;
+        let page;
+        if (take > 0)
+            page = Math.trunc(total / take) + 1;
+        else
+            page = 1;
+        let serializedEntities = entities ? entities.map(a => a.serializeExposedAccessors()) : [];
+        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, serializedEntities, { devData, total, page, count, take }).serializeSimpleObject());
+    }
+}
+exports.EMResponseEntityWrapper = EMResponseEntityWrapper;
 //# sourceMappingURL=emWrapper.js.map

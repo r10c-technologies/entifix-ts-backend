@@ -2,6 +2,7 @@ import express = require('express');
 import { EMSession } from '../emSession/emSession';
 import { EMEntityController } from '../emEntityController/emEntityController';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
+import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import { AccessorInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
 declare class EMRouterManager {
@@ -15,6 +16,10 @@ declare class EMRouterManager {
         basePath?: string;
         resourceName?: string;
     }): void;
+    atachController(controller: EMSimpleController): any;
+    atachController(controller: EMSimpleController, options: {
+        basePath?: string;
+    }): any;
     exposeEnumeration(name: string, enumerator: any): void;
     exposeEnumeration(name: string, enumerator: any, options: {
         basePath?: string;
@@ -41,13 +46,17 @@ declare class EMSimpleController {
     private _deleteMethod;
     private _router;
     private _resourceName;
-    constructor(resourceName: any);
+    private _routerManager;
+    private _responseWrapper;
+    constructor(routerManager: EMRouterManager, resourceName: string);
     createRoutes(): void;
+    protected createSession(request: express.Request, response: express.Response): Promise<EMSession | void>;
     readonly router: express.Router;
     retrieveMethod: (request: express.Request, response: express.Response, next: express.NextFunction) => void;
     retrieveByIdMethod: (request: express.Request, response: express.Response, next: express.NextFunction) => void;
     createMethod: (request: express.Request, response: express.Response, next: express.NextFunction) => void;
     updateMethod: (request: express.Request, response: express.Response, next: express.NextFunction) => void;
     deleteMethod: (request: express.Request, response: express.Response, next: express.NextFunction) => void;
+    protected readonly responseWrapper: EMResponseWrapper;
 }
 export { EMRouterManager, EMSimpleController };

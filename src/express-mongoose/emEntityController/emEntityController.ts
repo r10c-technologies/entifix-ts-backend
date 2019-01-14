@@ -2,22 +2,20 @@ import mongoose = require('mongoose');
 import { EMSession, EMSessionFilter, FilterType, SortType, EMSessionSort } from '../emSession/emSession';
 import { EMEntity, EntityDocument  } from '../emEntity/emEntity';
 import { EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity';
-import { EMResponseWrapper } from '../emWrapper/emWrapper';
+import { EMResponseEntityWrapper, EMResponseWrapper } from '../emWrapper/emWrapper';
 import HttpStatus = require('http-status-codes');
 import express = require('express')
 import { EntityInfo, AccessorInfo, MemberBindingType, DefinedParam } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMMemberActivator } from '../..';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EMEntityMultiKey } from '../emEntityMultiKey/emEntityMultiKey';
-import { request } from 'https';
-import { SSL_OP_LEGACY_SERVER_CONNECT } from 'constants';
 
 class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEntity>
 {
     //#region Properties (Fields)
 
     private _entityName : string;
-    private _responseWrapper : EMResponseWrapper<TDocument, TEntity>;
+    private _responseWrapper : EMResponseEntityWrapper<TDocument, TEntity>;
     private _useEntities : boolean;
     private _resourceName : string;
     private _routerManager : EMRouterManager;
@@ -39,7 +37,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         this._entityName = entityName;
         this._routerManager = routerManager;
         this._useEntities = true;
-        this._responseWrapper = new EMResponseWrapper(routerManager.serviceSession);
+        this._responseWrapper = new EMResponseEntityWrapper<TDocument, TEntity>(routerManager.serviceSession);
         this._resourceName = options && options.resourceName ?  options.resourceName : entityName.toLowerCase();
 
         this._router = express.Router();
@@ -50,17 +48,10 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     protected createRoutes( ) : void
     {
         // It is important to consider the order of the class methods setted for the HTTP Methods
-        let dfmext = this.getDefinedRouteMethods();
         
         //CRUD methods
         this._router.get('/' + this._resourceName, ( request, response, next )=> this.retrieve(request, response) );
-        this._router.get('/' + this._resourceName + '/:path*', 
-            ((dfm) =>
-            {
-                let a = dfm;
-                return ( request, response, next) => this.resolveComplexRetrieveMethod(request, response, next, dfm)
-            })(dfmext)
-        );
+        this._router.get('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexRetrieveMethod(request, response, next ));
         
         this._router.post('/' + this._resourceName, (request, response, next) => this.create(request, response) );
         this._router.post('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveComplexCreateMethod(request, response, next));
@@ -671,7 +662,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     }
 
 
-    resolveComplexRetrieveMethod( request : express.Request, response : express.Response, next : express.NextFunction, dfm ) : void
+    resolveComplexRetrieveMethod( request : express.Request, response : express.Response, next : express.NextFunction ) : void
     {
         let arrayPath = this.getArrayPath(request);
 
@@ -690,14 +681,16 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         }
         else
         {
-            let arrayPathValue = arrayPath[0];
-            let a = dfm;
-            let definedPathMethod = this._definedRouteMethods.find( drm => drm.httpMethod == 'GET' && drm.pathName == arrayPathValue );
+            switch ( arrayPath[0] )
+            {
+                case 'metadata':
+                    this.retriveMetadata(request, response, next);
+                    break;
 
-            if (definedPathMethod)
-                definedPathMethod.method( request, response, next );
-            else    
-                this.retrieveById(request, response, { paramName: 'path' });
+                default:
+                    this.retrieveById(request, response, { paramName: 'path' });
+                    break;
+            }
         }
     }
 
