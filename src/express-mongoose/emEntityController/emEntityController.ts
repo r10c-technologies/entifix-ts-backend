@@ -23,6 +23,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     private _routerManager : EMRouterManager;
     protected _router : express.Router;
     
+    protected _definedRouteMethods : Array<{pathName: string, httpMethod : string, method: (req, res, next) => void}>
     //#endregion
 
 
@@ -42,16 +43,24 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         this._resourceName = options && options.resourceName ?  options.resourceName : entityName.toLowerCase();
 
         this._router = express.Router();
+        this._definedRouteMethods = this.getDefinedRouteMethods();
         this.createRoutes();
     }
 
-    private createRoutes( ) : void
+    protected createRoutes( ) : void
     {
         // It is important to consider the order of the class methods setted for the HTTP Methods
+        let dfmext = this.getDefinedRouteMethods();
         
         //CRUD methods
         this._router.get('/' + this._resourceName, ( request, response, next )=> this.retrieve(request, response) );
-        this._router.get('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveComplexRetrieveMethod(request, response, next));
+        this._router.get('/' + this._resourceName + '/:path*', 
+            ((dfm) =>
+            {
+                let a = dfm;
+                return ( request, response, next) => this.resolveComplexRetrieveMethod(request, response, next, dfm)
+            })(dfmext)
+        );
         
         this._router.post('/' + this._resourceName, (request, response, next) => this.create(request, response) );
         this._router.post('/' + this._resourceName + '/:path*', ( request, response, next) => this.resolveComplexCreateMethod(request, response, next));
@@ -353,7 +362,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     //#region Utility methods
     
-    private createSession( request : express.Request, response : express.Response ) : Promise<EMSession | void>
+    protected createSession( request : express.Request, response : express.Response ) : Promise<EMSession | void>
     {
         let responseWithException = error => {
             let e = this._routerManager.serviceSession.createError( error, 'Error on create session for the request' );
@@ -603,6 +612,11 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         return arrayPath;
     }
 
+    getDefinedRouteMethods () 
+    {
+        return [ { pathName: 'metadata', httpMethod : 'GET', method: (req, res, next) => this.retriveMetadata(req,res,next) } ];
+    }
+
     createMappingPath(arrayPath : Array<string>) : { baseTypeName : string, instanceId : string , endAccessorInfo : AccessorInfo, pathOverInstance : Array<string> } 
     {
         if (arrayPath.length > 1)
@@ -657,7 +671,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     }
 
 
-    resolveComplexRetrieveMethod( request : express.Request, response : express.Response, next : express.NextFunction ) : void
+    resolveComplexRetrieveMethod( request : express.Request, response : express.Response, next : express.NextFunction, dfm ) : void
     {
         let arrayPath = this.getArrayPath(request);
 
@@ -676,16 +690,14 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         }
         else
         {
-            switch ( arrayPath[0] )
-            {
-                case 'metadata':
-                    this.retriveMetadata(request, response, next);
-                    break;
+            let arrayPathValue = arrayPath[0];
+            let a = dfm;
+            let definedPathMethod = this._definedRouteMethods.find( drm => drm.httpMethod == 'GET' && drm.pathName == arrayPathValue );
 
-                default:
-                    this.retrieveById(request, response, { paramName: 'path' });
-                    break;
-            }
+            if (definedPathMethod)
+                definedPathMethod.method( request, response, next );
+            else    
+                this.retrieveById(request, response, { paramName: 'path' });
         }
     }
 

@@ -11,11 +11,16 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
     private _resourceName;
     private _routerManager;
     protected _router: express.Router;
+    protected _definedRouteMethods: Array<{
+        pathName: string;
+        httpMethod: string;
+        method: (req: any, res: any, next: any) => void;
+    }>;
     constructor(entityName: string, routerManager: EMRouterManager);
     constructor(entityName: string, routerManager: EMRouterManager, options: {
         resourceName?: string;
     });
-    private createRoutes;
+    protected createRoutes(): void;
     private isMultiKeyEntity;
     retrieve(request: express.Request, response: express.Response): void;
     retrieveById(request: express.Request, response: express.Response): void;
@@ -35,7 +40,7 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
         paramId?: string;
     }): void;
     retrieveByKey(request: express.Request, response: express.Response, next: express.NextFunction): void;
-    private createSession;
+    protected createSession(request: express.Request, response: express.Response): Promise<EMSession | void>;
     private validateQueryParams;
     validateDocumentRequest(request: express.Request, response: express.Response): Promise<RequestValidation<TDocument> | void>;
     validateDocumentRequest(request: express.Request, response: express.Response, options: {
@@ -50,13 +55,18 @@ declare class EMEntityController<TDocument extends EntityDocument, TEntity exten
         }>;
     };
     private getArrayPath;
+    getDefinedRouteMethods(): {
+        pathName: string;
+        httpMethod: string;
+        method: (req: any, res: any, next: any) => void;
+    }[];
     createMappingPath(arrayPath: Array<string>): {
         baseTypeName: string;
         instanceId: string;
         endAccessorInfo: AccessorInfo;
         pathOverInstance: Array<string>;
     };
-    resolveComplexRetrieveMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
+    resolveComplexRetrieveMethod(request: express.Request, response: express.Response, next: express.NextFunction, dfm: any): void;
     resolveComplexCreateMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
     resolveComplexUpdateMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
     resolveComplexDeleteMethod(request: express.Request, response: express.Response, next: express.NextFunction): void;
