@@ -225,6 +225,7 @@ class EMSimpleController {
     get responseWrapper() {
         return this._responseWrapper;
     }
+    get resouceName() { return this._resourceName; }
 }
 exports.EMSimpleController = EMSimpleController;
 //# sourceMappingURL=emRouterManager.js.map

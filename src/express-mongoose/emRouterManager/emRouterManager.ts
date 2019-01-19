@@ -371,6 +371,8 @@ class EMSimpleController
         return this._responseWrapper;
     }
 
+    protected get resouceName()
+    { return this._resourceName; }
 
     //#endregion
 }

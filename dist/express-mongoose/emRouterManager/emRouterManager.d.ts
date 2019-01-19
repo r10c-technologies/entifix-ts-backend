@@ -58,5 +58,6 @@ declare class EMSimpleController {
     updateMethod: (request: express.Request, response: express.Response, next: express.NextFunction) => void;
     deleteMethod: (request: express.Request, response: express.Response, next: express.NextFunction) => void;
     protected readonly responseWrapper: EMResponseWrapper;
+    protected readonly resouceName: string;
 }
 export { EMRouterManager, EMSimpleController };
