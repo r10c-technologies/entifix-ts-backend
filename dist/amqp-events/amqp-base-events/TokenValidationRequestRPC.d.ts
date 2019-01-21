@@ -7,7 +7,7 @@ interface MessageStructure {
     onResponse: (tokenValidationResponse: TokenValidationResponse) => void;
 }
 declare class TokenValidationRequestRPC extends AMQPEvent {
-    protected onMessageConstruciton(data: MessageStructure): Promise<{
+    protected onMessageConstruction(data: MessageStructure): Promise<{
         data: any;
         options?: amqp.Options.Publish;
     }>;

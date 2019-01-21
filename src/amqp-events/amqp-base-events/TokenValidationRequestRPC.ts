@@ -18,7 +18,7 @@ class TokenValidationRequestRPC extends AMQPEvent
 
     //#region Methods
 
-    protected onMessageConstruciton(data : MessageStructure) : Promise<{ data : any, options? : amqp.Options.Publish}>
+    protected onMessageConstruction(data : MessageStructure) : Promise<{ data : any, options? : amqp.Options.Publish}>
     {
         return new Promise<{ data : any, options? : amqp.Options.Publish}>( (resolve,reject) => {
 

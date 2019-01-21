@@ -6,7 +6,7 @@ class TokenValidationRequestRPC extends AMQPEvent_1.AMQPEvent {
     //#region Properties
     //#endregion
     //#region Methods
-    onMessageConstruciton(data) {
+    onMessageConstruction(data) {
         return new Promise((resolve, reject) => {
             this.eventManager.createAnonymousChannel().then(ch => {
                 ch.assertQueue('', { exclusive: true }, (err, assertedQueue) => {
