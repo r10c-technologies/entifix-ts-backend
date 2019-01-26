@@ -42,11 +42,13 @@ class TokenValidationResponseRPC extends AMQPDelegate
 
     //#region Accessors
 
-    get queueName() 
-    { return 'rpc_auth_queue'; }
-
-    get queueOptions()
-    { return { durable: false }; }
+    get queueDescription()
+    {
+        return {
+            name: 'rpc_auth_queue',
+            options: { durable: false } 
+        };
+    }
 
     get processTokenAction()
     { return this._processTokenAction; }    

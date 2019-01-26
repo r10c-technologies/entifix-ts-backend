@@ -16,11 +16,10 @@ class AMQPDelegate {
             this.execute(sender, eventArgs);
         };
     }
-    //#endregion
-    //#region Accessors
-    get queueName() { return null; }
-    get queueOptions() { return this._queueOptions; }
-    get exchangeName() { return null; }
+    get exchangeDescription() { return null; }
+    get routingKeyPattern() {
+        return null;
+    }
     get channelName() { return 'mainChannel'; }
     get eventManager() { return this._eventManager; }
 }
