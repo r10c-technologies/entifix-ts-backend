@@ -1,12 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-var ExchangeType;
-(function (ExchangeType) {
-    ExchangeType["topic"] = "topic";
-    ExchangeType["fanout"] = "fanout";
-    ExchangeType["direct"] = "direct";
-})(ExchangeType || (ExchangeType = {}));
-exports.ExchangeType = ExchangeType;
 class AMQPEventManager {
     //#endregion
     //#region Methods
@@ -24,6 +17,22 @@ class AMQPEventManager {
         this._events.push({ name: type.name, instance });
         return instance;
     }
+    registerDelegate(type) {
+        this._serviceSession.checkAMQPConnection();
+        let instance = new type(this);
+        this._delegates.push({ name: type.name, instance });
+        this.assertDelegateChannel(instance).then(ch => {
+            ch.assertQueue(instance.queueDescription.name, instance.queueDescription.options);
+            if (instance.exchangeDescription) {
+                let rkPathern = instance.routingKeyPattern;
+                if (!rkPathern)
+                    this._serviceSession.throwException('It is necessary to define a routing key pattern if the delegate set a Exchange Description');
+                ch.bindQueue(instance.queueDescription.name, instance.exchangeDescription.name, instance.routingKeyPattern);
+            }
+            ch.consume(instance.queueDescription.name, instance.onMessage(ch));
+        });
+        return instance;
+    }
     publish(eventName, data, options) {
         this._serviceSession.checkAMQPConnection();
         let pub = this._events.find(p => p.name == eventName);
@@ -34,33 +43,40 @@ class AMQPEventManager {
                 sender: amqpMessage.sender.serialize(),
                 eventArgs: amqpMessage.eventArgs.serialize()
             };
+            let publishOptions;
+            if (amqpMessage.sender.publishOptions) {
+                publishOptions = amqpMessage.sender.publishOptions;
+                if (!publishOptions.contentType)
+                    publishOptions.contentType = 'application/json';
+            }
+            else
+                publishOptions = { contentType: 'application/json' };
             this.assertEventChannel(pub.instance).then(c => {
                 let content = new Buffer(JSON.stringify(message));
                 if (!pub.instance.specificQueue)
-                    c.publish(pub.instance.exchangeDescription.name, pub.instance.routingKey, content, amqpMessage.sender.publishOptions);
+                    c.publish(pub.instance.exchangeDescription.name, pub.instance.routingKey, content, publishOptions);
                 else
-                    c.sendToQueue(pub.instance.specificQueue, content, amqpMessage.sender.publishOptions);
+                    c.sendToQueue(pub.instance.specificQueue, content, publishOptions);
             });
         });
     }
-    registerDelegate(type) {
-        this._serviceSession.checkAMQPConnection();
-        let instance = new type(this);
-        this._delegates.push({ name: type.name, instance });
-        this.assertDelegateChannel(instance).then(ch => {
-            ch.assertQueue(instance.queueName, instance.queueOptions);
-            ch.consume(instance.queueName, instance.onMessage(ch));
-        });
-        return instance;
-    }
     assertDelegateChannel(delegate) {
-        return this.assertChannel(delegate.channelName).then(channelResult => channelResult.channel);
+        return this.assertChannel(delegate.channelName).then(channelResult => {
+            if (channelResult.isNew && delegate.exchangeDescription) {
+                this.verifyExchageDescription(delegate.exchangeDescription);
+                channelResult.channel.assertExchange(delegate.exchangeDescription.name, delegate.exchangeDescription.type, delegate.exchangeDescription.options);
+            }
+            return channelResult.channel;
+        });
     }
     ;
     assertEventChannel(event) {
         return this.assertChannel(event.channelName).then(channelResult => {
-            if (channelResult.isNew && !event.specificQueue && event.exchangeDescription)
-                channelResult.channel.assertExchange(event.exchangeDescription.name, event.exchangeDescription.type, { durable: event.exchangeDescription.durable });
+            if (channelResult.isNew && !event.specificQueue && event.exchangeDescription) {
+                // For events, the exchange is verified during the register
+                // this.verifyExchageDescription(event.exchangeDescription);
+                channelResult.channel.assertExchange(event.exchangeDescription.name, event.exchangeDescription.type, event.exchangeDescription.options);
+            }
             return channelResult.channel;
         });
     }
@@ -113,4 +129,11 @@ class AMQPEventManager {
     get serviceSession() { return this._serviceSession; }
 }
 exports.AMQPEventManager = AMQPEventManager;
+var ExchangeType;
+(function (ExchangeType) {
+    ExchangeType["topic"] = "topic";
+    ExchangeType["fanout"] = "fanout";
+    ExchangeType["direct"] = "direct";
+})(ExchangeType || (ExchangeType = {}));
+exports.ExchangeType = ExchangeType;
 //# sourceMappingURL=AMQPEventManager.js.map

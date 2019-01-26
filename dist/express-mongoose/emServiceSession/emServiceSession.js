@@ -79,7 +79,7 @@ class EMServiceSession {
         if (!infoRegister)
             this.throwException('Entity not registered: ' + entityName);
         if (this.isDevMode && !systemOwner)
-            systemOwner = 'DEVELOPER';
+            systemOwner = this.developerUserData.systemOwner;
         let modelRegister = infoRegister.models.find(m => m.systemOwner == systemOwner);
         if (!modelRegister)
             this.throwException(`Model ${entityName} not registered for System Owner ${systemOwner}`);
@@ -108,9 +108,10 @@ class EMServiceSession {
     }
     createDeveloperModels() {
         this._entitiesInfo.forEach(ei => {
-            let modelName = 'DEV_' + ei.name;
+            let devData = this.developerUserData;
+            let modelName = devData.systemOwner + '_' + ei.name;
             let model = ei.modelActivator.activate(this._mongooseConnection, modelName, ei.schema);
-            ei.models.push({ systemOwner: 'DEVELOPER', model });
+            ei.models.push({ systemOwner: devData.systemOwner, model });
         });
     }
     verifySystemOwnerModels(systemOwner) {

@@ -3,7 +3,7 @@ import amqp = require('amqplib/callback_api');
 
 import { AMQPSender } from '../amqp-sender/AMQPSender';
 import { AMQPEventArgs } from '../amqp-event-args/AMQPEventArgs';
-import { AMQPEventManager } from '../amqp-event-manager/AMQPEventManager';
+import { AMQPEventManager, QueueDescription, ExchangeDescription } from '../amqp-event-manager/AMQPEventManager';
 
 abstract class AMQPDelegate 
 {
@@ -39,15 +39,16 @@ abstract class AMQPDelegate
 
     //#region Accessors
 
-    get queueName () : string
-    { return null; }
+    abstract get queueDescription () : QueueDescription;
 
-    get queueOptions () : amqp.Options.AssertQueue
-    { return this._queueOptions; }
-
-    get exchangeName () : string
+    get exchangeDescription() : ExchangeDescription
     { return null; }
     
+    get routingKeyPattern(): string
+    {
+        return null;
+    }
+
     get channelName () : string
     { return 'mainChannel' }
 
