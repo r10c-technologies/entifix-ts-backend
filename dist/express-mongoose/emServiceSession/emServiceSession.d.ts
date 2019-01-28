@@ -33,6 +33,9 @@ declare class EMServiceSession {
     publishAMQPAction(session: EMSession, methodInfo: MethodInfo, entityId: string, data: any): void;
     getInfo(entityName: string): EntityInfo;
     getModel<TDocument extends EntityDocument>(entityName: string, systemOwner: string): mongoose.Model<TDocument>;
+    getModel<TDocument extends EntityDocument>(entityName: string, systemOwner: string, options: {
+        forceCreation?: boolean;
+    }): mongoose.Model<TDocument>;
     registerEntity<TDocument extends mongoose.Document, TEntity extends EMEntity>(type: {
         new (session: EMSession, document: EntityDocument): TEntity;
     }, entityInfo: EntityInfo): void;

@@ -148,8 +148,15 @@ class EMServiceSession
         return infoRegister.info;   
     }
 
-    getModel<TDocument extends EntityDocument>( entityName : string, systemOwner : string ) : mongoose.Model<TDocument>
+    getModel<TDocument extends EntityDocument>( entityName : string, systemOwner : string ) : mongoose.Model<TDocument>;
+    getModel<TDocument extends EntityDocument>( entityName : string, systemOwner : string, options: { forceCreation?: boolean } ) : mongoose.Model<TDocument>;
+    getModel<TDocument extends EntityDocument>( entityName : string, systemOwner : string, options?: { forceCreation?: boolean } ) : mongoose.Model<TDocument>
     {
+        options = options || {};
+
+        if (options.forceCreation == true)
+            this.verifySystemOwnerModels(systemOwner);
+
         let infoRegister = this._entitiesInfo.find( e => e.name == entityName);
 
         if (!infoRegister)

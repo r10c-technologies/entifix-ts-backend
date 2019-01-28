@@ -74,7 +74,10 @@ class EMServiceSession {
             this.throwException('Entity not registered: ' + entityName);
         return infoRegister.info;
     }
-    getModel(entityName, systemOwner) {
+    getModel(entityName, systemOwner, options) {
+        options = options || {};
+        if (options.forceCreation == true)
+            this.verifySystemOwnerModels(systemOwner);
         let infoRegister = this._entitiesInfo.find(e => e.name == entityName);
         if (!infoRegister)
             this.throwException('Entity not registered: ' + entityName);
