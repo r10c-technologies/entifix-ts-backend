@@ -202,7 +202,6 @@ abstract class EntifixApplication
         this.exposeEntities();
 
 
-
         if ( this.serviceConfiguration.amqpService && this.useDefaultAMQPInteraction )
         {
             this._eventManager = this.serviceSession.createAndBindEventManager(); 
@@ -211,14 +210,11 @@ abstract class EntifixApplication
         }
         
 
-
         if ( this.serviceConfiguration.authCacheService )
         {
             this._authCacheClient = redis.createClient({ host: this.serviceConfiguration.authCacheService, port : this.serviceConfiguration.authCacheServicePort });
-
             this._authCacheClient.on( "error ", err => this._serviceSession.throwException(err));
         }
-
     }
 
     protected configSessionAMQPConneciton () : void

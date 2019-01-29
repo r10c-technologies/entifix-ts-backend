@@ -187,23 +187,6 @@ function DefinedMethod( params? : { eventName?: string } )
     }
 }
 
-// function DefinedMethod ( params? : { } )
-// {
-//     params = params || { };
-//     return function (target: any, key: string, descriptor : PropertyDescriptor)
-//     {
-//         let entityInfo = defineMetaData(target, CreationType.member);
-//         let reflectInfo = Reflect.getMetadata('design:type', target, key);
-
-//         let methodInfo = new MethodInfo();
-//         methodInfo.name = key;
-//         methodInfo.className = target.constructor.name;
-        
-//         entityInfo.addMethodInfo(methodInfo);
-//     }
-// }
-
-
 function defineMetaData( objectWithMetadata : any, creationType : CreationType ): EntityInfo
 {
     let info : EntityInfo;

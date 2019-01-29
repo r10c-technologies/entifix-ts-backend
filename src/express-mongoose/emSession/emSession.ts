@@ -32,23 +32,21 @@ class EMSession extends HcSession
         super();
     
         this._serviceSession = serviceSession;
-
         this._request = options.request;
         this._response = options.response;
+        
+        let puData = options.privateUserData;
 
-        if (!options.privateUserData)
-        {
-            this._privateUserData = this._request ? (this._request as any).privateUserData : null;
+        if (!puData)
+            puData = this._request ? (this._request as any).privateUserData : null;
+            
+        if (!puData && this._serviceSession.isDevMode)
+            puData = this._serviceSession.getDeveloperUserData();
 
-            if (!this._privateUserData)
-                this._privateUserData = this._serviceSession.developerUserData;            
-        }
-        else
-            this._privateUserData = options.privateUserData;
-
-        if (!this._privateUserData)
+        if (!puData)
             this.serviceSession.throwException('There is no private user data for the session');
         
+        this._privateUserData = puData;
         this._serviceSession.verifySystemOwnerModels(this._privateUserData.systemOwner);
     }
     

@@ -74,19 +74,29 @@ class EMServiceSession {
             this.throwException('Entity not registered: ' + entityName);
         return infoRegister.info;
     }
-    getModel(entityName, systemOwner, options) {
-        options = options || {};
-        if (options.forceCreation == true)
-            this.verifySystemOwnerModels(systemOwner);
+    getModel(entityName, systemOwner) {
         let infoRegister = this._entitiesInfo.find(e => e.name == entityName);
         if (!infoRegister)
             this.throwException('Entity not registered: ' + entityName);
-        if (this.isDevMode && !systemOwner)
-            systemOwner = this.developerUserData.systemOwner;
-        let modelRegister = infoRegister.models.find(m => m.systemOwner == systemOwner);
-        if (!modelRegister)
-            this.throwException(`Model ${entityName} not registered for System Owner ${systemOwner}`);
-        return modelRegister.model;
+        let model;
+        if (infoRegister.info.fixedSystemOwner) {
+            systemOwner = infoRegister.info.fixedSystemOwner;
+            let modelRegister = infoRegister.models.find(m => m.systemOwner == systemOwner);
+            if (!modelRegister) {
+                let modelName = systemOwner + '_' + infoRegister.name;
+                model = infoRegister.modelActivator.activate(this._mongooseConnection, modelName, infoRegister.schema);
+                infoRegister.models.push({ systemOwner: systemOwner, model });
+            }
+            else
+                model = modelRegister.model;
+        }
+        else {
+            let modelRegister = infoRegister.models.find(m => m.systemOwner == systemOwner);
+            if (!modelRegister)
+                this.throwException(`Model ${entityName} not registered for System Owner ${systemOwner}`);
+            model = modelRegister.model;
+        }
+        return model;
     }
     registerEntity(type, entityInfo) {
         var structureSchema = entityInfo.getCompleteSchema();
@@ -111,20 +121,18 @@ class EMServiceSession {
     }
     createDeveloperModels() {
         this._entitiesInfo.forEach(ei => {
-            let devData = this.developerUserData;
+            let devData = this.getDeveloperUserData({ skipNotification: true });
             let modelName = devData.systemOwner + '_' + ei.name;
             let model = ei.modelActivator.activate(this._mongooseConnection, modelName, ei.schema);
             ei.models.push({ systemOwner: devData.systemOwner, model });
         });
     }
     verifySystemOwnerModels(systemOwner) {
-        if (this._entitiesInfo.filter(ei => ei.models.find(m => m.systemOwner == systemOwner) != null).length == 0) {
-            this._entitiesInfo.forEach(ei => {
-                let modelName = systemOwner + '_' + ei.name;
-                let model = ei.modelActivator.activate(this._mongooseConnection, modelName, ei.schema);
-                ei.models.push({ systemOwner, model });
-            });
-        }
+        this._entitiesInfo.filter(ei => ei.models.find(m => m.systemOwner == systemOwner) == null && ei.info.fixedSystemOwner == null).forEach(ei => {
+            let modelName = systemOwner + '_' + ei.name;
+            let model = ei.modelActivator.activate(this._mongooseConnection, modelName, ei.schema);
+            ei.models.push({ systemOwner, model });
+        });
     }
     enableDevMode() {
         this._devMode = true;
@@ -179,6 +187,26 @@ class EMServiceSession {
     enableFixedSystemOwners() {
         this._allowFixedSystemOwners = true;
     }
+    getDeveloperUserData(options) {
+        if (this.isDevMode) {
+            options = options || {};
+            let skipNotification = options.skipNotification != null ? options.skipNotification : false;
+            if (!this._userDevDataNotification && !skipNotification) {
+                this.logInDevMode('Using private user data for developer in the created sessions');
+                this._userDevDataNotification = true;
+            }
+            return {
+                name: 'LOCAL DEVELOPER',
+                userName: 'DEVELOPER',
+                systemOwner: 'DEVELOPER',
+                idUser: null
+            };
+        }
+        else {
+            this.throwException('It is not possible to use the Developer User Data without activate DevMode');
+            return null;
+        }
+    }
     //#endregion
     //#region Accessors
     get serviceName() { return this._serviceName; }
@@ -200,24 +228,6 @@ class EMServiceSession {
         if (!mc)
             this.throwException('Main broker channel not found');
         return mc.instance;
-    }
-    get developerUserData() {
-        if (this.isDevMode) {
-            if (!this._userDevDataNotification) {
-                this.logInDevMode('Using private user data for developer in the created sessions');
-                this._userDevDataNotification = true;
-            }
-            return {
-                name: 'LOCAL DEVELOPER',
-                userName: 'DEVELOPER',
-                systemOwner: 'DEVELOPER',
-                idUser: null
-            };
-        }
-        else {
-            this.throwException('It is not possible to use the Developer User Data without activate DevMode');
-            return null;
-        }
     }
     get allowFixedSystemOwners() { return this._allowFixedSystemOwners; }
 }
