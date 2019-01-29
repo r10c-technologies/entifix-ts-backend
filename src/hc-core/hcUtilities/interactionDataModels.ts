@@ -25,7 +25,8 @@ interface PublicUserData
 {
     idUser: string,
     userName: string,
-    name: string
+    name: string,
+    systemOwner: string
 }
 
 

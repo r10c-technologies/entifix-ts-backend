@@ -18,5 +18,6 @@ interface PublicUserData {
     idUser: string;
     userName: string;
     name: string;
+    systemOwner: string;
 }
 export { PublicUserData, PrivateUserData, TokenValidationRequest, TokenValidationResponse };
