@@ -2,11 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 //CORE DEPENDENCIES
 const mongoose = require("mongoose");
+const redis = require("redis");
 //CORE FRAMEWORK
 const amqpConnectionDynamic_1 = require("../../amqp-events/amqp-connection/amqpConnectionDynamic");
 const AMQPEventManager_1 = require("../../amqp-events/amqp-event-manager/AMQPEventManager");
 class EMServiceSession {
-    constructor(serviceName, mongoService, amqpService) {
+    constructor(serviceName, mongoService, options) {
         //Utilities
         this._userDevDataNotification = false;
         this._serviceName = serviceName;
@@ -16,15 +17,20 @@ class EMServiceSession {
         //Mongo Configuration
         this._mongoServiceConfig = mongoService;
         //AMQP Configuration
-        if (amqpService) {
-            this._urlAmqpConnection = 'amqp://' + amqpService;
+        if (options && options.amqpService) {
+            this._urlAmqpConnection = 'amqp://' + options.amqpService;
             //defaluts
             this._limitAmqpRetry = 10;
             this._periodAmqpRetry = 2000;
         }
+        //RedisCache Configuration
+        if (options && options.cacheService) {
+            this._cacheService = options.cacheService;
+        }
     }
     connect() {
-        let connectDb = () => {
+        let asyncConn = new Array();
+        asyncConn.push(new Promise((resolve, reject) => {
             if (typeof this._mongoServiceConfig == "string") {
                 let url = 'mongodb://' + this._mongoServiceConfig;
                 this._mongooseConnection = mongoose.createConnection(url);
@@ -35,14 +41,26 @@ class EMServiceSession {
                 let url = base + config.url;
                 this._mongooseConnection = mongoose.createConnection(url, { user: config.user, pass: config.password });
             }
-        };
-        return new Promise((resolve, reject) => {
-            connectDb();
+            //Pending to validate async result
+            resolve();
+        }));
+        asyncConn.push(new Promise((resolve, reject) => {
             if (this._urlAmqpConnection)
                 this.atachToBroker().then(() => resolve()).catch(error => reject(error));
             else
                 resolve();
-        });
+        }));
+        asyncConn.push(new Promise((resolve, reject) => {
+            if (this._cacheService) {
+                this._authCacheClient = redis.createClient({ host: this._cacheService.host, port: this._cacheService.port });
+                this._authCacheClient.on("error ", err => this.throwException(err));
+                //Pending to validate async result
+                resolve();
+            }
+            else
+                resolve();
+        }));
+        return Promise.all(asyncConn).then(() => { }).catch(error => this.throwException(error));
     }
     atachToBroker() {
         return new Promise((resolve, reject) => {
@@ -122,9 +140,9 @@ class EMServiceSession {
     createDeveloperModels() {
         this._entitiesInfo.forEach(ei => {
             let devData = this.getDeveloperUserData({ skipNotification: true });
-            let modelName = devData.systemOwner + '_' + ei.name;
+            let modelName = devData.systemOwnerSelected + '_' + ei.name;
             let model = ei.modelActivator.activate(this._mongooseConnection, modelName, ei.schema);
-            ei.models.push({ systemOwner: devData.systemOwner, model });
+            ei.models.push({ systemOwner: devData.systemOwnerSelected, model });
         });
     }
     verifySystemOwnerModels(systemOwner) {
@@ -198,8 +216,9 @@ class EMServiceSession {
             return {
                 name: 'LOCAL DEVELOPER',
                 userName: 'DEVELOPER',
-                systemOwner: 'DEVELOPER',
-                idUser: null
+                systemOwnerSelected: 'DEVELOPER',
+                idUser: null,
+                sessionKey: null
             };
         }
         else {
@@ -230,6 +249,7 @@ class EMServiceSession {
         return mc.instance;
     }
     get allowFixedSystemOwners() { return this._allowFixedSystemOwners; }
+    get authCacheClient() { return this._authCacheClient; }
 }
 exports.EMServiceSession = EMServiceSession;
 class ModelActivator {

@@ -10,6 +10,13 @@ declare class EMResponseWrapper {
         devData?: any;
         status?: number;
     }): any;
+    collection(response: express.Response, collection: Array<any>): any;
+    collection(response: express.Response, collection: Array<any>, options: {
+        devData?: any;
+        total?: number;
+        skip?: number;
+        take?: number;
+    }): any;
     exception(response: express.Response, error: any): void;
     handledError(response: express.Response, message: string, status: number): void;
     handledError(response: express.Response, message: string, status: number, errorDetails: any): void;

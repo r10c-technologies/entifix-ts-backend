@@ -4,7 +4,7 @@ import bodyParser = require('body-parser');
 import cors = require('cors');
 import amqp = require('amqplib/callback_api');
 import redis = require('redis');
- 
+
 
 //Core Framework
 import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
@@ -23,13 +23,12 @@ interface EntifixAppConfig
     mongoService : string | MongoServiceConfig, 
     amqpService? : string, 
     amqpDefaultInteraction?: boolean,
-    authCacheService? : string,
-    authCacheServicePort? : number,
-    authCacheDuration?: number,
     isMainService? : boolean,
     cors? : { enable: boolean, options?: cors.CorsOptions },
     devMode? : boolean,
-    protectRoutes? : { enable: boolean, header?: string, path ? : string }
+    protectRoutes? : { enable: boolean, header?: string, path ? : string },
+    session?: { refreshPeriod?: number, expireLimit? : number, tokenSecret: string },
+    authCacheService?: { host : string, port : number }
 }
 
 interface MongoServiceConfig {
@@ -50,8 +49,7 @@ abstract class EntifixApplication
 
     private _authChannel : amqp.Channel;
     private _assertAuthQueue : amqp.Replies.AssertQueue;
-    private _authCacheClient : redis.RedisClient;
-
+    
     //#endregion
 
     //#region methods
@@ -90,7 +88,12 @@ abstract class EntifixApplication
 
     private createServiceSession( ) : void
     {
-        this._serviceSession = new EMServiceSession(this.serviceConfiguration.serviceName, this.serviceConfiguration.mongoService, this.serviceConfiguration.amqpService );
+        this._serviceSession = new EMServiceSession(
+            this.serviceConfiguration.serviceName, 
+            this.serviceConfiguration.mongoService, 
+            { amqpService:  this.serviceConfiguration.amqpService, cacheService: this.serviceConfiguration.authCacheService } 
+        );
+
         this.configSessionAMQPConneciton();
         if (this.serviceConfiguration.devMode)
             this._serviceSession.enableDevMode();
@@ -207,14 +210,7 @@ abstract class EntifixApplication
             this._eventManager = this.serviceSession.createAndBindEventManager(); 
             this.createRPCAuthorizationDynamic();     
             this.registerEventsAndDelegates();
-        }
-        
-
-        if ( this.serviceConfiguration.authCacheService )
-        {
-            this._authCacheClient = redis.createClient({ host: this.serviceConfiguration.authCacheService, port : this.serviceConfiguration.authCacheServicePort });
-            this._authCacheClient.on( "error ", err => this._serviceSession.throwException(err));
-        }
+        }        
     }
 
     protected configSessionAMQPConneciton () : void
@@ -334,7 +330,7 @@ abstract class EntifixApplication
             (resolve, reject) => 
             {
                 let keyCache = this.createKeyCache(token, request);
-                this._authCacheClient.get(keyCache, ( error, value) => {
+                this.serviceSession.authCacheClient.get(keyCache, ( error, value) => {
                     if (!error)
                     {
                         if (value)
@@ -360,7 +356,7 @@ abstract class EntifixApplication
             {
                 let keyCache = this.createKeyCache(token,request);
                 let resultString = JSON.stringify(result);
-                this._authCacheClient.set( keyCache, resultString, 'EX', this.cacheExpiration, error => {
+                this.serviceSession.authCacheClient.set( keyCache, resultString, 'tokenValidation', this.sessionRefreshPeriod, error => {
                     if (!error)
                         resolve();
                     else
@@ -396,9 +392,6 @@ abstract class EntifixApplication
     protected get eventManager()
     { return this._eventManager }
 
-    private get cacheExpiration()
-    { return this.serviceConfiguration.authCacheDuration || (60 * 5); }
-
     protected get serviceSession ()
     { return this._serviceSession; }
     
@@ -406,6 +399,24 @@ abstract class EntifixApplication
     {
         return (this.serviceConfiguration.amqpService != null) && ( this.serviceConfiguration.amqpDefaultInteraction != false);
     }
+
+    get sessionRefreshPeriod()
+    {
+        return this.serviceConfiguration.session && this.serviceConfiguration.session.refreshPeriod ? this.serviceConfiguration.session.refreshPeriod : (60 * 5);
+    }
+
+    get sessionExpireLimit()
+    {
+        return this.serviceConfiguration.session && this.serviceConfiguration.session.expireLimit ? this.serviceConfiguration.session.expireLimit : (60 * 30);
+    }
+
+    get sessionTokenSecret()
+    {
+        return this.serviceConfiguration.session && this.serviceConfiguration.session.tokenSecret ? this.serviceConfiguration.session.tokenSecret : 'entifix-rocks';
+    }
+
+
+
 
     //#endregion
 }

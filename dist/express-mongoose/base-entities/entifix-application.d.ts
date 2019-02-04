@@ -10,9 +10,6 @@ interface EntifixAppConfig {
     mongoService: string | MongoServiceConfig;
     amqpService?: string;
     amqpDefaultInteraction?: boolean;
-    authCacheService?: string;
-    authCacheServicePort?: number;
-    authCacheDuration?: number;
     isMainService?: boolean;
     cors?: {
         enable: boolean;
@@ -23,6 +20,15 @@ interface EntifixAppConfig {
         enable: boolean;
         header?: string;
         path?: string;
+    };
+    session?: {
+        refreshPeriod?: number;
+        expireLimit?: number;
+        tokenSecret: string;
+    };
+    authCacheService?: {
+        host: string;
+        port: number;
     };
 }
 interface MongoServiceConfig {
@@ -38,7 +44,6 @@ declare abstract class EntifixApplication {
     private _eventManager;
     private _authChannel;
     private _assertAuthQueue;
-    private _authCacheClient;
     constructor(port: number);
     protected abstract readonly serviceConfiguration: EntifixAppConfig;
     protected abstract registerEntities(): void;
@@ -67,8 +72,10 @@ declare abstract class EntifixApplication {
     readonly expressApp: express.Application;
     protected readonly routerManager: EMRouterManager;
     protected readonly eventManager: AMQPEventManager;
-    private readonly cacheExpiration;
     protected readonly serviceSession: EMServiceSession;
     readonly useDefaultAMQPInteraction: boolean;
+    readonly sessionRefreshPeriod: number;
+    readonly sessionExpireLimit: number;
+    readonly sessionTokenSecret: string;
 }
 export { EntifixApplication, EntifixAppConfig, MongoServiceConfig };

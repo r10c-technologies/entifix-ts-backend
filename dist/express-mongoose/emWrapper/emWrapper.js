@@ -14,6 +14,18 @@ class EMResponseWrapper {
         response.statusCode = options != null && options.status != null ? options.status : HttpStatus.OK;
         response.send(hcWrapper_1.Wrapper.wrapObject(false, null, object, { devData }).serializeSimpleObject());
     }
+    collection(response, collection, options) {
+        let devData = options != null ? options.devData : null;
+        let count = collection ? collection.length : 0;
+        let total = options && options.total ? options.total : count;
+        let take = options && options.take ? options.take : count;
+        let page;
+        if (take > 0)
+            page = Math.trunc(total / take) + 1;
+        else
+            page = 1;
+        response.send(hcWrapper_1.Wrapper.wrapCollection(false, null, collection, { devData, total, page, count, take }).serializeSimpleObject());
+    }
     exception(response, error) {
         response.statusCode = 500;
         if (error instanceof emServiceSession_1.EMSessionError) {

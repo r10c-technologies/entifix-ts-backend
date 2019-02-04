@@ -33,6 +33,24 @@ class EMResponseWrapper
     }
     
     
+    collection( response : express.Response, collection : Array<any>);
+    collection( response : express.Response, collection : Array<any>, options : { devData? : any, total?: number, skip?: number, take? : number } );
+    collection( response : express.Response, collection : Array<any>, options? : { devData? : any, total?: number, skip?: number, take? : number } )
+    {
+        let devData = options != null ? options.devData : null;
+        let count = collection ? collection.length : 0;
+        let total = options && options.total ? options.total : count;
+        let take = options && options.take ? options.take : count;
+
+        let page : number;
+        if (take > 0)
+            page = Math.trunc(total / take) + 1;
+        else
+            page = 1;
+
+        response.send( Wrapper.wrapCollection(false, null, collection, { devData, total, page, count, take }).serializeSimpleObject() );
+    }
+
     exception( response: express.Response, error : any)
     {
         response.statusCode = 500;

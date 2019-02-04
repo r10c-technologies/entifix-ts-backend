@@ -47,13 +47,13 @@ class EMSession extends HcSession
             this.serviceSession.throwException('There is no private user data for the session');
         
         this._privateUserData = puData;
-        this._serviceSession.verifySystemOwnerModels(this._privateUserData.systemOwner);
+        this._serviceSession.verifySystemOwnerModels(this._privateUserData.systemOwnerSelected);
     }
     
     getModel<T extends EntityDocument >(entityName : string) : mongoose.Model<T>
     {       
         let info = this.getInfo( entityName );
-        let systemOwner = this.serviceSession.allowFixedSystemOwners && info.fixedSystemOwner ? info.fixedSystemOwner : this._privateUserData.systemOwner;
+        let systemOwner = this.serviceSession.allowFixedSystemOwners && info.fixedSystemOwner ? info.fixedSystemOwner : this._privateUserData.systemOwnerSelected;
 
         return this._serviceSession.getModel(entityName, systemOwner);
     }
@@ -645,7 +645,7 @@ class EMSession extends HcSession
     { return this._privateUserData.userName; } 
 
     get systemOwner()
-    { return this._privateUserData.systemOwner; }
+    { return this._privateUserData.systemOwnerSelected; }
 
     get userCompleteName()
     { return this._privateUserData.name; }

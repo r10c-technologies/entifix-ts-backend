@@ -1,6 +1,7 @@
 //CORE DEPENDENCIES
 import mongoose = require('mongoose');
 import amqp = require('amqplib/callback_api');
+import redis = require('redis');
 
 //CORE FRAMEWORK
 import { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription } from '../../amqp-events/amqp-connection/amqpConnectionDynamic';
@@ -23,6 +24,7 @@ class EMServiceSession
     private _mongooseConnection : mongoose.Connection;
     private _brokerConnection : amqp.Connection;
     private _brokerChannels : Array<{ name:string, instance:amqp.Channel}>;
+    private _authCacheClient : redis.RedisClient;
         
     //Configuraion properties
     private _mongoServiceConfig : string | MongoServiceConfig;
@@ -33,6 +35,7 @@ class EMServiceSession
     private _amqpQueueBindsDescription : Array<QueueBindDescription>;
     private _devMode : boolean;
     private _allowFixedSystemOwners : boolean;
+    private _cacheService : { host: string, port: number };
 
     //Main artifact instances
     private _amqpEventManager : AMQPEventManager;
@@ -56,8 +59,8 @@ class EMServiceSession
     //#region Methods
 
     constructor (serviceName: string, mongoService : string | MongoServiceConfig);
-    constructor (serviceName: string, mongoService : string | MongoServiceConfig, amqpService : string);
-    constructor (serviceName: string, mongoService : string | MongoServiceConfig, amqpService? : string)
+    constructor (serviceName: string, mongoService : string | MongoServiceConfig, options: { amqpService? : string, cacheService? : { host: string, port: number } });
+    constructor (serviceName: string, mongoService : string | MongoServiceConfig, options?: { amqpService? : string, cacheService? : { host: string, port: number } })
     {
         this._serviceName = serviceName;
         this._entitiesInfo = [];
@@ -68,19 +71,27 @@ class EMServiceSession
         this._mongoServiceConfig = mongoService;
 
         //AMQP Configuration
-        if (amqpService)
+        if (options && options.amqpService)
         {
-            this._urlAmqpConnection = 'amqp://' + amqpService;
+            this._urlAmqpConnection = 'amqp://' + options.amqpService;
         
             //defaluts
             this._limitAmqpRetry = 10;
             this._periodAmqpRetry = 2000;
         }
+
+        //RedisCache Configuration
+        if (options && options.cacheService)
+        {
+            this._cacheService = options.cacheService;
+        }
     }
 
     connect( ) : Promise<void>
     {
-        let connectDb = () => { 
+        let asyncConn = new Array<Promise<void>>();
+
+        asyncConn.push( new Promise<void>((resolve,reject)=>{
             if (typeof this._mongoServiceConfig == "string")
             {
                 let url = 'mongodb://' + this._mongoServiceConfig;
@@ -92,16 +103,34 @@ class EMServiceSession
                 let base = config.base || 'mongodb://';
                 let url = base + config.url;
                 this._mongooseConnection = mongoose.createConnection( url, { user: config.user, pass: config.password } );
-            }            
-        };
-        
-        return new Promise<void>((resolve,reject)=>{
-            connectDb();
+            } 
+
+            //Pending to validate async result
+            resolve();
+        }));
+
+        asyncConn.push( new Promise<void>((resolve,reject)=>{
             if (this._urlAmqpConnection)
                 this.atachToBroker().then( () => resolve()).catch( error => reject(error));
             else
                 resolve();
-        });            
+        }) );
+        
+        asyncConn.push( new Promise<void>((resolve,reject)=>{
+            if (this._cacheService)
+            {
+                this._authCacheClient = redis.createClient({ host: this._cacheService.host, port : this._cacheService.port });
+                this._authCacheClient.on( "error ", err => this.throwException(err));
+
+                //Pending to validate async result
+                resolve();
+            }
+            else
+                resolve();
+        }));
+        
+
+        return Promise.all(asyncConn).then( ()=> { } ).catch( error => this.throwException(error) );
     }
     
     private atachToBroker () : Promise<void>
@@ -211,9 +240,9 @@ class EMServiceSession
     {
         this._entitiesInfo.forEach( ei => {
             let devData = this.getDeveloperUserData({skipNotification: true});
-            let modelName = devData.systemOwner  + '_' + ei.name;
+            let modelName = devData.systemOwnerSelected  + '_' + ei.name;
             let model = ei.modelActivator.activate( this._mongooseConnection, modelName, ei.schema );
-            ei.models.push({ systemOwner: devData.systemOwner, model });
+            ei.models.push({ systemOwner: devData.systemOwnerSelected, model });
         });
     }
     
@@ -324,8 +353,9 @@ class EMServiceSession
             return {
                 name: 'LOCAL DEVELOPER',
                 userName: 'DEVELOPER',
-                systemOwner: 'DEVELOPER',
-                idUser: null 
+                systemOwnerSelected: 'DEVELOPER',
+                idUser: null,
+                sessionKey: null 
             }
         }
         else
@@ -334,6 +364,7 @@ class EMServiceSession
             return null;
         }
     }
+
     //#endregion
 
 
@@ -390,6 +421,10 @@ class EMServiceSession
 
     get allowFixedSystemOwners ()
     { return this._allowFixedSystemOwners; }
+
+    get authCacheClient() : redis.RedisClient
+    { return this._authCacheClient; } 
+
 
     //#endregion
 }

@@ -4,7 +4,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const redis = require("redis");
 //Core Framework
 const hcWrapper_1 = require("../../hc-core/hcWrapper/hcWrapper");
 const emRouterManager_1 = require("../emRouterManager/emRouterManager");
@@ -35,7 +34,7 @@ class EntifixApplication {
         this._expressApp.set('port', port);
     }
     createServiceSession() {
-        this._serviceSession = new emServiceSession_1.EMServiceSession(this.serviceConfiguration.serviceName, this.serviceConfiguration.mongoService, this.serviceConfiguration.amqpService);
+        this._serviceSession = new emServiceSession_1.EMServiceSession(this.serviceConfiguration.serviceName, this.serviceConfiguration.mongoService, { amqpService: this.serviceConfiguration.amqpService, cacheService: this.serviceConfiguration.authCacheService });
         this.configSessionAMQPConneciton();
         if (this.serviceConfiguration.devMode)
             this._serviceSession.enableDevMode();
@@ -122,10 +121,6 @@ class EntifixApplication {
             this.createRPCAuthorizationDynamic();
             this.registerEventsAndDelegates();
         }
-        if (this.serviceConfiguration.authCacheService) {
-            this._authCacheClient = redis.createClient({ host: this.serviceConfiguration.authCacheService, port: this.serviceConfiguration.authCacheServicePort });
-            this._authCacheClient.on("error ", err => this._serviceSession.throwException(err));
-        }
     }
     configSessionAMQPConneciton() {
         if (this.useDefaultAMQPInteraction) {
@@ -204,7 +199,7 @@ class EntifixApplication {
     getTokenValidationCache(token, request) {
         return new Promise((resolve, reject) => {
             let keyCache = this.createKeyCache(token, request);
-            this._authCacheClient.get(keyCache, (error, value) => {
+            this.serviceSession.authCacheClient.get(keyCache, (error, value) => {
                 if (!error) {
                     if (value) {
                         let cacheResult = JSON.parse(value);
@@ -222,7 +217,7 @@ class EntifixApplication {
         return new Promise((resolve, reject) => {
             let keyCache = this.createKeyCache(token, request);
             let resultString = JSON.stringify(result);
-            this._authCacheClient.set(keyCache, resultString, 'EX', this.cacheExpiration, error => {
+            this.serviceSession.authCacheClient.set(keyCache, resultString, 'tokenValidation', this.sessionRefreshPeriod, error => {
                 if (!error)
                     resolve();
                 else
@@ -243,10 +238,18 @@ class EntifixApplication {
     get expressApp() { return this._expressApp; }
     get routerManager() { return this._routerManager; }
     get eventManager() { return this._eventManager; }
-    get cacheExpiration() { return this.serviceConfiguration.authCacheDuration || (60 * 5); }
     get serviceSession() { return this._serviceSession; }
     get useDefaultAMQPInteraction() {
         return (this.serviceConfiguration.amqpService != null) && (this.serviceConfiguration.amqpDefaultInteraction != false);
+    }
+    get sessionRefreshPeriod() {
+        return this.serviceConfiguration.session && this.serviceConfiguration.session.refreshPeriod ? this.serviceConfiguration.session.refreshPeriod : (60 * 5);
+    }
+    get sessionExpireLimit() {
+        return this.serviceConfiguration.session && this.serviceConfiguration.session.expireLimit ? this.serviceConfiguration.session.expireLimit : (60 * 30);
+    }
+    get sessionTokenSecret() {
+        return this.serviceConfiguration.session && this.serviceConfiguration.session.tokenSecret ? this.serviceConfiguration.session.tokenSecret : 'entifix-rocks';
     }
 }
 exports.EntifixApplication = EntifixApplication;

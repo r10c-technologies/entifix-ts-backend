@@ -1,5 +1,6 @@
 import mongoose = require('mongoose');
 import amqp = require('amqplib/callback_api');
+import redis = require('redis');
 import { ExchangeDescription, QueueBindDescription } from '../../amqp-events/amqp-connection/amqpConnectionDynamic';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EntityInfo, MethodInfo } from '../../hc-core/hcMetaData/hcMetaData';
@@ -13,6 +14,7 @@ declare class EMServiceSession {
     private _mongooseConnection;
     private _brokerConnection;
     private _brokerChannels;
+    private _authCacheClient;
     private _mongoServiceConfig;
     private _urlAmqpConnection;
     private _periodAmqpRetry;
@@ -21,11 +23,18 @@ declare class EMServiceSession {
     private _amqpQueueBindsDescription;
     private _devMode;
     private _allowFixedSystemOwners;
+    private _cacheService;
     private _amqpEventManager;
     private _entitiesInfo;
     private _userDevDataNotification;
     constructor(serviceName: string, mongoService: string | MongoServiceConfig);
-    constructor(serviceName: string, mongoService: string | MongoServiceConfig, amqpService: string);
+    constructor(serviceName: string, mongoService: string | MongoServiceConfig, options: {
+        amqpService?: string;
+        cacheService?: {
+            host: string;
+            port: number;
+        };
+    });
     connect(): Promise<void>;
     private atachToBroker;
     createAndBindEventManager(): AMQPEventManager;
@@ -77,6 +86,7 @@ declare class EMServiceSession {
     amqpQueueBindsDescription: QueueBindDescription[];
     readonly mainChannel: amqp.Channel;
     readonly allowFixedSystemOwners: boolean;
+    readonly authCacheClient: redis.RedisClient;
 }
 declare class EMSessionError {
     private _code;

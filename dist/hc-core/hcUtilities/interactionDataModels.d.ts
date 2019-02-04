@@ -9,13 +9,19 @@ interface TokenValidationRequest {
     path: string;
 }
 interface PrivateUserData {
-    systemOwner: string;
+    sessionKey: string;
+    idUser: string;
     userName: string;
     name: string;
-    idUser: string;
+    systemOwnerSelected: string;
+    isMaster?: boolean;
+    systemOwnerDetail?: Array<{
+        key: string;
+        idSystemOwner: string;
+    }>;
 }
 interface PublicUserData {
-    idUser: string;
+    sessionKey: string;
     userName: string;
     name: string;
     systemOwner: string;
