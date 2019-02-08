@@ -383,13 +383,24 @@ class EMSession extends HcSession
     listDocumentsByQuery<TDocument extends EntityDocument>(entityName : string, mongoFilters : any) : Promise<Array<TDocument>>
     {
         return new Promise<Array<TDocument>>( (resolve, reject) => {
-            let filters = { $and : [ { deferredDeletion: { $in: [null, false] } } ] };
-            
+            let filters : any = {};
+            let ddFilter = { deferredDeletion: { $in: [null, false] } };
+
             if (mongoFilters instanceof Array)
-                filters.$and = filters.$and.concat(mongoFilters);
+            {
+                if (mongoFilters.length > 0)
+                    filters.$and = filters.$and = [ ddFilter, ...mongoFilters ];
+                else
+                    filters = ddFilter;
+            }
             else
-                filters.$and.push( mongoFilters );  
-            
+            {
+                if (mongoFilters)
+                    filters.$and = [ ddFilter, mongoFilters ]
+                else
+                    filters = ddFilter;
+            }
+                
             this.getModel<TDocument>(entityName).find( filters ).then( 
                 docs => resolve(docs), 
                 err => reject( this.createError(err, 'Error on list documents'))

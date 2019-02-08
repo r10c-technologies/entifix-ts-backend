@@ -251,11 +251,20 @@ class EMSession extends hcSession_1.HcSession {
     }
     listDocumentsByQuery(entityName, mongoFilters) {
         return new Promise((resolve, reject) => {
-            let filters = { $and: [{ deferredDeletion: { $in: [null, false] } }] };
-            if (mongoFilters instanceof Array)
-                filters.$and = filters.$and.concat(mongoFilters);
-            else
-                filters.$and.push(mongoFilters);
+            let filters = {};
+            let ddFilter = { deferredDeletion: { $in: [null, false] } };
+            if (mongoFilters instanceof Array) {
+                if (mongoFilters.length > 0)
+                    filters.$and = filters.$and = [ddFilter, ...mongoFilters];
+                else
+                    filters = ddFilter;
+            }
+            else {
+                if (mongoFilters)
+                    filters.$and = [ddFilter, mongoFilters];
+                else
+                    filters = ddFilter;
+            }
             this.getModel(entityName).find(filters).then(docs => resolve(docs), err => reject(this.createError(err, 'Error on list documents')));
         });
     }
