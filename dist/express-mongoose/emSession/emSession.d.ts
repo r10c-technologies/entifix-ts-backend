@@ -43,6 +43,9 @@ declare class EMSession extends HcSession {
     listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string, options: ListOptions): Promise<ListEntitiesResultDetails<TEntity>>;
     listDocumentsByQuery<TDocument extends EntityDocument>(entityName: string, mongoFilters: any): Promise<Array<TDocument>>;
     listEntitiesByQuery<TEntity extends EMEntity, TDocument extends EntityDocument>(info: EntityInfo, mongoFilters: any): Promise<Array<TEntity>>;
+    private _anchoredFiltering;
+    setFiltering(filtering: EMSessionFilter | Array<EMSessionFilter>): void;
+    clearFiltering(): void;
     private createError;
     private manageDocumentCreation;
     private manageDocumentUpdate;

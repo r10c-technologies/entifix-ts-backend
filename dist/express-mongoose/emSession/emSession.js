@@ -59,8 +59,16 @@ class EMSession extends hcSession_1.HcSession {
             //Set mongo filters attending options.
             //First Monto object or SessionFilters instead
             let mongoFilters = options != null && options.mongoFilters ? options.mongoFilters : null;
-            if (!mongoFilters)
-                mongoFilters = this.resolveToMongoFilters(entityName, options != null && options.filters != null ? options.filters : null);
+            if (!mongoFilters) {
+                let filters = options && options.filters ? options.filters : [];
+                if (this._anchoredFiltering) {
+                    if (this._anchoredFiltering instanceof Array)
+                        filters = filters.concat(this._anchoredFiltering);
+                    else
+                        filters.push(this._anchoredFiltering);
+                }
+                mongoFilters = this.resolveToMongoFilters(entityName, filters);
+            }
             if (mongoFilters.error) {
                 let errorData = {
                     helper: 'Error ocurred on filters validation',
@@ -82,7 +90,7 @@ class EMSession extends hcSession_1.HcSession {
             }
             //CREATE QUERY =====>>>>>
             let query = this.getModel(entityName).find(mongoFilters.filters);
-            let countQuery = query.skip(0);
+            let countQuery = this.getModel(entityName).find(mongoFilters.filters);
             if (mongoSorting != null && mongoSorting.sorting != null)
                 query = query.sort(mongoSorting.sorting);
             if (skip > 0)
@@ -262,6 +270,12 @@ class EMSession extends hcSession_1.HcSession {
                 Promise.all(promises).then(() => resolve(entities), error => reject(error));
             });
         });
+    }
+    setFiltering(filtering) {
+        this._anchoredFiltering = filtering;
+    }
+    clearFiltering() {
+        this._anchoredFiltering = null;
     }
     createError(error, message) {
         return this._serviceSession.createError(error, message);

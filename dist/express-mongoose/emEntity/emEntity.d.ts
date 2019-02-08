@@ -4,12 +4,12 @@ import { EMSession } from '../emSession/emSession';
 import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 interface IBaseEntity {
     created: Date;
-    modified: Date;
-    deleted: Date;
-    deferredDeletion: Boolean;
+    modified?: Date;
+    deleted?: Date;
+    deferredDeletion?: Boolean;
     createdBy: string;
-    modifiedBy: string;
-    deletedBy: string;
+    modifiedBy?: string;
+    deletedBy?: string;
 }
 interface EntityDocument extends mongoose.Document, IBaseEntity {
 }

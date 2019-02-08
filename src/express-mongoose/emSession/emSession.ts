@@ -9,6 +9,7 @@ import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionTyp
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMServiceSession } from '../emServiceSession/emServiceSession'; 
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
+import { filter } from 'bluebird';
 
 class EMSession extends HcSession
 {
@@ -113,7 +114,20 @@ class EMSession extends HcSession
             //First Monto object or SessionFilters instead
             let mongoFilters : any = options != null && options.mongoFilters ? options.mongoFilters : null;
             if (!mongoFilters)
-            mongoFilters = this.resolveToMongoFilters(entityName, options != null && options.filters != null ? options.filters : null);
+            {
+                let filters = options && options.filters ? options.filters : [];
+
+                if (this._anchoredFiltering)
+                {
+                    if (this._anchoredFiltering instanceof Array)
+                        filters = filters.concat(this._anchoredFiltering);
+                    else
+                        filters.push(this._anchoredFiltering);
+                }
+
+                mongoFilters = this.resolveToMongoFilters(entityName, filters);
+            }
+                
             if (mongoFilters.error)
             {
                 let errorData = {
@@ -142,7 +156,7 @@ class EMSession extends HcSession
             
             //CREATE QUERY =====>>>>>
             let query = this.getModel<T>(entityName).find( mongoFilters.filters );
-            let countQuery = query.skip(0);
+            let countQuery = this.getModel<T>(entityName).find( mongoFilters.filters );
 
             if (mongoSorting != null && mongoSorting.sorting != null)
                 query = query.sort( mongoSorting.sorting );
@@ -403,6 +417,19 @@ class EMSession extends HcSession
                 }
             );
         }); 
+    }
+
+
+    private _anchoredFiltering : EMSessionFilter | Array<EMSessionFilter>;
+
+    setFiltering( filtering : EMSessionFilter | Array<EMSessionFilter>)
+    {
+        this._anchoredFiltering = filtering;
+    }
+
+    clearFiltering( )
+    {
+        this._anchoredFiltering = null;
     }
 
     private createError(error : any, message : string)

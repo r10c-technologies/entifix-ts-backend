@@ -122,8 +122,8 @@ class EMEntityController {
     delete(request, response, options) {
         this.createSession(request, response).then(session => {
             if (session) {
-                let id = request.params._id;
                 let paramName = options && options.paramName ? options.paramName : '_id';
+                let id = request.params[paramName];
                 let responseOk = () => this._responseWrapper.object(response, { 'Delete status': 'register deleted ' });
                 let responseError = error => this._responseWrapper.exception(response, responseError);
                 if (this._useEntities) {
