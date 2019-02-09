@@ -567,8 +567,9 @@ class EMSession extends HcSession
         //Set the table of conversions for filters and mongo filters 
         
         //Value modifiers        
-        let likeModifier = value => { return  '.*' + value + '.*'}
-        
+        // let likeModifier = value => { return  '.*' + value + '.*' };
+        let likeModifier = value => { return new RegExp(value, "i" );  };
+
         let configConvesions : Array<{ operators : Array<string>, mongoOperator?: string, filterTypes?: Array<string>, valueModifier? : (v) => any }> =
         [
             { operators: ['=', 'eq'] },
