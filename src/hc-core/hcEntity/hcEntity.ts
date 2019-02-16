@@ -22,8 +22,8 @@ abstract class Entity implements IMetaDataInfo
     abstract delete() : Promise<EntityMovementFlow>;
     protected abstract onSaving() : Promise<EntityMovementFlow>;
     protected abstract onDeleting() : Promise<EntityMovementFlow>;
-    protected abstract onDeleted() : void;
-    protected abstract onSaved() : void;
+    protected abstract onDeleted() : void | Promise<void>;
+    protected abstract onSaved() : void | Promise<void>;
 
     abstract serializeExposedAccessors() : any;
     

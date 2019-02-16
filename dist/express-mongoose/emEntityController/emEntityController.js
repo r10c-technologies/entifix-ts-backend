@@ -67,14 +67,12 @@ class EMEntityController {
                 if (this._useEntities)
                     session.listEntities(this._entityName, { filters, skip, take, sorting }).then(results => {
                         let det = results.details || {};
-                        let options = { total: det.total, skip: det.skip, take: det.take };
-                        this._responseWrapper.entityCollection(response, results.entities, options);
+                        this._responseWrapper.entityCollection(response, results.entities, { total: det.total, skip: det.skip, take: det.take, devData: det.devData });
                     }, error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
                 else
                     session.listDocuments(this._entityName, { filters, skip, take, sorting }).then(results => {
                         let det = results.details || {};
-                        let options = { total: det.total, skip: det.skip, take: det.take };
-                        this._responseWrapper.documentCollection(response, results.docs, options);
+                        this._responseWrapper.documentCollection(response, results.docs, { total: det.total, skip: det.skip, take: det.take, devData: det.devData });
                     }, error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
             }
         });

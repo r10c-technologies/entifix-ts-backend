@@ -80,19 +80,26 @@ let EMEntity = EMEntity_1 = class EMEntity extends hcEntity_1.Entity {
                         this._session.createDocument(this.entityInfo.name, this._document).then(documentCreated => {
                             this._document = documentCreated;
                             this.onSaved();
-                            resolve({ continue: true });
+                            let asynkTask = this.onSaved();
+                            if (asynkTask)
+                                asynkTask.then(() => resolve({ continue: true })).catch(() => resolve({ continue: true }));
+                            else
+                                resolve({ continue: true });
                         }, error => {
-                            console.error('Error on create a document inside an entity');
+                            console.error(`Error on create a document inside an entity: ${this.entityInfo.name}`);
                             reject(error);
                         });
                     }
                     else {
                         this._session.updateDocument(this.entityInfo.name, this._document).then(documentUpdated => {
                             this._document = documentUpdated;
-                            this.onSaved();
-                            resolve({ continue: true });
+                            let asynkTask = this.onSaved();
+                            if (asynkTask)
+                                asynkTask.then(() => resolve({ continue: true })).catch(() => resolve({ continue: true }));
+                            else
+                                resolve({ continue: true });
                         }, error => {
-                            console.error('Error on update a document insde an entity');
+                            console.error(`Error on update a document insde an entity: ${this.entityInfo.name}(${this._id.toString()})`);
                             reject(error);
                         });
                     }
@@ -126,8 +133,10 @@ let EMEntity = EMEntity_1 = class EMEntity extends hcEntity_1.Entity {
         });
     }
     onSaved() {
+        return null;
     }
     onDeleted() {
+        return null;
     }
     static getSchema() {
         return this.prototype.entityInfo.getCompleteSchema();

@@ -109,49 +109,29 @@ class EMSession extends HcSession
             //PREPARE QUERY PARAMETERS =====>>>>>           
             let skip = options != null && options.skip != null ? options.skip : 0;
             let take = options != null && options.take != null ? options.take : null;
-
-            //Set mongo filters attending options.
-            //First Monto object or SessionFilters instead
-            let mongoFilters : any = options != null && options.mongoFilters ? options.mongoFilters : null;
-            if (!mongoFilters)
-            {
-                let filters = options && options.filters ? options.filters : [];
-
-                if (this._anchoredFiltering)
-                {
-                    if (this._anchoredFiltering instanceof Array)
-                        filters = filters.concat(this._anchoredFiltering);
-                    else
-                        filters.push(this._anchoredFiltering);
-                }
-
-                mongoFilters = this.resolveToMongoFilters(entityName, filters);
-            }
-                
-            if (mongoFilters.error)
-            {
-                let errorData = {
-                    helper: 'Error ocurred on filters validation',
-                    details: mongoFilters.message
-                }
-                let error = this.createError( errorData, null );
-                error.setAsHandledError(400, 'Bad Query Param');
-
-                reject( error );
-            }
             
-            let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
-            if ( mongoSorting != null && mongoSorting.error)
-            {
-                let errorData = {
-                    helper: 'Error ocurred on sorting params validation',
-                    details: mongoFilters.message
-                }
+            //Result variables
+            let inconsistencies : { filtering?, sorting?, message };
 
-                let error = this.createError( errorData, null );
-                error.setAsHandledError(400, 'Bad Query Param');
-                
-                reject( error );
+            let filters = options && options.filters ? options.filters : [];
+            if (this._anchoredFiltering)
+            {
+                if (this._anchoredFiltering instanceof Array)
+                    filters = filters.concat(this._anchoredFiltering);
+                else
+                    filters.push(this._anchoredFiltering);
+            }
+
+            let mongoFilters = this.resolveToMongoFilters(entityName, filters);
+            let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
+           
+            if ( mongoFilters.inconsistencies || (mongoSorting != null && mongoSorting.inconsistencies) )
+            {
+                inconsistencies = { message: 'Some query params were ignored because of inconsistency' };
+                if (mongoFilters.inconsistencies)
+                    inconsistencies.filtering = mongoFilters.inconsistencies;
+                if (mongoSorting && mongoSorting.inconsistencies)
+                    inconsistencies.sorting = mongoSorting.inconsistencies;
             }                
             
             //CREATE QUERY =====>>>>>
@@ -200,11 +180,15 @@ class EMSession extends HcSession
                     fullResolved = true;
                     if (!lastError)
                     {
-                        let details : any = { total: count };
-                        if (skip > 0 ) details.skip = skip;
-                        if (take != null ) details.take = take;
+                        let result : ListDocsResultDetails<T> = { docs: results, details: { total: count } };
+                        if (skip > 0 ) 
+                            result.details.skip = skip;
+                        if (take != null ) 
+                            result.details.take = take;
+                        if (inconsistencies)
+                            result.details.devData = { inconsistencies };
 
-                        resolve( { docs: results, details } )
+                        resolve( result )
                     }
                     else
                         reject( lastError );                    
@@ -468,17 +452,20 @@ class EMSession extends HcSession
         document.deletedBy = this._privateUserData.idUser;
     }
 
-    private resolveToMongoFilters(entityName : string, filters? : Array<EMSessionFilter>) : { error : boolean, filters?: any, message? : string }
+    private resolveToMongoFilters(entityName : string, filters? : Array<EMSessionFilter>) : { filters?: any, inconsistencies : Array<{property:string, message:string}> }
     {        
         let info : EntityInfo = this.getInfo(entityName);
-        
+        let inconsistencies : Array<{property:string, message:string}>;
+        let addInconsistency = ( i : {property:string, message:string}) => { 
+            if (!inconsistencies)
+                inconsistencies = new Array<{property:string, message:string}>();
+            inconsistencies.push(i);
+        };
+
         let persistentMembers = 
                 info.getAllMembers()
                     .filter( m => (m instanceof AccessorInfo) && ( m.schema != null || m.persistenceType == PersistenceType.Auto) )
-                    .map( m => { 
-                        return  { property: m.name, type: m.type, serializeAlias : (m as AccessorInfo).serializeAlias, persistentAlias : (m as AccessorInfo).persistentAlias } 
-                    });
-
+                    .map( m => { return  { property: m.name, type: m.type, serializeAlias : (m as AccessorInfo).serializeAlias, persistentAlias : (m as AccessorInfo).persistentAlias } });
 
         //Base mongo filters
         let mongoFilters : any;
@@ -487,35 +474,30 @@ class EMSession extends HcSession
         if (filters != null && filters.length > 0)
         {
             mongoFilters = { $and : [ { deferredDeletion: { $in: [null, false] } } ] };  
-            // mongoFilters = { $and : [ { deferredDeletion: false } ] };
             
             let opFilters = [];
-            let errFilters : string;
 
             //get all filters
             for (let filter of filters)
             {
                 let pMember = persistentMembers.find( pm => pm.property == filter.property || pm.serializeAlias == filter.property || pm.persistentAlias == filter.property);
-                if (pMember == null)
+                if (pMember)
                 {
-                    errFilters = 'Attempt to filter by a non persistent member';
-                    break;
+                    let persistentName = pMember.persistentAlias ? pMember.persistentAlias : pMember.property;
+                    let mongoFilterConversion = this.parseMongoFilter( filter, pMember.type, persistentName );
+                    if ( !mongoFilterConversion.err)
+                    {   
+                        if (filter.filterType == FilterType.Fixed)
+                            mongoFilters.$and.push( mongoFilterConversion.value );   
+                    
+                        if (filter.filterType == FilterType.Optional)
+                            opFilters.push( mongoFilterConversion.value );
+                    }
+                    else
+                        addInconsistency({ property: filter.property, message: mongoFilterConversion.message });
                 }
-                
-                //Single mongo filter
-                let persistentName = pMember.persistentAlias ? pMember.persistentAlias : pMember.property;
-                let mongoFilterConversion = this.parseMongoFilter( filter, pMember.type, persistentName );
-                if ( mongoFilterConversion.err)
-                {   
-                    errFilters = mongoFilterConversion.message;
-                    break;
-                }
-
-                if (filter.filterType == FilterType.Fixed)
-                    mongoFilters.$and.push( mongoFilterConversion.value );   
-                
-                if (filter.filterType == FilterType.Optional)
-                    opFilters.push( mongoFilterConversion.value );
+                else
+                    addInconsistency({ property: filter.property, message: 'Attempt to filter by a non persistent member' });
             }
 
             if( opFilters.length > 0)
@@ -524,19 +506,13 @@ class EMSession extends HcSession
                     mongoFilters.$and.push( { $or: opFilters });
                 else
                     mongoFilters.$and.push( opFilters[0] );
-            }
-                
-            if (errFilters != null)
-                return { error: true, message: errFilters }; 
+            } 
         }
         else
-        {
             mongoFilters = { deferredDeletion: { $in: [null, false] }  };
-            // mongoFilters = { deferredDeletion: false };
-        }
-               
+              
         
-        return { error: false, filters: mongoFilters };
+        return { filters: mongoFilters, inconsistencies };
     }
 
     private parseMongoFilter( sessionFilter : EMSessionFilter, propertyType : string, persistentName : string ) : { err : boolean, value?: any, message? : string }
@@ -607,42 +583,42 @@ class EMSession extends HcSession
             return { err: true, message: `Not valid operator ${sessionFilter.operator} for filtering`};
     }
 
-    private resolveToMongoSorting (entityName : string, sorting? : Array<EMSessionSort>) : { error : boolean, sorting?: any, message? : string }
+    private resolveToMongoSorting (entityName : string, sorting? : Array<EMSessionSort>) : { sorting?: any, inconsistencies? : Array<{property:string, message:string}> }
     {        
         if (sorting != null && sorting.length > 0)
         {
             let info = this.getInfo(entityName);
             let persistentMembers = info.getAllMembers().filter( m => (m instanceof AccessorInfo) && m.schema != null ).map( m => { return  { property: m.name, type: m.type } } );
+            let inconsistencies : Array<{property:string, message:string}>;
+            let addInconsistency = ( i : {property:string, message:string}) => { 
+                if (!inconsistencies)
+                    inconsistencies = new Array<{property:string, message:string}>();
+                inconsistencies.push(i);
+            };
 
-            let errSorting : string;
             let mongoSorting : any = {};
 
             for (let sort of sorting)
             {
                 let pMember = persistentMembers.find( pm => pm.property == sort.property);
-                if (pMember == null)
+                if (pMember)
                 {
-                    errSorting = 'Attempt to sort by a non persistent member';
-                    break;
-                }
-                
-                let mst : string;
-                if (sort.sortType == SortType.ascending)
-                    mst = 'asc';
-                if (sort.sortType == SortType.descending)
-                    mst = 'desc'
+                    let mst : string;
+                    if (sort.sortType == SortType.ascending)
+                        mst = 'asc';
+                    if (sort.sortType == SortType.descending)
+                        mst = 'desc'
 
-                mongoSorting[sort.property] = mst; 
+                    mongoSorting[sort.property] = mst; 
+                }
+                else
+                    addInconsistency({property:sort.property, message:'Attempt to sort by a non persistent member'});
             }
 
-            if (errSorting != null)
-                return { error: true, message: errSorting };
-                
-            return { error: false, sorting: mongoSorting };
+            return { sorting: mongoSorting, inconsistencies };
         }
         else
-            return null;
-        
+            return null;        
     }
 
     publishAMQPMessage(eventName : string, data : any) : void
@@ -729,20 +705,19 @@ interface ListOptions
     filters? : Array<EMSessionFilter>, 
     skip? : number, 
     take? : number, 
-    sorting? : Array<EMSessionSort>,
-    mongoFilters? : any 
+    sorting? : Array<EMSessionSort>
 }
 
 interface ListDocsResultDetails<TDoc extends EntityDocument>
 { 
     docs:  Array<TDoc>,
-    details? : { total?: number, skip?: number, take?: number }
+    details? : { total?: number, skip?: number, take?: number, devData? : any }
 }
 
 interface ListEntitiesResultDetails<TEntity extends EMEntity>
 { 
     entities: Array<TEntity>
-    details? : { total?: number, skip?: number, take?: number }
+    details? : { total?: number, skip?: number, take?: number, devData? : any }
 }
 
 export { EMSession, EMSessionFilter, FilterType, SortType, EMSessionSort, ListOptions }

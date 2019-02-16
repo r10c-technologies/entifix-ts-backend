@@ -89,7 +89,6 @@ interface ListOptions {
     skip?: number;
     take?: number;
     sorting?: Array<EMSessionSort>;
-    mongoFilters?: any;
 }
 interface ListDocsResultDetails<TDoc extends EntityDocument> {
     docs: Array<TDoc>;
@@ -97,6 +96,7 @@ interface ListDocsResultDetails<TDoc extends EntityDocument> {
         total?: number;
         skip?: number;
         take?: number;
+        devData?: any;
     };
 }
 interface ListEntitiesResultDetails<TEntity extends EMEntity> {
@@ -105,6 +105,7 @@ interface ListEntitiesResultDetails<TEntity extends EMEntity> {
         total?: number;
         skip?: number;
         take?: number;
+        devData?: any;
     };
 }
 export { EMSession, EMSessionFilter, FilterType, SortType, EMSessionSort, ListOptions };

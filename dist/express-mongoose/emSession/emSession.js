@@ -56,37 +56,23 @@ class EMSession extends hcSession_1.HcSession {
             //PREPARE QUERY PARAMETERS =====>>>>>           
             let skip = options != null && options.skip != null ? options.skip : 0;
             let take = options != null && options.take != null ? options.take : null;
-            //Set mongo filters attending options.
-            //First Monto object or SessionFilters instead
-            let mongoFilters = options != null && options.mongoFilters ? options.mongoFilters : null;
-            if (!mongoFilters) {
-                let filters = options && options.filters ? options.filters : [];
-                if (this._anchoredFiltering) {
-                    if (this._anchoredFiltering instanceof Array)
-                        filters = filters.concat(this._anchoredFiltering);
-                    else
-                        filters.push(this._anchoredFiltering);
-                }
-                mongoFilters = this.resolveToMongoFilters(entityName, filters);
+            //Result variables
+            let inconsistencies;
+            let filters = options && options.filters ? options.filters : [];
+            if (this._anchoredFiltering) {
+                if (this._anchoredFiltering instanceof Array)
+                    filters = filters.concat(this._anchoredFiltering);
+                else
+                    filters.push(this._anchoredFiltering);
             }
-            if (mongoFilters.error) {
-                let errorData = {
-                    helper: 'Error ocurred on filters validation',
-                    details: mongoFilters.message
-                };
-                let error = this.createError(errorData, null);
-                error.setAsHandledError(400, 'Bad Query Param');
-                reject(error);
-            }
+            let mongoFilters = this.resolveToMongoFilters(entityName, filters);
             let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
-            if (mongoSorting != null && mongoSorting.error) {
-                let errorData = {
-                    helper: 'Error ocurred on sorting params validation',
-                    details: mongoFilters.message
-                };
-                let error = this.createError(errorData, null);
-                error.setAsHandledError(400, 'Bad Query Param');
-                reject(error);
+            if (mongoFilters.inconsistencies || (mongoSorting != null && mongoSorting.inconsistencies)) {
+                inconsistencies = { message: 'Some query params were ignored because of inconsistency' };
+                if (mongoFilters.inconsistencies)
+                    inconsistencies.filtering = mongoFilters.inconsistencies;
+                if (mongoSorting && mongoSorting.inconsistencies)
+                    inconsistencies.sorting = mongoSorting.inconsistencies;
             }
             //CREATE QUERY =====>>>>>
             let query = this.getModel(entityName).find(mongoFilters.filters);
@@ -124,12 +110,14 @@ class EMSession extends hcSession_1.HcSession {
                 if (!fullResolved) {
                     fullResolved = true;
                     if (!lastError) {
-                        let details = { total: count };
+                        let result = { docs: results, details: { total: count } };
                         if (skip > 0)
-                            details.skip = skip;
+                            result.details.skip = skip;
                         if (take != null)
-                            details.take = take;
-                        resolve({ docs: results, details });
+                            result.details.take = take;
+                        if (inconsistencies)
+                            result.details.devData = { inconsistencies };
+                        resolve(result);
                     }
                     else
                         reject(lastError);
@@ -305,37 +293,38 @@ class EMSession extends hcSession_1.HcSession {
     }
     resolveToMongoFilters(entityName, filters) {
         let info = this.getInfo(entityName);
+        let inconsistencies;
+        let addInconsistency = (i) => {
+            if (!inconsistencies)
+                inconsistencies = new Array();
+            inconsistencies.push(i);
+        };
         let persistentMembers = info.getAllMembers()
             .filter(m => (m instanceof hcMetaData_1.AccessorInfo) && (m.schema != null || m.persistenceType == hcMetaData_1.PersistenceType.Auto))
-            .map(m => {
-            return { property: m.name, type: m.type, serializeAlias: m.serializeAlias, persistentAlias: m.persistentAlias };
-        });
+            .map(m => { return { property: m.name, type: m.type, serializeAlias: m.serializeAlias, persistentAlias: m.persistentAlias }; });
         //Base mongo filters
         let mongoFilters;
         // Convert all the fixed and optional filters in Mongoose Filetrs
         if (filters != null && filters.length > 0) {
             mongoFilters = { $and: [{ deferredDeletion: { $in: [null, false] } }] };
-            // mongoFilters = { $and : [ { deferredDeletion: false } ] };
             let opFilters = [];
-            let errFilters;
             //get all filters
             for (let filter of filters) {
                 let pMember = persistentMembers.find(pm => pm.property == filter.property || pm.serializeAlias == filter.property || pm.persistentAlias == filter.property);
-                if (pMember == null) {
-                    errFilters = 'Attempt to filter by a non persistent member';
-                    break;
+                if (pMember) {
+                    let persistentName = pMember.persistentAlias ? pMember.persistentAlias : pMember.property;
+                    let mongoFilterConversion = this.parseMongoFilter(filter, pMember.type, persistentName);
+                    if (!mongoFilterConversion.err) {
+                        if (filter.filterType == FilterType.Fixed)
+                            mongoFilters.$and.push(mongoFilterConversion.value);
+                        if (filter.filterType == FilterType.Optional)
+                            opFilters.push(mongoFilterConversion.value);
+                    }
+                    else
+                        addInconsistency({ property: filter.property, message: mongoFilterConversion.message });
                 }
-                //Single mongo filter
-                let persistentName = pMember.persistentAlias ? pMember.persistentAlias : pMember.property;
-                let mongoFilterConversion = this.parseMongoFilter(filter, pMember.type, persistentName);
-                if (mongoFilterConversion.err) {
-                    errFilters = mongoFilterConversion.message;
-                    break;
-                }
-                if (filter.filterType == FilterType.Fixed)
-                    mongoFilters.$and.push(mongoFilterConversion.value);
-                if (filter.filterType == FilterType.Optional)
-                    opFilters.push(mongoFilterConversion.value);
+                else
+                    addInconsistency({ property: filter.property, message: 'Attempt to filter by a non persistent member' });
             }
             if (opFilters.length > 0) {
                 if (opFilters.length > 1)
@@ -343,14 +332,10 @@ class EMSession extends hcSession_1.HcSession {
                 else
                     mongoFilters.$and.push(opFilters[0]);
             }
-            if (errFilters != null)
-                return { error: true, message: errFilters };
         }
-        else {
+        else
             mongoFilters = { deferredDeletion: { $in: [null, false] } };
-            // mongoFilters = { deferredDeletion: false };
-        }
-        return { error: false, filters: mongoFilters };
+        return { filters: mongoFilters, inconsistencies };
     }
     parseMongoFilter(sessionFilter, propertyType, persistentName) {
         //Check and convert the filter value 
@@ -409,24 +394,27 @@ class EMSession extends hcSession_1.HcSession {
         if (sorting != null && sorting.length > 0) {
             let info = this.getInfo(entityName);
             let persistentMembers = info.getAllMembers().filter(m => (m instanceof hcMetaData_1.AccessorInfo) && m.schema != null).map(m => { return { property: m.name, type: m.type }; });
-            let errSorting;
+            let inconsistencies;
+            let addInconsistency = (i) => {
+                if (!inconsistencies)
+                    inconsistencies = new Array();
+                inconsistencies.push(i);
+            };
             let mongoSorting = {};
             for (let sort of sorting) {
                 let pMember = persistentMembers.find(pm => pm.property == sort.property);
-                if (pMember == null) {
-                    errSorting = 'Attempt to sort by a non persistent member';
-                    break;
+                if (pMember) {
+                    let mst;
+                    if (sort.sortType == SortType.ascending)
+                        mst = 'asc';
+                    if (sort.sortType == SortType.descending)
+                        mst = 'desc';
+                    mongoSorting[sort.property] = mst;
                 }
-                let mst;
-                if (sort.sortType == SortType.ascending)
-                    mst = 'asc';
-                if (sort.sortType == SortType.descending)
-                    mst = 'desc';
-                mongoSorting[sort.property] = mst;
+                else
+                    addInconsistency({ property: sort.property, message: 'Attempt to sort by a non persistent member' });
             }
-            if (errSorting != null)
-                return { error: true, message: errSorting };
-            return { error: false, sorting: mongoSorting };
+            return { sorting: mongoSorting, inconsistencies };
         }
         else
             return null;

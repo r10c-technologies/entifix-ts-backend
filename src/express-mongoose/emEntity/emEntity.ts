@@ -134,10 +134,14 @@ class EMEntity extends Entity
                                 documentCreated => {
                                     this._document = documentCreated;
                                     this.onSaved();
-                                    resolve({ continue: true});
+                                    let asynkTask = this.onSaved();
+                                    if (asynkTask)
+                                        asynkTask.then( ()=> resolve({ continue: true})).catch( () => resolve({ continue: true}));
+                                    else
+                                        resolve({ continue: true });
                                 },
                                 error  =>{
-                                    console.error('Error on create a document inside an entity');
+                                    console.error(`Error on create a document inside an entity: ${this.entityInfo.name}`);
                                     reject(error);
                                 }
                             );
@@ -147,11 +151,14 @@ class EMEntity extends Entity
                             this._session.updateDocument(this.entityInfo.name, this._document).then(
                                 documentUpdated => {
                                     this._document = documentUpdated;
-                                    this.onSaved();
-                                    resolve({ continue: true });
+                                    let asynkTask = this.onSaved();
+                                    if (asynkTask)
+                                        asynkTask.then( ()=> resolve({ continue: true})).catch( () => resolve({ continue: true}));
+                                    else
+                                        resolve({ continue: true });
                                 },
                                 error => {
-                                    console.error('Error on update a document insde an entity');
+                                    console.error(`Error on update a document insde an entity: ${this.entityInfo.name}(${this._id.toString()})`);
                                     reject(error);
                                 }
                             );
@@ -203,14 +210,14 @@ class EMEntity extends Entity
         });
     }
 
-    protected onSaved() : void
+    protected onSaved() : void | Promise<void>
     {
-
+        return null;
     }
 
-    protected onDeleted() : void
+    protected onDeleted() : void | Promise<void>
     {
-
+        return null;
     }
 
     static getSchema() : any

@@ -30,8 +30,8 @@ declare class EMEntity extends Entity {
     delete(): Promise<EntityMovementFlow>;
     protected onSaving(): Promise<EntityMovementFlow>;
     protected onDeleting(): Promise<EntityMovementFlow>;
-    protected onSaved(): void;
-    protected onDeleted(): void;
+    protected onSaved(): void | Promise<void>;
+    protected onDeleted(): void | Promise<void>;
     static getSchema(): any;
     getDocument(): EntityDocument;
     equals(otherEntity: Entity): boolean;
