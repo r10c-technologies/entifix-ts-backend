@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const events_1 = require("events");
 //Core Framework
 const hcWrapper_1 = require("../../hc-core/hcWrapper/hcWrapper");
 const emRouterManager_1 = require("../emRouterManager/emRouterManager");
@@ -15,6 +16,9 @@ class EntifixApplication {
     //#region methods
     //The constructor defines the main flow to create an Entifix Application
     constructor(port) {
+        //Default internals
+        let asyncTask = new Array();
+        this._eventEmitter = new events_1.EventEmitter();
         //Create express instance app that is going to be used in the Http Server
         this.createExpressApp(port);
         //Create and connect the entifix session.
@@ -22,10 +26,11 @@ class EntifixApplication {
         // By default "onSessionCreated" do:
         // 1 => invoke "registerEntities" and "exposeEntities" methods. 
         // 2 => If the AMQP Service is enabled, the service will connect to broker depending of configurations. Main Service listen for modules atached, and no main service atach itself as a module.
-        this.createServiceSession();
+        asyncTask.push(this.createServiceSession());
         //Sync functions for express middleware
         //Authentication, Cors, Healthcheck...
-        this.createMiddlewareFunctions();
+        asyncTask.push(this.createMiddlewareFunctions());
+        Promise.all(asyncTask).then(() => this.emit('application_started')).catch(e => this.serviceSession.throwException(e));
     }
     registerEventsAndDelegates() { }
     ;
@@ -34,54 +39,65 @@ class EntifixApplication {
         this._expressApp.set('port', port);
     }
     createServiceSession() {
-        this._serviceSession = new emServiceSession_1.EMServiceSession(this.serviceConfiguration.serviceName, this.serviceConfiguration.mongoService, { amqpService: this.serviceConfiguration.amqpService, cacheService: this.serviceConfiguration.authCacheService });
-        this.configSessionAMQPConneciton();
-        if (this.serviceConfiguration.devMode)
-            this._serviceSession.enableDevMode();
-        this._serviceSession.connect().then(() => this.onServiceSessionCreated());
+        return new Promise((resolve, reject) => {
+            this._serviceSession = new emServiceSession_1.EMServiceSession(this.serviceConfiguration.serviceName, this.serviceConfiguration.mongoService, { amqpService: this.serviceConfiguration.amqpService, cacheService: this.serviceConfiguration.authCacheService });
+            this.configSessionAMQPConneciton();
+            if (this.serviceConfiguration.devMode)
+                this._serviceSession.enableDevMode();
+            this._serviceSession.connect().then(() => {
+                let asyncTask = this.onServiceSessionCreated();
+                if (asyncTask)
+                    asyncTask.then(() => resolve()).catch(e => reject(e));
+                else
+                    resolve();
+            }).catch(e => reject(e));
+        });
     }
     createMiddlewareFunctions() {
-        //JSON parser
-        this._expressApp.use(bodyParser.json());
-        //Enable cors if is required
-        if (this.serviceConfiguration.cors && this.serviceConfiguration.cors.enable) {
-            let defaultValues = this.serviceConfiguration.cors.options || {
-                allowedHeaders: ["Origin", "Content-Type", "Accept", "Authorization"],
-                credentials: true,
-                methods: "GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE",
-                preflightContinue: false
-            };
-            this._expressApp.use(cors(defaultValues));
-        }
-        //Health check
-        this._expressApp.get('/', (request, response) => {
-            response.json({
-                message: this.serviceConfiguration.serviceName + " is working correctly"
-            });
-        });
-        //Error handler
-        this._expressApp.use((error, request, response, next) => {
-            let data;
-            if (this.serviceConfiguration.devMode) {
-                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred without a Session context. The details were attached" };
-                if (error)
-                    data.errorDetails = {
-                        type: typeof error,
-                        asString: error.toString != null ? error.toString() : null,
-                        serialized: JSON.stringify(error),
-                        message: error.message,
-                        stack: error.stack
-                    };
+        return new Promise((resolve, reject) => {
+            //JSON parser
+            this._expressApp.use(bodyParser.json());
+            //Enable cors if is required
+            if (this.serviceConfiguration.cors && this.serviceConfiguration.cors.enable) {
+                let defaultValues = this.serviceConfiguration.cors.options || {
+                    allowedHeaders: ["Origin", "Content-Type", "Accept", "Authorization"],
+                    credentials: true,
+                    methods: "GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE",
+                    preflightContinue: false
+                };
+                this._expressApp.use(cors(defaultValues));
             }
-            response.status(500).send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED EXCEPTION', data).serializeSimpleObject());
+            //Health check
+            this._expressApp.get('/', (request, response) => {
+                response.json({
+                    message: this.serviceConfiguration.serviceName + " is working correctly"
+                });
+            });
+            //Error handler
+            this._expressApp.use((error, request, response, next) => {
+                let data;
+                if (this.serviceConfiguration.devMode) {
+                    data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred without a Session context. The details were attached" };
+                    if (error)
+                        data.errorDetails = {
+                            type: typeof error,
+                            asString: error.toString != null ? error.toString() : null,
+                            serialized: JSON.stringify(error),
+                            message: error.message,
+                            stack: error.stack
+                        };
+                }
+                response.status(500).send(hcWrapper_1.Wrapper.wrapError('INTERNAL UNHANDLED EXCEPTION', data).serializeSimpleObject());
+            });
+            //Protect routes
+            let protectRoutes = this.serviceConfiguration.protectRoutes != null ? this.serviceConfiguration.protectRoutes.enable : true;
+            let devMode = this.serviceConfiguration.devMode != null ? this.serviceConfiguration.devMode : false;
+            if (!protectRoutes && devMode)
+                this._serviceSession.throwInfo('Routes unprotected');
+            else
+                this.protectRoutes();
+            resolve();
         });
-        //Protect routes
-        let protectRoutes = this.serviceConfiguration.protectRoutes != null ? this.serviceConfiguration.protectRoutes.enable : true;
-        let devMode = this.serviceConfiguration.devMode != null ? this.serviceConfiguration.devMode : false;
-        if (!protectRoutes && devMode)
-            this._serviceSession.throwInfo('Routes unprotected');
-        else
-            this.protectRoutes();
     }
     protectRoutes() {
         //Default values
@@ -111,16 +127,19 @@ class EntifixApplication {
         });
     }
     onServiceSessionCreated() {
-        this.registerEntities();
-        if (this.serviceConfiguration.devMode)
-            this._serviceSession.createDeveloperModels();
-        this._routerManager = new emRouterManager_1.EMRouterManager(this._serviceSession, this._expressApp);
-        this.exposeEntities();
-        if (this.serviceConfiguration.amqpService && this.useDefaultAMQPInteraction) {
-            this._eventManager = this.serviceSession.createAndBindEventManager();
-            this.createRPCAuthorizationDynamic();
-            this.registerEventsAndDelegates();
-        }
+        return new Promise((resolve, reject) => {
+            this.registerEntities();
+            if (this.serviceConfiguration.devMode)
+                this._serviceSession.createDeveloperModels();
+            this._routerManager = new emRouterManager_1.EMRouterManager(this._serviceSession, this._expressApp);
+            this.exposeEntities();
+            if (this.serviceConfiguration.amqpService && this.useDefaultAMQPInteraction) {
+                this._eventManager = this.serviceSession.createAndBindEventManager();
+                this.createRPCAuthorizationDynamic();
+                this.registerEventsAndDelegates();
+            }
+            resolve();
+        });
     }
     configSessionAMQPConneciton() {
         if (this.useDefaultAMQPInteraction) {
@@ -251,36 +270,54 @@ class EntifixApplication {
     get sessionTokenSecret() {
         return this.serviceConfiguration.session && this.serviceConfiguration.session.tokenSecret ? this.serviceConfiguration.session.tokenSecret : 'entifix-rocks';
     }
-}
-exports.EntifixApplication = EntifixApplication;
-class TokenValidator {
-    constructor(idRequest, serviceName, channel, token, request, authQueueName, assertedQueue) {
-        this.idRequest = idRequest;
-        this.serviceName = serviceName;
-        this.channel = channel;
-        this.token = token;
-        this.request = request;
-        this.authQueueName = authQueueName;
-        this.assertedQueue = assertedQueue;
-        this.promise = new Promise((resolve, reject) => {
-            let tokenRequest = {
-                token: this.token,
-                path: this.request.path
-            };
-            this.channel.sendToQueue(this.authQueueName, new Buffer(JSON.stringify(tokenRequest)), { correlationId: this.idRequest, replyTo: this.assertedQueue.queue });
-            let consumer = (idReq, resolvePromise) => {
-                function onConsume(message) {
-                    if (message.properties.correlationId == this.idRequest) {
-                        let validation = JSON.parse(message.content.toString());
-                        resolvePromise(validation);
-                    }
-                }
-            };
-            let newConsumerInstance = new Consumer(this.idRequest, resolve);
-            this.channel.consume(this.assertedQueue.queue, newConsumerInstance.onConsume, { noAck: true });
-        });
+    get on() {
+        return this._eventEmitter.on;
+    }
+    get emit() {
+        return this._eventEmitter.emit;
     }
 }
+exports.EntifixApplication = EntifixApplication;
+// class TokenValidator 
+// {
+//     promise : Promise<TokenValidationResponse>;
+//     constructor(
+//         public idRequest : string,
+//         public serviceName, 
+//         public channel : amqp.Channel, 
+//         public token : string, 
+//         public request : express.Request,
+//         public authQueueName : string,
+//         public assertedQueue : amqp.Replies.AssertQueue) 
+//     {
+//         this.promise =  new Promise<TokenValidationResponse> ( 
+//             (resolve, reject) => 
+//             {
+//                 let tokenRequest : TokenValidationRequest = {
+//                     token: this.token,
+//                     path: this.request.path
+//                 };
+//                 this.channel.sendToQueue(this.authQueueName, new Buffer(JSON.stringify( tokenRequest )), { correlationId : this.idRequest, replyTo: this.assertedQueue.queue });
+//                 let consumer = (idReq, resolvePromise) => {
+//                     function onConsume(message : amqp.Message) 
+//                     {
+//                         if (message.properties.correlationId == this.idRequest) 
+//                         {
+//                             let validation : TokenValidationResponse = JSON.parse(message.content.toString());
+//                             resolvePromise(validation);
+//                         }
+//                     }
+//                 }
+//                 let newConsumerInstance = new Consumer( this.idRequest, resolve );
+//                 this.channel.consume(
+//                     this.assertedQueue.queue,
+//                     newConsumerInstance.onConsume, 
+//                     {noAck: true}
+//                 );
+//             }
+//         );
+//     }
+// }
 function Consumer(idReq, resolvePromise) {
     this.onConsume = function (message) {
         let a = 3;

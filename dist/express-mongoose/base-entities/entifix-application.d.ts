@@ -1,6 +1,8 @@
+/// <reference types="node" />
 import express = require('express');
 import cors = require('cors');
 import amqp = require('amqplib/callback_api');
+import { EventEmitter } from 'events';
 import { TokenValidationRequest, TokenValidationResponse } from '../../hc-core/hcUtilities/interactionDataModels';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
@@ -44,6 +46,7 @@ declare abstract class EntifixApplication {
     private _eventManager;
     private _authChannel;
     private _assertAuthQueue;
+    _eventEmitter: EventEmitter;
     constructor(port: number);
     protected abstract readonly serviceConfiguration: EntifixAppConfig;
     protected abstract registerEntities(): void;
@@ -52,9 +55,9 @@ declare abstract class EntifixApplication {
     protected registerEventsAndDelegates(): void;
     private createExpressApp;
     private createServiceSession;
-    protected createMiddlewareFunctions(): void;
+    protected createMiddlewareFunctions(): Promise<void>;
     private protectRoutes;
-    protected onServiceSessionCreated(): void;
+    protected onServiceSessionCreated(): Promise<void>;
     protected configSessionAMQPConneciton(): void;
     protected saveModuleAtached(message: amqp.Message): void;
     protected atachModule(exchangeName: string, routingKey: string): void;
@@ -77,5 +80,7 @@ declare abstract class EntifixApplication {
     readonly sessionRefreshPeriod: number;
     readonly sessionExpireLimit: number;
     readonly sessionTokenSecret: string;
+    readonly on: (event: string | symbol, listener: (...args: any[]) => void) => EventEmitter;
+    readonly emit: (event: string | symbol, ...args: any[]) => boolean;
 }
 export { EntifixApplication, EntifixAppConfig, MongoServiceConfig };
