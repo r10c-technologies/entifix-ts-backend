@@ -265,7 +265,8 @@ class EMSession extends HcSession
 
             if ( previousEA.length > 0 || currentEA.length > 0)
             {
-                let promises : Array<Promise<void>> = [];
+                // let promises : Array<Promise<void>> = [];
+                let promises : Array<Promise<any>> = [];
                 
                 entityAccessors.forEach( entityAccessor => {
 
@@ -290,6 +291,8 @@ class EMSession extends HcSession
                             }
                         }   
                      }));
+
+                    //  promises.push(entityAccessor.activator.activateMember( baseInstace, this, entityAccessor));
                 });
 
                 Promise.all(promises).then( 

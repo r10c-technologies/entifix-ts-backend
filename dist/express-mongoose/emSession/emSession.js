@@ -173,6 +173,7 @@ class EMSession extends hcSession_1.HcSession {
                     return false;
             });
             if (previousEA.length > 0 || currentEA.length > 0) {
+                // let promises : Array<Promise<void>> = [];
                 let promises = [];
                 entityAccessors.forEach(entityAccessor => {
                     let oldValue;
@@ -192,6 +193,7 @@ class EMSession extends hcSession_1.HcSession {
                             }
                         }
                     }));
+                    //  promises.push(entityAccessor.activator.activateMember( baseInstace, this, entityAccessor));
                 });
                 Promise.all(promises).then(() => {
                     if (options && options.changes)

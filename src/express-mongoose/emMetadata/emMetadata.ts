@@ -169,34 +169,24 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
             if (docsData && docsData.length > 0)
             {
                 let model = session.getModel(this.entityInfo.name);
-                let promises = new Array<Promise<void>>();
                 newValue = new Array<TEntity>();
 
                 for ( let i = 0; i < docsData.length ; i++)
                 {
                     let asModel = new model(docsData[i]) as TDocument;
-                    promises.push( session.activateEntityInstance<TEntity, TDocument>(this.entityInfo, asModel).then( 
-                        entity => { 
-                            newValue.push(entity) 
-                        }
-                    ));
+                    promises.push( session.activateEntityInstance<TEntity, TDocument>(this.entityInfo, asModel).then( entity => newValue.push(entity)) );
                 }
             }
 
             if (options && options.oldValue && options.oldValue.length > 0)
             {
                 let model = session.getModel(this.entityInfo.name);
-                let promises = new Array<Promise<void>>();
                 oldValue = new Array<TEntity>();
 
                 for ( let i = 0; i < docsData.length ; i++)
                 {
                     let asModel = new model(docsData[i]) as TDocument;
-                    promises.push( session.activateEntityInstance<TEntity, TDocument>(this.entityInfo, asModel).then( 
-                        entity => { 
-                            oldValue.push(entity) 
-                        }
-                    ));
+                    promises.push( session.activateEntityInstance<TEntity, TDocument>(this.entityInfo, asModel).then( entity => oldValue.push(entity) ) );
                 }
             }
 
@@ -204,8 +194,7 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
                 ()=>{ 
                     entity[accessorInfo.name] = newValue;
                     resolve({ oldValue, newValue }) 
-                },
-                error => reject(error)
+                }
             ).catch( error => reject(error) );
         });
     }

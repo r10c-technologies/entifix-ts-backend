@@ -60,7 +60,7 @@ class EntifixApplication {
             //Enable cors if is required
             if (this.serviceConfiguration.cors && this.serviceConfiguration.cors.enable) {
                 let defaultValues = this.serviceConfiguration.cors.options || {
-                    allowedHeaders: ["Origin", "Content-Type", "Accept", "Authorization"],
+                    allowedHeaders: ["Origin", "Content-Type", "Accept", "Authorization", "Charset"],
                     credentials: true,
                     methods: "GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE",
                     preflightContinue: false

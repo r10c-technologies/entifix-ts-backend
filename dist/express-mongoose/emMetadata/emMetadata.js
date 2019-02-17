@@ -97,30 +97,24 @@ class EMMemberActivator extends hcMetaData_1.MemberActivator {
             let newValue;
             if (docsData && docsData.length > 0) {
                 let model = session.getModel(this.entityInfo.name);
-                let promises = new Array();
                 newValue = new Array();
                 for (let i = 0; i < docsData.length; i++) {
                     let asModel = new model(docsData[i]);
-                    promises.push(session.activateEntityInstance(this.entityInfo, asModel).then(entity => {
-                        newValue.push(entity);
-                    }));
+                    promises.push(session.activateEntityInstance(this.entityInfo, asModel).then(entity => newValue.push(entity)));
                 }
             }
             if (options && options.oldValue && options.oldValue.length > 0) {
                 let model = session.getModel(this.entityInfo.name);
-                let promises = new Array();
                 oldValue = new Array();
                 for (let i = 0; i < docsData.length; i++) {
                     let asModel = new model(docsData[i]);
-                    promises.push(session.activateEntityInstance(this.entityInfo, asModel).then(entity => {
-                        oldValue.push(entity);
-                    }));
+                    promises.push(session.activateEntityInstance(this.entityInfo, asModel).then(entity => oldValue.push(entity)));
                 }
             }
             Promise.all(promises).then(() => {
                 entity[accessorInfo.name] = newValue;
                 resolve({ oldValue, newValue });
-            }, error => reject(error)).catch(error => reject(error));
+            }).catch(error => reject(error));
         });
     }
     //#endregion
