@@ -36,13 +36,13 @@ class EMResponseWrapper {
                 if (!errorData.serviceStatus)
                     errorData.serviceStatus = 'Developer mode is enabled.';
                 if (!errorData.helper)
-                    errorData.helper = "The error was ocurred on the Service's Session";
+                    errorData.helper = "The error did not occur on the Service's Session";
                 response.send(hcWrapper_1.Wrapper.wrapError(e.message.toUpperCase(), errorData).serializeSimpleObject());
             }
             else {
                 let data;
                 if (this._serviceSession.isDevMode) {
-                    data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was ocurred on the Service's Session" };
+                    data = { serviceStatus: 'Developer mode is enabled.', helper: "The error did not ocur on the Service's Session" };
                     if (error) {
                         data.errorDetails = { sessionMessage: e.message };
                         if (e.error) {

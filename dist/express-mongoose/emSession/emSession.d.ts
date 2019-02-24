@@ -1,5 +1,6 @@
 import mongoose = require('mongoose');
 import express = require('express');
+import 'moment';
 import { HcSession } from '../../hc-core/hcSession/hcSession';
 import { EntityInfo, MethodInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
@@ -53,6 +54,7 @@ declare class EMSession extends HcSession {
     private resolveToMongoFilters;
     private parseMongoFilter;
     private resolveToMongoSorting;
+    private checkPossibleDate;
     publishAMQPMessage(eventName: string, data: any): void;
     publishAMQPAction(methodInfo: MethodInfo, entityId: string, data: any): void;
     throwException(message: string): void;

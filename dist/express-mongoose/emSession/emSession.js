@@ -1,8 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+require("moment");
 //CORE FRAMEWORK
 const hcSession_1 = require("../../hc-core/hcSession/hcSession");
 const hcMetaData_1 = require("../../hc-core/hcMetaData/hcMetaData");
+const moment = require("moment");
 class EMSession extends hcSession_1.HcSession {
     constructor(serviceSession, options) {
         super();
@@ -342,6 +344,7 @@ class EMSession extends hcSession_1.HcSession {
     parseMongoFilter(sessionFilter, propertyType, persistentName) {
         //Check and convert the filter value 
         let valueFilter; //value to mongo query
+        //Format or adjust filter value
         switch (propertyType) {
             case 'Number':
                 if (isNaN(sessionFilter.value))
@@ -350,20 +353,34 @@ class EMSession extends hcSession_1.HcSession {
                     valueFilter = parseInt(sessionFilter.value);
                 break;
             case 'Date':
-                let tempTimeStamp = Date.parse(sessionFilter.value);
-                if (isNaN(tempTimeStamp) == false)
-                    valueFilter = sessionFilter.value; //new Date(tempTimeStamp); Bug with mongo query
+                if (sessionFilter.operator == 'lk') {
+                    let dateFiltering = this.checkPossibleDate(sessionFilter.value);
+                    if (!dateFiltering.error)
+                        valueFilter = { $gte: dateFiltering.minDate.toISOString(), $lt: dateFiltering.maxDate.toISOString() };
+                    else
+                        return { err: true, message: `The value for a filter in the property [${persistentName}] must be a date` };
+                }
+                else {
+                    let tempTimeStamp = Date.parse(sessionFilter.value);
+                    if (isNaN(tempTimeStamp) == false) {
+                        // valueFilter = sessionFilter.value; //new Date(tempTimeStamp); Bug with mongo query
+                        valueFilter = new Date(sessionFilter.value).toISOString();
+                    }
+                    else
+                        return { err: true, message: `The value for a filter in the property [${persistentName}] must be a date` };
+                }
+                break;
+            case 'String':
+                if (sessionFilter.operator == 'lk')
+                    valueFilter = { '$regex': new RegExp(sessionFilter.value, "i") };
                 else
-                    return { err: true, message: `The value for a filter in the property "${persistentName}" must be a date` };
+                    valueFilter = sessionFilter.value;
                 break;
             default:
                 valueFilter = sessionFilter.value;
         }
         ;
         //Set the table of conversions for filters and mongo filters 
-        //Value modifiers        
-        // let likeModifier = value => { return  '.*' + value + '.*' };
-        let likeModifier = value => { return new RegExp(value, "i"); };
         let configConvesions = [
             { operators: ['=', 'eq'] },
             { operators: ['<>', 'ne'], mongoOperator: '$ne' },
@@ -371,13 +388,11 @@ class EMSession extends hcSession_1.HcSession {
             { operators: ['<=', 'lte'], mongoOperator: '$lte', filterTypes: ['Number', 'Date'] },
             { operators: ['>', 'gt'], mongoOperator: '$gt', filterTypes: ['Number', 'Date'] },
             { operators: ['<', 'lt'], mongoOperator: '$lt', filterTypes: ['Number', 'Date'] },
-            { operators: ['lk'], mongoOperator: '$regex', filterTypes: ['String'], valueModifier: likeModifier }
+            { operators: ['lk'], filterTypes: ['String', 'Date'] }
         ];
-        //Make the conversion 
-        let confIndex = -1;
+        //Make the conversion         
         let conf = configConvesions.find(cc => cc.operators.find(o => o == sessionFilter.operator) != null);
         if (conf != null) {
-            valueFilter = conf.valueModifier != null ? conf.valueModifier(valueFilter) : valueFilter;
             if (conf.filterTypes == null || (conf.filterTypes != null && conf.filterTypes.find(at => at == propertyType) != null)) {
                 let value;
                 if (conf.mongoOperator)
@@ -387,7 +402,7 @@ class EMSession extends hcSession_1.HcSession {
                 return { err: false, value };
             }
             else
-                return { err: true, message: `It is not possible to apply the the operator "${sessionFilter.operator}" to the property "${persistentName}" because it is of type "${propertyType}"` };
+                return { err: true, message: `It is not possible to apply the the operator [${sessionFilter.operator}] to the property [${persistentName}] because it is of type "${propertyType}"` };
         }
         else
             return { err: true, message: `Not valid operator ${sessionFilter.operator} for filtering` };
@@ -420,6 +435,78 @@ class EMSession extends hcSession_1.HcSession {
         }
         else
             return null;
+    }
+    checkPossibleDate(possibleDate) {
+        let separators = ['-', '/', '.'];
+        let dateArrayString = new Array();
+        let dateArrayNumber;
+        separators.forEach(s => {
+            let pa = possibleDate.split(s);
+            if (pa.length > dateArrayString.length)
+                dateArrayString = pa;
+        });
+        if (dateArrayString.filter(e => isNaN(e)).length > 0)
+            return { error: true };
+        dateArrayNumber = dateArrayString.map(e => parseInt(e));
+        if (dateArrayNumber.filter(e => e < 0).length > 0)
+            return { error: true };
+        if (dateArrayNumber.length > 0 && dateArrayNumber.length <= 3) {
+            let year, month, day;
+            switch (dateArrayNumber.length) {
+                case 3:
+                    if (dateArrayNumber[0] > 31) {
+                        year = dateArrayNumber[0];
+                        month = dateArrayNumber[1];
+                        day = dateArrayNumber[2];
+                    }
+                    else {
+                        year = dateArrayNumber[2];
+                        month = dateArrayNumber[1];
+                        day = dateArrayNumber[0];
+                    }
+                    break;
+                case 2:
+                    if (dateArrayNumber[0] > 12) {
+                        year = dateArrayNumber[0];
+                        month = dateArrayNumber[1];
+                    }
+                    else {
+                        year = dateArrayNumber[1];
+                        month = dateArrayNumber[0];
+                    }
+                    break;
+                case 1:
+                    year = dateArrayNumber[0];
+                    break;
+            }
+            ;
+            if (year < 100)
+                year += 2000;
+            if (month > 12)
+                return { error: true };
+            let minMonth, maxMonth, minDay, maxDay;
+            let minDate, maxDate;
+            if (!month) {
+                minMonth = 1;
+                maxMonth = 12;
+            }
+            else
+                minMonth = maxMonth = month;
+            if (!day) {
+                minDate = new Date(year, minMonth - 1, 1);
+                maxDate = moment(new Date(year, maxMonth - 1, 1)).add(1, 'month').toDate();
+            }
+            else {
+                minDate = new Date(year, minMonth - 1, day);
+                maxDate = new Date(year, maxMonth - 1, day);
+            }
+            if (!isNaN(minDate.valueOf()) && !isNaN(maxDate.valueOf()))
+                return { error: false, minDate, maxDate };
+            else
+                return { error: true };
+        }
+        else
+            return { error: true };
     }
     publishAMQPMessage(eventName, data) {
         this._serviceSession.publishAMQPMessage(this, eventName, data);
