@@ -32,6 +32,7 @@ interface EntifixAppConfig {
         host: string;
         port: number;
     };
+    basePath?: string;
 }
 interface MongoServiceConfig {
     user: string;
