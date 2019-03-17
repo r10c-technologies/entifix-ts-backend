@@ -266,21 +266,21 @@ class EMEntity extends Entity
     set modified (value : Date)
     { this._document.modified = value; }
 
-    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: Date, require: false } })
+    @DefinedAccessor({ exposition: ExpositionType.System, schema : {  type: Date, require: false } })
     get deleted () : Date
     { return this._document.deleted; }
     set deleted (value : Date)
     { this._document.deleted = value; }
 
-    @DefinedAccessor({ exposition: ExpositionType.Normal, persistenceType: PersistenceType.Auto, serializeAlias: 'id' })
+    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, persistenceType: PersistenceType.Auto, serializeAlias: 'id', display: "Id" })
     get _id () : any
     { return this._document._id; }
 
-    @DefinedAccessor({ exposition: ExpositionType.Normal, persistenceType: PersistenceType.Auto, serializeAlias: 'v' })
+    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, persistenceType: PersistenceType.Auto, serializeAlias: 'v', display: "Version" })
     get __v () : number
     { return this._document.__v; }
 
-    @DefinedAccessor({ schema : { type: Boolean, require: true} })
+    @DefinedAccessor({ exposition: ExpositionType.System, schema : { type: Boolean, require: true } })
     get deferredDeletion() : Boolean
     { return this._document.deferredDeletion; }
     set deferredDeletion( value : Boolean )
@@ -301,15 +301,15 @@ class EMEntity extends Entity
     get key()
     { return { service: this._session.serviceSession.serviceName, entityName: this.entityInfo.name, id: this._id.toString() }; }
 
-    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: String, require: false } })
+    @DefinedAccessor({ exposition: ExpositionType.System, schema : {  type: String, require: false } })
     get createdBy () : string
     { return this._document.createdBy; }
     
-    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: String, require: false } })
+    @DefinedAccessor({ exposition: ExpositionType.System, schema : {  type: String, require: false } })
     get modifiedBy () : string
     { return this._document.modifiedBy; }
     
-    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: String, require: false } })
+    @DefinedAccessor({ exposition: ExpositionType.System, schema : {  type: String, require: false } })
     get deletedBy () : string
     { return this._document.deletedBy; }
     
