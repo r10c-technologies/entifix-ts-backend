@@ -32,7 +32,7 @@ class EMRouterManager {
         this._routers.push({ entityName: null, controller: controller, basePath });
     }
     exposeEnumeration(name, enumerator, options) {
-        let basePath = options && options.basePath ? options.basePath : 'api';
+        let basePath = this.getCompleteBasePath(options && options.basePath ? options.basePath : null);
         let resourceName = options && options.resourceName ? options.resourceName : name.toLowerCase();
         let newController = new EMSimpleController(this, resourceName);
         let keys = Object.keys(enumerator);
@@ -50,7 +50,7 @@ class EMRouterManager {
             res.send(hcWrapper_1.Wrapper.wrapObject(false, null, objectToExpose).serializeSimpleObject());
         };
         newController.createRoutes();
-        this._expressAppInstance.use('/' + basePath, newController.router);
+        this._expressAppInstance.use(basePath, newController.router);
         this._routers.push({ entityName: name, controller: newController, basePath });
     }
     resolveComplexRetrieve(session, construtorType, instanceId, expositionAccessorInfo, pathOverInstance) {

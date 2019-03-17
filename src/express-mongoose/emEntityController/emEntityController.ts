@@ -597,7 +597,13 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     private getArrayPath( request : express.Request) : Array<string>
     {
         let arrayPath = request.path.split('/');
-        arrayPath.splice(0,2);
+        let basePathCount = 2;
+        
+        if (this._routerManager.basePath)
+            basePathCount++;
+
+        arrayPath.splice(0,basePathCount);
+        
         return arrayPath;
     }
 

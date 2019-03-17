@@ -181,11 +181,17 @@ abstract class EntifixApplication
     private protectRoutes() : void 
     {
         //Default values
-        let pathProtected = this.serviceConfiguration.protectRoutes && this.serviceConfiguration.protectRoutes.path ? this.serviceConfiguration.protectRoutes.path : 'api';
         let header = this.serviceConfiguration.protectRoutes && this.serviceConfiguration.protectRoutes.header ? this.serviceConfiguration.protectRoutes.header : 'Authorization';
+        
+        let pathProtected = '/';
 
+        if (this.serviceConfiguration.basePath)
+            pathProtected += (this.serviceConfiguration.basePath + '/');
+
+        pathProtected += (this.serviceConfiguration.protectRoutes && this.serviceConfiguration.protectRoutes.path ? this.serviceConfiguration.protectRoutes.path : 'api');
+        
         //Register Function on express middleware
-        this._expressApp.use('/'+ pathProtected, (request, response, next) => {
+        this._expressApp.use(pathProtected, (request, response, next) => {
 
             let deniedAccess = (message, errorCode?, error?) => response.status(errorCode || 401).send( Wrapper.wrapError(message, error).serializeSimpleObject() );
             

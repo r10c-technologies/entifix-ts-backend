@@ -381,7 +381,10 @@ class EMEntityController {
     //#region On complex request/response session methods
     getArrayPath(request) {
         let arrayPath = request.path.split('/');
-        arrayPath.splice(0, 2);
+        let basePathCount = 2;
+        if (this._routerManager.basePath)
+            basePathCount++;
+        arrayPath.splice(0, basePathCount);
         return arrayPath;
     }
     getDefinedRouteMethods() {

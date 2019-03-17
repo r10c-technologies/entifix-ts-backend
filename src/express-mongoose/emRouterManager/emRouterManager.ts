@@ -72,7 +72,7 @@ class EMRouterManager {
     exposeEnumeration( name: string, enumerator : any, options : { basePath? : string, resourceName? : string } ) : void;
     exposeEnumeration( name: string, enumerator : any, options?  : { basePath? : string, resourceName? : string } ) : void
     {
-        let basePath = options && options.basePath ? options.basePath : 'api';
+        let basePath = this.getCompleteBasePath( options && options.basePath ? options.basePath : null );
         let resourceName = options && options.resourceName ? options.resourceName : name.toLowerCase();
         let newController = new EMSimpleController(this, resourceName);
 
@@ -96,7 +96,7 @@ class EMRouterManager {
         }
 
         newController.createRoutes();
-        this._expressAppInstance.use('/'+ basePath, newController.router);
+        this._expressAppInstance.use(basePath, newController.router);
         this._routers.push( { entityName : name, controller: newController, basePath }) ;
     }
 
