@@ -96,8 +96,11 @@ class EMResponseEntityWrapper extends EMResponseWrapper {
     }
     entity(response, entity, options) {
         let devData = options != null ? options.devData : null;
-        let serializedEntity = entity ? entity.serializeExposedAccessors() : {};
-        response.send(hcWrapper_1.Wrapper.wrapObject(false, null, serializedEntity, { isEntity: true, devData }).serializeSimpleObject());
+        let serializedEntity = entity && entity.serializeExposedAccessors ? entity.serializeExposedAccessors() : undefined;
+        if (serializedEntity)
+            response.send(hcWrapper_1.Wrapper.wrapObject(false, null, serializedEntity ? serializedEntity : entity, { isEntity: true, devData }).serializeSimpleObject());
+        else
+            response.send(entity);
     }
     documentCollection(response, documents, options) {
         let devData = options != null ? options.devData : null;

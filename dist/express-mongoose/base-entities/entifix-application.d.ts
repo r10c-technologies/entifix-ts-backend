@@ -32,6 +32,12 @@ interface EntifixAppConfig {
         host: string;
         port: number;
     };
+    reportsService?: {
+        host: string;
+        port: string;
+        path: string;
+        methodToRequest: string;
+    };
 }
 interface MongoServiceConfig {
     user: string;
