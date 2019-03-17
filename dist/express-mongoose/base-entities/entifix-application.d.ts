@@ -38,6 +38,7 @@ interface EntifixAppConfig {
         path: string;
         methodToRequest: string;
     };
+    basePath?: string;
 }
 interface MongoServiceConfig {
     user: string;

@@ -67,12 +67,15 @@ class EntifixApplication {
                 };
                 this._expressApp.use(cors(defaultValues));
             }
-            //Health check
-            this._expressApp.get('/', (request, response) => {
+            //Health checks
+            let healthCheck = (request, response) => {
                 response.json({
                     message: this.serviceConfiguration.serviceName + " is working correctly"
                 });
-            });
+            };
+            this._expressApp.get('/', healthCheck);
+            if (this.serviceConfiguration.basePath)
+                this._expressApp.get('/' + this.serviceConfiguration.basePath, healthCheck);
             //Error handler
             this._expressApp.use((error, request, response, next) => {
                 let data;
@@ -131,7 +134,7 @@ class EntifixApplication {
             this.registerEntities();
             if (this.serviceConfiguration.devMode)
                 this._serviceSession.createDeveloperModels();
-            this._routerManager = new emRouterManager_1.EMRouterManager(this._serviceSession, this._expressApp);
+            this._routerManager = new emRouterManager_1.EMRouterManager(this._serviceSession, this._expressApp, { basePath: this.serviceConfiguration.basePath });
             this.exposeEntities();
             if (this.serviceConfiguration.amqpService && this.useDefaultAMQPInteraction) {
                 this._eventManager = this.serviceSession.createAndBindEventManager();

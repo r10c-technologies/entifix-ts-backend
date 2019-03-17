@@ -28,7 +28,8 @@ interface EntifixAppConfig
     protectRoutes? : { enable: boolean, header?: string, path ? : string },
     session?: { refreshPeriod?: number, expireLimit? : number, tokenSecret: string },
     authCacheService?: { host : string, port : number },
-    reportsService?: { host : string, port : string, path : string, methodToRequest : string }
+    reportsService?: { host : string, port : string, path : string, methodToRequest : string },
+    basePath?: string
 }
 
 interface MongoServiceConfig {
@@ -134,12 +135,16 @@ abstract class EntifixApplication
                 this._expressApp.use(cors(defaultValues));
             }
 
-            //Health check
-            this._expressApp.get('/', ( request:express.Request, response: express.Response )=> {            
+            //Health checks
+            let healthCheck = ( request:express.Request, response: express.Response )=> {            
                 response.json({
                     message: this.serviceConfiguration.serviceName + " is working correctly"
                 });        
-            });
+            };
+
+            this._expressApp.get('/', healthCheck );
+            if (this.serviceConfiguration.basePath) 
+                this._expressApp.get('/' + this.serviceConfiguration.basePath, healthCheck);
 
             //Error handler
             this._expressApp.use( (error : any, request : express.Request, response : express.Response, next : express.NextFunction) => {
@@ -220,7 +225,7 @@ abstract class EntifixApplication
             if (this.serviceConfiguration.devMode)
                 this._serviceSession.createDeveloperModels();
             
-            this._routerManager = new EMRouterManager( this._serviceSession, this._expressApp ); 
+            this._routerManager = new EMRouterManager( this._serviceSession, this._expressApp, { basePath: this.serviceConfiguration.basePath } ); 
             this.exposeEntities();
 
 
