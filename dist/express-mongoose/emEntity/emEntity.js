@@ -183,17 +183,17 @@ let EMEntity = EMEntity_1 = class EMEntity extends hcEntity_1.Entity {
     get deletedBy() { return this._document.deletedBy; }
 };
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: Date, require: true }, display: "Creado" }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: Date, require: true } }),
     __metadata("design:type", Date),
     __metadata("design:paramtypes", [Date])
 ], EMEntity.prototype, "created", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: Date, require: false }, display: "Modificado" }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: Date, require: false } }),
     __metadata("design:type", Date),
     __metadata("design:paramtypes", [Date])
 ], EMEntity.prototype, "modified", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.System, schema: { type: Date, require: false }, display: "Eliminado" }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.System, schema: { type: Date, require: false } }),
     __metadata("design:type", Date),
     __metadata("design:paramtypes", [Date])
 ], EMEntity.prototype, "deleted", null);

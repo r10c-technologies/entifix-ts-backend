@@ -254,19 +254,19 @@ class EMEntity extends Entity
     get session ()
     { return this._session };
 
-    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : { type: Date, require: true }, display: "Creado" })
+    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : { type: Date, require: true } })
     get created () : Date
     { return this._document.created; }
     set created (value : Date)
     { this._document.created = value; }
 
-    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: Date, require: false }, display: "Modificado" })
+    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: Date, require: false } })
     get modified () : Date
     { return this._document.modified; }
     set modified (value : Date)
     { this._document.modified = value; }
 
-    @DefinedAccessor({ exposition: ExpositionType.System, schema : {  type: Date, require: false }, display: "Eliminado" })
+    @DefinedAccessor({ exposition: ExpositionType.System, schema : {  type: Date, require: false } })
     get deleted () : Date
     { return this._document.deleted; }
     set deleted (value : Date)
