@@ -6,6 +6,7 @@ declare function DefinedEntity(params: {
     packageName?: string;
     abstract?: boolean;
     fixedSystemOwner?: string;
+    allowRequestedType?: boolean | RequestedType | Array<RequestedType>;
 }): any;
 declare function DefinedAccessor(params?: {
     exposition?: ExpositionType;
@@ -15,6 +16,7 @@ declare function DefinedAccessor(params?: {
     serializeAlias?: string;
     persistentAlias?: string;
     activator?: MemberActivator;
+    display?: string;
 }): (target: any, key: string, descriptor: PropertyDescriptor) => void;
 interface DefinedMetaParam {
     name: string;
@@ -30,14 +32,21 @@ declare function DefinedMethod(params?: {
 declare class EntityInfo {
     private _packageName;
     private _name;
+    private _display;
     private _definedMembers;
     private _base;
     private _isAbstract;
     private _fixedSystemOwner;
+    private _allowRequestedType;
     constructor(name: string);
     constructor(name: string, options: {
-        fixedSystemOwner?: string;
-    });
+        fixedSystemOwner: string;
+        allowRequestedType: boolean | RequestedType | Array<RequestedType>;
+    }, display: string);
+    constructor(name: string, options: {
+        fixedSystemOwner: string;
+        allowRequestedType: boolean | RequestedType | Array<RequestedType>;
+    }, display?: string);
     addAccessorInfo(accessorInfo: AccessorInfo): void;
     addPropertyInfo(propertyInfo: PropertyInfo): void;
     addMethodInfo(methodInfo: MethodInfo): void;
@@ -54,10 +63,12 @@ declare class EntityInfo {
     implementBaseInfo(baseInfo: EntityInfo, isAbstract: boolean): void;
     static implementAbstractInfo(info: EntityInfo): void;
     name: string;
+    display: string;
     packageName: string;
     readonly base: EntityInfo;
     readonly isAbstract: boolean;
     readonly fixedSystemOwner: string;
+    readonly allowRequestedType: boolean | RequestedType | RequestedType[];
 }
 declare abstract class MemberActivator {
     private _entityInfo;
@@ -89,6 +100,7 @@ declare class PropertyInfo extends MemberInfo {
     constructor();
 }
 declare class AccessorInfo extends MemberInfo {
+    private _display;
     private _exposition;
     private _schema;
     private _persistenceType;
@@ -97,6 +109,7 @@ declare class AccessorInfo extends MemberInfo {
     private _persistentAlias;
     constructor();
     setAlias(alias: string): void;
+    display: string;
     exposition: ExpositionType;
     schema: any;
     persistenceType: PersistenceType;
@@ -119,11 +132,16 @@ declare enum PersistenceType {
     Auto = 2
 }
 declare enum ExpositionType {
+    System = "system",
     Normal = "normal",
     ReadOnly = "readOnly"
 }
 declare enum MemberBindingType {
     Reference = 1,
     Snapshot = 2
+}
+declare enum RequestedType {
+    XLS = "xls",
+    PDF = "pdf"
 }
 export { MemberBindingType, ExpositionType, EntityInfo, DefinedAccessor, DefinedEntity, DefinedMethod, DefinedParam, SessionParam, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo, MemberActivator };

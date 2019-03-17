@@ -27,6 +27,10 @@ class EMServiceSession {
         if (options && options.cacheService) {
             this._cacheService = options.cacheService;
         }
+        //Reports Service
+        if (options && options.reportsService) {
+            this._reportsService = options.reportsService;
+        }
     }
     connect() {
         let asyncConn = new Array();
@@ -250,6 +254,7 @@ class EMServiceSession {
     }
     get allowFixedSystemOwners() { return this._allowFixedSystemOwners; }
     get authCacheClient() { return this._authCacheClient; }
+    get reportsService() { return this._reportsService; }
 }
 exports.EMServiceSession = EMServiceSession;
 class ModelActivator {

@@ -15,7 +15,6 @@ import { EMServiceSession } from '../emServiceSession/emServiceSession';
 import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 import { TokenValidationRequestRPC } from '../../amqp-events/amqp-base-events/TokenValidationRequestRPC';
 import { TokenValidationResponseRPC } from '../../amqp-events/amqp-base-events/TokenValidationResponseRPC';
-import { EMSession } from '../emSession/emSession';
 
 interface EntifixAppConfig
 { 
@@ -29,6 +28,7 @@ interface EntifixAppConfig
     protectRoutes? : { enable: boolean, header?: string, path ? : string },
     session?: { refreshPeriod?: number, expireLimit? : number, tokenSecret: string },
     authCacheService?: { host : string, port : number },
+    reportsService?: { host : string, port : string, path : string, methodToRequest : string },
     basePath?: string
 }
 
@@ -95,11 +95,11 @@ abstract class EntifixApplication
 
     private createServiceSession( ) : Promise<void>
     {
-        return new Promise<void>((resolve,reject)=>{       
+        return new Promise<void>((resolve,reject)=>{
             this._serviceSession = new EMServiceSession(
                 this.serviceConfiguration.serviceName, 
                 this.serviceConfiguration.mongoService, 
-                { amqpService:  this.serviceConfiguration.amqpService, cacheService: this.serviceConfiguration.authCacheService } 
+                { amqpService:  this.serviceConfiguration.amqpService, cacheService: this.serviceConfiguration.authCacheService, reportsService: this.serviceConfiguration.reportsService }
             );
 
             this.configSessionAMQPConneciton();
@@ -126,7 +126,7 @@ abstract class EntifixApplication
             if (this.serviceConfiguration.cors && this.serviceConfiguration.cors.enable )
             {
                 let defaultValues : cors.CorsOptions = this.serviceConfiguration.cors.options || {
-                    allowedHeaders: ["Origin", "Content-Type", "Accept", "Authorization", "Charset"],
+                    allowedHeaders: ["Origin", "Content-Type", "Accept", "Authorization", "Charset", "X-Requested-Type", "X-Page-Size", "X-Table-Striped", "X-Page-Orientation"],
                     credentials: true,
                     methods: "GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE",
                     preflightContinue: false

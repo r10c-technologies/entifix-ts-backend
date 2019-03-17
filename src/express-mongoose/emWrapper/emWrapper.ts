@@ -167,8 +167,11 @@ class EMResponseEntityWrapper<TDocument extends mongoose.Document, TEntity exten
     entity( response : express.Response, entity : TEntity, options? : { devData? : any })
     {
         let devData = options != null ? options.devData : null;
-        let serializedEntity = entity ? entity.serializeExposedAccessors() : {};
-        response.send( Wrapper.wrapObject(false, null, serializedEntity, { isEntity: true, devData } ).serializeSimpleObject() );
+        let serializedEntity = entity && entity.serializeExposedAccessors ? entity.serializeExposedAccessors() : undefined;
+        if (serializedEntity)
+            response.send( Wrapper.wrapObject(false, null, serializedEntity ? serializedEntity : entity, { isEntity: true, devData } ).serializeSimpleObject() );
+        else
+            response.send(entity);
     }
 
     documentCollection( response : express.Response, documents : Array<TDocument>);
