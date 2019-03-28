@@ -28,13 +28,13 @@ class EMModifyResponseContent
             return (entityInfo.allowRequestedType.toString() == request.get(HeaderModifier.RequestedType));
     }
 
-    static modify<TEntity extends EMEntity>(request : express.Request, entityInfo : EntityInfo, results : Array<TEntity>, session : EMSession) : Promise<any>
+    static modify<TEntity extends EMEntity>(request : express.Request | ReportPreferences, entityInfo : EntityInfo | EntifixReport, results : Array<TEntity>, session : EMSession) : Promise<any>
     {
         return new Promise<any>((resolve, reject) => {
             let options = {
                 host: session.serviceSession.reportsService.host,
                 port: session.serviceSession.reportsService.port,
-                path: session.serviceSession.reportsService.path + "/" + request.get(HeaderModifier.RequestedType),
+                path: session.serviceSession.reportsService.path + "/" + (EMModifyResponseContent.instanceOfReportPreferences(request) ? (request as ReportPreferences).requestedType : (request as express.Request).get(HeaderModifier.RequestedType)),
                 method: session.serviceSession.reportsService.methodToRequest,
                 headers: { "Content-Type": "application/json" }
             };
@@ -56,34 +56,42 @@ class EMModifyResponseContent
         });
     }
 
-    static getRequestBody<TEntity extends EMEntity>(request : express.Request, entityInfo : EntityInfo, results : Array<TEntity>) : any
+    static getRequestBody<TEntity extends EMEntity>(request : express.Request | { requestedType: string, tableStriped: boolean, pageSize: string, pageOrientation: string }, entityInfo : EntityInfo | EntifixReport, results : Array<TEntity>) : any
     {
         return {
             title: entityInfo.display,
             columns: EMModifyResponseContent.getColumns(entityInfo),
-            tableStriped: request.get(HeaderModifier.TableStriped) || true,
-            pageSize: request.get(HeaderModifier.PageSize) || PageSize.Letter,
-            pageOrientation: request.get(HeaderModifier.PageOrientation) || PageOrientations.Landscape,
+            tableStriped: (EMModifyResponseContent.instanceOfReportPreferences(request) ? (request as ReportPreferences).tableStriped : (request as express.Request).get(HeaderModifier.TableStriped)) || true,
+            pageSize: (EMModifyResponseContent.instanceOfReportPreferences(request) ? (request as ReportPreferences).pageSize : (request as express.Request).get(HeaderModifier.PageSize)) || PageSize.Letter,
+            pageOrientation: (EMModifyResponseContent.instanceOfReportPreferences(request) ? (request as ReportPreferences).pageOrientation : (request as express.Request).get(HeaderModifier.PageOrientation)) || PageOrientations.Landscape,
             data: EMModifyResponseContent.getData(entityInfo, results)
         };
     }
     
-    static getColumns(entityInfo : EntityInfo) : any
+    static getColumns(entityInfo : EntityInfo | EntifixReport) : any
     {
         let columns = [], counter = 1;
 
-        entityInfo.getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) { columns.push({ description: accessor.display, columnName: "Field_" + counter }); counter++; } });
+        if (EMModifyResponseContent.instanceOfEntifixReport(entityInfo)) {
+            (entityInfo as EntifixReport).accessors.forEach((accessor) => { columns.push({ description: accessor.display, columnName: "Field_" + counter }); counter++; });
+        } else {
+            (entityInfo as EntityInfo).getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) { columns.push({ description: accessor.display, columnName: "Field_" + counter }); counter++; } });
+        }
 
         return columns;
     }
     
-    static getData<TEntity extends EMEntity>(entityInfo : EntityInfo, results : Array<TEntity>) : any
+    static getData<TEntity extends EMEntity>(entityInfo : EntityInfo | EntifixReport, results : Array<TEntity>) : any
     {
         let data = [];
 
         results.forEach((row) => {
             let dataRow = {}, counter = 1;
-            entityInfo.getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) { dataRow["Field_" +  counter] = row[accessor.name] || ""; counter++; } });
+            if (EMModifyResponseContent.instanceOfEntifixReport(entityInfo)) {
+                (entityInfo as EntifixReport).accessors.forEach((accessor) => { dataRow["Field_" +  counter] = row[accessor.name] || ""; counter++; });
+            } else {
+                (entityInfo as EntityInfo).getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) { dataRow["Field_" +  counter] = row[accessor.name] || ""; counter++; } });
+            }
             data.push(dataRow);
         });
 
@@ -93,6 +101,16 @@ class EMModifyResponseContent
     private static includeAccessor(accessor : AccessorInfo) : boolean
     {
         return (accessor.exposition == ExpositionType.Normal || accessor.exposition == ExpositionType.ReadOnly);
+    }
+
+    private static instanceOfReportPreferences(object : any) : boolean
+    {
+        return 'requestedType' in object;
+    }
+
+    private static instanceOfEntifixReport(object : any) : boolean
+    {
+        return 'accessors' in object;
     }
     
     //#endregion
@@ -126,6 +144,23 @@ enum PageSize {
     A2 = "A2",
     A3 = "A3",
     A4 = "A4"
+}
+
+interface ReportPreferences { 
+    requestedType: string, 
+    tableStriped: boolean, 
+    pageSize: string, 
+    pageOrientation: string 
+}
+
+interface EntifixReport {
+    display: string,
+    accessors: ReportAccessor[]
+}
+
+interface ReportAccessor {
+    display: string,
+    name: string
 }
 
 export { EMModifyResponseContent }

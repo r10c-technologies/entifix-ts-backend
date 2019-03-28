@@ -22,7 +22,7 @@ class EMModifyResponseContent {
             let options = {
                 host: session.serviceSession.reportsService.host,
                 port: session.serviceSession.reportsService.port,
-                path: session.serviceSession.reportsService.path + "/" + request.get(HeaderModifier.RequestedType),
+                path: session.serviceSession.reportsService.path + "/" + (EMModifyResponseContent.instanceOfReportPreferences(request) ? request.requestedType : request.get(HeaderModifier.RequestedType)),
                 method: session.serviceSession.reportsService.methodToRequest,
                 headers: { "Content-Type": "application/json" }
             };
@@ -41,34 +41,50 @@ class EMModifyResponseContent {
         return {
             title: entityInfo.display,
             columns: EMModifyResponseContent.getColumns(entityInfo),
-            tableStriped: request.get(HeaderModifier.TableStriped) || true,
-            pageSize: request.get(HeaderModifier.PageSize) || PageSize.Letter,
-            pageOrientation: request.get(HeaderModifier.PageOrientation) || PageOrientations.Landscape,
+            tableStriped: (EMModifyResponseContent.instanceOfReportPreferences(request) ? request.tableStriped : request.get(HeaderModifier.TableStriped)) || true,
+            pageSize: (EMModifyResponseContent.instanceOfReportPreferences(request) ? request.pageSize : request.get(HeaderModifier.PageSize)) || PageSize.Letter,
+            pageOrientation: (EMModifyResponseContent.instanceOfReportPreferences(request) ? request.pageOrientation : request.get(HeaderModifier.PageOrientation)) || PageOrientations.Landscape,
             data: EMModifyResponseContent.getData(entityInfo, results)
         };
     }
     static getColumns(entityInfo) {
         let columns = [], counter = 1;
-        entityInfo.getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) {
-            columns.push({ description: accessor.display, columnName: "Field_" + counter });
-            counter++;
-        } });
+        if (EMModifyResponseContent.instanceOfEntifixReport(entityInfo)) {
+            entityInfo.accessors.forEach((accessor) => { columns.push({ description: accessor.display, columnName: "Field_" + counter }); counter++; });
+        }
+        else {
+            entityInfo.getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) {
+                columns.push({ description: accessor.display, columnName: "Field_" + counter });
+                counter++;
+            } });
+        }
         return columns;
     }
     static getData(entityInfo, results) {
         let data = [];
         results.forEach((row) => {
             let dataRow = {}, counter = 1;
-            entityInfo.getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) {
-                dataRow["Field_" + counter] = row[accessor.name] || "";
-                counter++;
-            } });
+            if (EMModifyResponseContent.instanceOfEntifixReport(entityInfo)) {
+                entityInfo.accessors.forEach((accessor) => { dataRow["Field_" + counter] = row[accessor.name] || ""; counter++; });
+            }
+            else {
+                entityInfo.getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) {
+                    dataRow["Field_" + counter] = row[accessor.name] || "";
+                    counter++;
+                } });
+            }
             data.push(dataRow);
         });
         return data;
     }
     static includeAccessor(accessor) {
         return (accessor.exposition == hcMetaData_1.ExpositionType.Normal || accessor.exposition == hcMetaData_1.ExpositionType.ReadOnly);
+    }
+    static instanceOfReportPreferences(object) {
+        return 'requestedType' in object;
+    }
+    static instanceOfEntifixReport(object) {
+        return 'accessors' in object;
     }
 }
 exports.EMModifyResponseContent = EMModifyResponseContent;
