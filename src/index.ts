@@ -5,6 +5,7 @@ export * from './hc-core/hcWrapper/hcWrapper';
 export * from './hc-core/hcUtilities/interactionDataModels';
 export * from './express-mongoose/emEntity/emEntity';
 export * from './express-mongoose/emEntityController/emEntityController';
+export * from './express-mongoose/emEntityController/emModifyResponseContent';
 export * from './express-mongoose/emRouterManager/emRouterManager';
 export * from './express-mongoose/emSession/emSession';
 export * from './express-mongoose/emServiceSession/emServiceSession';
