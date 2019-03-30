@@ -10,6 +10,11 @@ declare class EMResponseWrapper {
         devData?: any;
         status?: number;
     }): any;
+    file(response: express.Response, file: any): any;
+    file(response: express.Response, file: any, options: {
+        devData?: any;
+        status?: number;
+    }): any;
     collection(response: express.Response, collection: Array<any>): any;
     collection(response: express.Response, collection: Array<any>, options: {
         devData?: any;

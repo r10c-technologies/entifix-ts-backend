@@ -14,6 +14,11 @@ class EMResponseWrapper {
         response.statusCode = options != null && options.status != null ? options.status : HttpStatus.OK;
         response.send(hcWrapper_1.Wrapper.wrapObject(false, null, object, { devData }).serializeSimpleObject());
     }
+    file(response, file, options) {
+        let devData = options != null ? options.devData : null;
+        response.statusCode = options != null && options.status != null ? options.status : HttpStatus.OK;
+        response.send(file);
+    }
     collection(response, collection, options) {
         let devData = options != null ? options.devData : null;
         let count = collection ? collection.length : 0;
@@ -100,7 +105,7 @@ class EMResponseEntityWrapper extends EMResponseWrapper {
         if (serializedEntity)
             response.send(hcWrapper_1.Wrapper.wrapObject(false, null, serializedEntity ? serializedEntity : entity, { isEntity: true, devData }).serializeSimpleObject());
         else
-            response.send(entity);
+            response.send(hcWrapper_1.Wrapper.wrapObject(false, null, entity, { isEntity: true, devData }).serializeSimpleObject());
     }
     documentCollection(response, documents, options) {
         let devData = options != null ? options.devData : null;

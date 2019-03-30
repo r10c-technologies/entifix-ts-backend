@@ -31,7 +31,16 @@ class EMResponseWrapper
         response.statusCode = options != null && options.status != null ? options.status : HttpStatus.OK;
         response.send( Wrapper.wrapObject(false, null, object, { devData }).serializeSimpleObject() );
     }
-    
+
+    file( response : express.Response, file : any);
+    file( response : express.Response, file : any, options: { devData? : any , status? : number });
+    file( response : express.Response, file : any, options?: { devData? : any , status? : number })
+    {
+        let devData = options != null ? options.devData : null;
+
+        response.statusCode = options != null && options.status != null ? options.status : HttpStatus.OK;
+        response.send(file);
+    }
     
     collection( response : express.Response, collection : Array<any>);
     collection( response : express.Response, collection : Array<any>, options : { devData? : any, total?: number, skip?: number, take? : number } );
@@ -169,9 +178,9 @@ class EMResponseEntityWrapper<TDocument extends mongoose.Document, TEntity exten
         let devData = options != null ? options.devData : null;
         let serializedEntity = entity && entity.serializeExposedAccessors ? entity.serializeExposedAccessors() : undefined;
         if (serializedEntity)
-            response.send( Wrapper.wrapObject(false, null, serializedEntity ? serializedEntity : entity, { isEntity: true, devData } ).serializeSimpleObject() );
+            response.send(Wrapper.wrapObject(false, null, serializedEntity ? serializedEntity : entity, { isEntity: true, devData } ).serializeSimpleObject());
         else
-            response.send(entity);
+            response.send(Wrapper.wrapObject(false, null, entity, { isEntity: true, devData } ).serializeSimpleObject());
     }
 
     documentCollection( response : express.Response, documents : Array<TDocument>);
