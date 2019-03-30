@@ -129,7 +129,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                             {
                                 if (EMModifyResponseContent.canRequestThisType(request, this.entityInfo))
                                 {
-                                    EMModifyResponseContent.modify(request, this.entityInfo, results.entities, session)
+                                    EMModifyResponseContent.modify(request, this.entityInfo, session, { entities: results.entities })
                                         .then(file => { this._responseWrapper.file(response, file as any); })
                                         .catch(error => { this._responseWrapper.handledError(response, "Error to generate file in reports service. " + error, HttpStatus.BAD_GATEWAY, error) });
                                 }

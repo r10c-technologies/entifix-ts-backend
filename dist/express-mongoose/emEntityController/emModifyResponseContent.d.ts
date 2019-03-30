@@ -5,15 +5,20 @@ import { EMSession } from '../emSession/emSession';
 declare class EMModifyResponseContent {
     static modificationRequested(request: express.Request): boolean;
     static canRequestThisType(request: express.Request, entityInfo: EntityInfo): boolean;
-    static modify<TEntity extends EMEntity>(request: express.Request | ReportPreferences, entityInfo: EntityInfo | EntifixReport, results: Array<TEntity>, session: EMSession): Promise<any>;
+    static modify<TEntity extends EMEntity>(request: express.Request | ReportPreferences, headers: EntityInfo | EntifixReport, session: EMSession, dataOptions: {
+        entities?: Array<TEntity>;
+    }): Promise<any>;
+    static modify<TEntity extends EMEntity>(request: express.Request | ReportPreferences, headers: EntityInfo | EntifixReport, session: EMSession, dataOptions: {
+        results?: Array<any>;
+    }): Promise<any>;
     static getRequestBody<TEntity extends EMEntity>(request: express.Request | {
         requestedType: string;
         tableStriped: boolean;
         pageSize: string;
         pageOrientation: string;
-    }, entityInfo: EntityInfo | EntifixReport, results: Array<TEntity>): any;
-    static getColumns(entityInfo: EntityInfo | EntifixReport): any;
-    static getData<TEntity extends EMEntity>(entityInfo: EntityInfo | EntifixReport, results: Array<TEntity>): any;
+    }, headers: EntityInfo | EntifixReport, results: Array<any>): any;
+    static getColumns(headers: EntityInfo | EntifixReport): any;
+    static getData<TEntity extends EMEntity>(headers: EntityInfo | EntifixReport, results: Array<any>): any;
     private static includeAccessor;
     private static instanceOfReportPreferences;
     private static instanceOfEntifixReport;
@@ -26,7 +31,7 @@ interface ReportPreferences {
 }
 interface EntifixReport {
     display: string;
-    accessors: ReportAccessor[];
+    headers: ReportAccessor[];
 }
 interface ReportAccessor {
     display: string;

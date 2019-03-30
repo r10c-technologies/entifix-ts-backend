@@ -70,7 +70,7 @@ class EMEntityController {
                         let det = results.details || {};
                         if (emModifyResponseContent_1.EMModifyResponseContent.modificationRequested(request)) {
                             if (emModifyResponseContent_1.EMModifyResponseContent.canRequestThisType(request, this.entityInfo)) {
-                                emModifyResponseContent_1.EMModifyResponseContent.modify(request, this.entityInfo, results.entities, session)
+                                emModifyResponseContent_1.EMModifyResponseContent.modify(request, this.entityInfo, session, { entities: results.entities })
                                     .then(file => { this._responseWrapper.file(response, file); })
                                     .catch(error => { this._responseWrapper.handledError(response, "Error to generate file in reports service. " + error, HttpStatus.BAD_GATEWAY, error); });
                             }

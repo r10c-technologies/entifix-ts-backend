@@ -17,7 +17,7 @@ class EMModifyResponseContent {
         else
             return (entityInfo.allowRequestedType.toString() == request.get(HeaderModifier.RequestedType));
     }
-    static modify(request, entityInfo, results, session) {
+    static modify(request, headers, session, dataOptions) {
         return new Promise((resolve, reject) => {
             let options = {
                 host: session.serviceSession.reportsService.host,
@@ -32,43 +32,44 @@ class EMModifyResponseContent {
                 response.on("end", () => { let chunkResponse = Buffer.concat(chunkParts); resolve(chunkResponse); });
                 response.on("error", error => reject(error));
             });
+            let data = (dataOptions.entities || dataOptions.results);
             requestToReportsService.on("error", error => { reject(error); });
-            requestToReportsService.write(JSON.stringify(EMModifyResponseContent.getRequestBody(request, entityInfo, results)));
+            requestToReportsService.write(JSON.stringify(EMModifyResponseContent.getRequestBody(request, headers, data)));
             requestToReportsService.end();
         });
     }
-    static getRequestBody(request, entityInfo, results) {
+    static getRequestBody(request, headers, results) {
         return {
-            title: entityInfo.display,
-            columns: EMModifyResponseContent.getColumns(entityInfo),
+            title: headers.display,
+            columns: EMModifyResponseContent.getColumns(headers),
             tableStriped: (EMModifyResponseContent.instanceOfReportPreferences(request) ? request.tableStriped : request.get(HeaderModifier.TableStriped)) || true,
             pageSize: (EMModifyResponseContent.instanceOfReportPreferences(request) ? request.pageSize : request.get(HeaderModifier.PageSize)) || PageSize.Letter,
             pageOrientation: (EMModifyResponseContent.instanceOfReportPreferences(request) ? request.pageOrientation : request.get(HeaderModifier.PageOrientation)) || PageOrientations.Landscape,
-            data: EMModifyResponseContent.getData(entityInfo, results)
+            data: EMModifyResponseContent.getData(headers, results)
         };
     }
-    static getColumns(entityInfo) {
+    static getColumns(headers) {
         let columns = [], counter = 1;
-        if (EMModifyResponseContent.instanceOfEntifixReport(entityInfo)) {
-            entityInfo.accessors.forEach((accessor) => { columns.push({ description: accessor.display, columnName: "Field_" + counter }); counter++; });
+        if (EMModifyResponseContent.instanceOfEntifixReport(headers)) {
+            headers.headers.forEach((accessor) => { columns.push({ description: accessor.display, columnName: "Field_" + counter }); counter++; });
         }
         else {
-            entityInfo.getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) {
+            headers.getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) {
                 columns.push({ description: accessor.display, columnName: "Field_" + counter });
                 counter++;
             } });
         }
         return columns;
     }
-    static getData(entityInfo, results) {
+    static getData(headers, results) {
         let data = [];
         results.forEach((row) => {
             let dataRow = {}, counter = 1;
-            if (EMModifyResponseContent.instanceOfEntifixReport(entityInfo)) {
-                entityInfo.accessors.forEach((accessor) => { dataRow["Field_" + counter] = row[accessor.name] || ""; counter++; });
+            if (EMModifyResponseContent.instanceOfEntifixReport(headers)) {
+                headers.headers.forEach((accessor) => { dataRow["Field_" + counter] = row[accessor.name] || ""; counter++; });
             }
             else {
-                entityInfo.getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) {
+                headers.getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) {
                     dataRow["Field_" + counter] = row[accessor.name] || "";
                     counter++;
                 } });

@@ -9,6 +9,7 @@ __export(require("./hc-core/hcSession/hcSession"));
 __export(require("./hc-core/hcWrapper/hcWrapper"));
 __export(require("./express-mongoose/emEntity/emEntity"));
 __export(require("./express-mongoose/emEntityController/emEntityController"));
+__export(require("./express-mongoose/emEntityController/emModifyResponseContent"));
 __export(require("./express-mongoose/emRouterManager/emRouterManager"));
 __export(require("./express-mongoose/emSession/emSession"));
 __export(require("./express-mongoose/emServiceSession/emServiceSession"));
