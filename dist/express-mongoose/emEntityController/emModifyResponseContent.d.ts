@@ -11,14 +11,14 @@ declare class EMModifyResponseContent {
     static modify<TEntity extends EMEntity>(request: express.Request | ReportPreferences, headers: EntityInfo | EntifixReport, session: EMSession, dataOptions: {
         results?: Array<any>;
     }): Promise<any>;
-    static getRequestBody<TEntity extends EMEntity>(request: express.Request | {
+    static getRequestBody(request: express.Request | {
         requestedType: string;
         tableStriped: boolean;
         pageSize: string;
         pageOrientation: string;
     }, headers: EntityInfo | EntifixReport, results: Array<any>): any;
     static getColumns(headers: EntityInfo | EntifixReport): any;
-    static getData<TEntity extends EMEntity>(headers: EntityInfo | EntifixReport, results: Array<any>): any;
+    static getData(headers: EntityInfo | EntifixReport, results: Array<any>): any;
     private static includeAccessor;
     private static instanceOfReportPreferences;
     private static instanceOfEntifixReport;

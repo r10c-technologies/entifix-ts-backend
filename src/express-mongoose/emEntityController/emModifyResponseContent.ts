@@ -60,7 +60,7 @@ class EMModifyResponseContent
         });
     }
 
-    static getRequestBody<TEntity extends EMEntity>(request : express.Request | { requestedType: string, tableStriped: boolean, pageSize: string, pageOrientation: string }, headers : EntityInfo | EntifixReport, results : Array<any>) : any
+    static getRequestBody(request : express.Request | { requestedType: string, tableStriped: boolean, pageSize: string, pageOrientation: string }, headers : EntityInfo | EntifixReport, results : Array<any>) : any
     {
         return {
             title: headers.display,
@@ -85,7 +85,7 @@ class EMModifyResponseContent
         return columns;
     }
     
-    static getData<TEntity extends EMEntity>(headers : EntityInfo | EntifixReport, results : Array<any>) : any
+    static getData(headers : EntityInfo | EntifixReport, results : Array<any>) : any
     {
         let data = [];
 
@@ -114,7 +114,7 @@ class EMModifyResponseContent
 
     private static instanceOfEntifixReport(object : any) : boolean
     {
-        return 'accessors' in object;
+        return 'headers' in object;
     }
     
     //#endregion

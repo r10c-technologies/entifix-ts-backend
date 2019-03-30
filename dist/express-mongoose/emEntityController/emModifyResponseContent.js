@@ -85,7 +85,7 @@ class EMModifyResponseContent {
         return 'requestedType' in object;
     }
     static instanceOfEntifixReport(object) {
-        return 'accessors' in object;
+        return 'headers' in object;
     }
 }
 exports.EMModifyResponseContent = EMModifyResponseContent;
