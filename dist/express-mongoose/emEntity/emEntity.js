@@ -42,7 +42,7 @@ let EMEntity = EMEntity_1 = class EMEntity extends hcEntity_1.Entity {
         info.getAccessors().filter(accessor => accessor.exposition).forEach(accessor => {
             let exposedName = accessor.serializeAlias || accessor.name;
             let persistentName = accessor.persistentAlias || accessor.name;
-            if (accessor.exposition == hcMetaData_1.ExpositionType.Normal) {
+            if (accessor.exposition == hcMetaData_1.ExpositionType.Normal || accessor.exposition == hcMetaData_1.ExpositionType.System) {
                 let isPersistent = accessor.schema != null || accessor.persistenceType == hcMetaData_1.PersistenceType.Auto;
                 if (isPersistent) {
                     if (simpleObject.hasOwnProperty(exposedName)) {
@@ -193,37 +193,37 @@ __decorate([
     __metadata("design:paramtypes", [Date])
 ], EMEntity.prototype, "modified", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.System, schema: { type: Date, require: false } }),
+    hcMetaData_1.DefinedAccessor({ schema: { type: Date, require: false } }),
     __metadata("design:type", Date),
     __metadata("design:paramtypes", [Date])
 ], EMEntity.prototype, "deleted", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'id', display: "Id" }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.System, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'id', display: "Id" }),
     __metadata("design:type", Object),
     __metadata("design:paramtypes", [])
 ], EMEntity.prototype, "_id", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'v', display: "Version" }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.System, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'v', display: "Version" }),
     __metadata("design:type", Number),
     __metadata("design:paramtypes", [])
 ], EMEntity.prototype, "__v", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.System, schema: { type: Boolean, require: true } }),
+    hcMetaData_1.DefinedAccessor({ schema: { type: Boolean, require: true } }),
     __metadata("design:type", Boolean),
     __metadata("design:paramtypes", [Boolean])
 ], EMEntity.prototype, "deferredDeletion", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.System, schema: { type: String, require: false } }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: String, require: false } }),
     __metadata("design:type", String),
     __metadata("design:paramtypes", [])
 ], EMEntity.prototype, "createdBy", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.System, schema: { type: String, require: false } }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: String, require: false } }),
     __metadata("design:type", String),
     __metadata("design:paramtypes", [])
 ], EMEntity.prototype, "modifiedBy", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.System, schema: { type: String, require: false } }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: String, require: false } }),
     __metadata("design:type", String),
     __metadata("design:paramtypes", [])
 ], EMEntity.prototype, "deletedBy", null);
