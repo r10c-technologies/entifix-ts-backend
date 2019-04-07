@@ -39,14 +39,16 @@ class EMModifyResponseContent {
         });
     }
     static getRequestBody(request, headers, results) {
-        return {
+        let isInstanceOfReportPreferences = EMModifyResponseContent.instanceOfReportPreferences(request);
+        let body = {
             title: headers.display,
             columns: EMModifyResponseContent.getColumns(headers),
-            tableStriped: (EMModifyResponseContent.instanceOfReportPreferences(request) ? request.tableStriped : request.get(HeaderModifier.TableStriped)) || true,
-            pageSize: (EMModifyResponseContent.instanceOfReportPreferences(request) ? request.pageSize : request.get(HeaderModifier.PageSize)) || PageSize.Letter,
-            pageOrientation: (EMModifyResponseContent.instanceOfReportPreferences(request) ? request.pageOrientation : request.get(HeaderModifier.PageOrientation)) || PageOrientations.Landscape,
+            tableStriped: (isInstanceOfReportPreferences ? (request.tableStriped != undefined ? request.tableStriped : true) : (request.get(HeaderModifier.TableStriped) != undefined ? request.get(HeaderModifier.TableStriped) : true)),
+            pageSize: (isInstanceOfReportPreferences ? request.pageSize || PageSize.Letter : request.get(HeaderModifier.PageSize)) || PageSize.Letter,
+            pageOrientation: (isInstanceOfReportPreferences ? request.pageOrientation || PageOrientations.Landscape : request.get(HeaderModifier.PageOrientation)) || PageOrientations.Landscape,
             data: EMModifyResponseContent.getData(headers, results)
         };
+        return body;
     }
     static getColumns(headers) {
         let columns = [], counter = 1;

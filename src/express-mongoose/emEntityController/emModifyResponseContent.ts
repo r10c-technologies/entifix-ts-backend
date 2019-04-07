@@ -62,14 +62,16 @@ class EMModifyResponseContent
 
     static getRequestBody(request : express.Request | { requestedType: string, tableStriped: boolean, pageSize: string, pageOrientation: string }, headers : EntityInfo | EntifixReport, results : Array<any>) : any
     {
-        return {
+        let isInstanceOfReportPreferences = EMModifyResponseContent.instanceOfReportPreferences(request);
+        let body = {
             title: headers.display,
             columns: EMModifyResponseContent.getColumns(headers),
-            tableStriped: (EMModifyResponseContent.instanceOfReportPreferences(request) ? (request as ReportPreferences).tableStriped : (request as express.Request).get(HeaderModifier.TableStriped)) || true,
-            pageSize: (EMModifyResponseContent.instanceOfReportPreferences(request) ? (request as ReportPreferences).pageSize : (request as express.Request).get(HeaderModifier.PageSize)) || PageSize.Letter,
-            pageOrientation: (EMModifyResponseContent.instanceOfReportPreferences(request) ? (request as ReportPreferences).pageOrientation : (request as express.Request).get(HeaderModifier.PageOrientation)) || PageOrientations.Landscape,
+            tableStriped: (isInstanceOfReportPreferences ? ((request as ReportPreferences).tableStriped != undefined ? (request as ReportPreferences).tableStriped : true) : ((request as express.Request).get(HeaderModifier.TableStriped) != undefined ? (request as express.Request).get(HeaderModifier.TableStriped) : true )),
+            pageSize: (isInstanceOfReportPreferences ? (request as ReportPreferences).pageSize || PageSize.Letter : (request as express.Request).get(HeaderModifier.PageSize)) || PageSize.Letter,
+            pageOrientation: (isInstanceOfReportPreferences ? (request as ReportPreferences).pageOrientation || PageOrientations.Landscape : (request as express.Request).get(HeaderModifier.PageOrientation)) || PageOrientations.Landscape,
             data: EMModifyResponseContent.getData(headers, results)
         };
+        return body;
     }
     
     static getColumns(headers : EntityInfo | EntifixReport) : any
