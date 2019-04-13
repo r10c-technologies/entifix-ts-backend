@@ -1,6 +1,7 @@
 //Core Dependencies
 import express = require('express');
 import bodyParser = require('body-parser');
+import fileUpload = require('express-fileupload');
 import cors = require('cors');
 import amqp = require('amqplib/callback_api');
 import redis = require('redis');
@@ -120,6 +121,12 @@ abstract class EntifixApplication
         return new Promise<void>( (resolve,reject) => {
             //JSON parser
             this._expressApp.use( bodyParser.json() );
+            
+            //File uploader 
+            this._expressApp.use( fileUpload({
+                useTempFiles : true,
+                tempFileDir : '/tmp-files/'
+            }) );
 
             //Enable cors if is required
             if (this.serviceConfiguration.cors && this.serviceConfiguration.cors.enable )

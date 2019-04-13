@@ -60,19 +60,21 @@ declare class EntityInfo {
     readonly fixedSystemOwner: string;
 }
 declare abstract class MemberActivator {
-    private _entityInfo;
-    constructor(info: EntityInfo);
+    private _bindingType;
+    private _resourcePath;
+    private _extendRoute;
+    constructor(bindingType: MemberBindingType, extendedRoute: boolean, resourcePath: string);
     abstract activateMember(entity: Entity, session: HcSession, accessorInfo: AccessorInfo, options?: {
         oldValue?: any;
     }): Promise<{
         oldValue?: any;
         newValue: any;
     }>;
-    readonly entityInfo: EntityInfo;
-    abstract readonly resourcePath: string;
-    abstract readonly extendRoute: boolean;
-    abstract readonly bindingType: MemberBindingType;
+    readonly bindingType: MemberBindingType;
+    readonly resourcePath: string;
+    readonly extendRoute: boolean;
     abstract readonly referenceType: string;
+    abstract readonly defaultSchema: any;
 }
 declare abstract class MemberInfo {
     private _name;
@@ -124,6 +126,7 @@ declare enum ExpositionType {
 }
 declare enum MemberBindingType {
     Reference = 1,
-    Snapshot = 2
+    Snapshot = 2,
+    Chunks = 3
 }
 export { MemberBindingType, ExpositionType, EntityInfo, DefinedAccessor, DefinedEntity, DefinedMethod, DefinedParam, SessionParam, IMetaDataInfo, PersistenceType, AccessorInfo, MemberInfo, MethodInfo, PropertyInfo, MemberActivator };

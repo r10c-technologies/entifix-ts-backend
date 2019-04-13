@@ -1,15 +1,47 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const hcMetaData_1 = require("../../hc-core/hcMetaData/hcMetaData");
-class EMMemberActivator extends hcMetaData_1.MemberActivator {
-    constructor(entityInfo, bindingType, extendRoute, options) {
-        super(entityInfo);
-        this._bindingType = bindingType;
-        this._extendRoute = extendRoute;
-        this._resourcePath = options != null && options.resourcePath != null ? options.resourcePath : entityInfo.name.toLowerCase();
+class GfsMemberActivator extends hcMetaData_1.MemberActivator {
+    constructor(resourcePath, extendedRoute, options) {
+        super(hcMetaData_1.MemberBindingType.Chunks, extendedRoute, resourcePath);
+        this._defaultSchema = options && options.schema ? options.schema : { name: String, fileExtension: String, size: Number };
     }
     activateMember(entity, session, accessorInfo, options) {
-        switch (this._bindingType) {
+        switch (this.bindingType) {
+            //shir: case para chunk
+            case hcMetaData_1.MemberBindingType.Chunks:
+                return this.loadFileHeader(entity, session, accessorInfo, options);
+        }
+    }
+    loadFileHeader(entity, session, accessorInfo, options) {
+        return new Promise((resolve, reject) => {
+            let doc = entity.getDocument();
+            let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
+            let docData = doc[persistentMember];
+            let oldValue;
+            let newValue;
+            if (docData) {
+                newValue = docData;
+            }
+            if (options && options.oldValue) {
+                oldValue = options.oldValue;
+            }
+            resolve({ newValue, oldValue });
+        });
+    }
+    //#endregion
+    //#region Accessors
+    get referenceType() { return this.bindingType == hcMetaData_1.MemberBindingType.Reference ? 'object' : null; }
+    get defaultSchema() { return this._defaultSchema; }
+}
+exports.GfsMemberActivator = GfsMemberActivator;
+class EMMemberActivator extends hcMetaData_1.MemberActivator {
+    constructor(entityInfo, bindingType, extendRoute, options) {
+        super(bindingType, extendRoute, options != null && options.resourcePath != null ? options.resourcePath : entityInfo.name.toLowerCase());
+        this._entityInfo = entityInfo;
+    }
+    activateMember(entity, session, accessorInfo, options) {
+        switch (this.bindingType) {
             case hcMetaData_1.MemberBindingType.Reference:
                 if (accessorInfo.type == 'Array')
                     return this.loadArrayInstanceFromDB(entity, session, accessorInfo, options);
@@ -119,10 +151,9 @@ class EMMemberActivator extends hcMetaData_1.MemberActivator {
     }
     //#endregion
     //#region Accessors
-    get bindingType() { return this._bindingType; }
-    get extendRoute() { return this._extendRoute; }
-    get resourcePath() { return this._resourcePath || this.entityInfo.name.toLowerCase(); }
-    get referenceType() { return this._bindingType == hcMetaData_1.MemberBindingType.Reference ? 'string' : null; }
+    get entityInfo() { return this._entityInfo; }
+    get referenceType() { return this.bindingType == hcMetaData_1.MemberBindingType.Reference ? 'string' : null; }
+    get defaultSchema() { return null; }
 }
 exports.EMMemberActivator = EMMemberActivator;
 //# sourceMappingURL=emMetadata.js.map
