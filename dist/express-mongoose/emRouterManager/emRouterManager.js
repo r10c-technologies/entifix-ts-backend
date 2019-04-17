@@ -77,7 +77,7 @@ class EMRouterManager {
                     constructionController.responseWrapper.object(session.response, objectToExpose);
                 }
                 else {
-                    let fileCollection = session.systemOwner + '_files';
+                    let fileCollection = session.systemOwner.toLowerCase() + "_files";
                     let idFile = objectToExpose ? objectToExpose._id : null;
                     let fileName = objectToExpose.name;
                     let gfs = gridfs(session.serviceSession.mongooseConnection.db, mongoose.mongo);
@@ -134,7 +134,7 @@ class EMRouterManager {
                 }
                 else {
                     if (!result.error) {
-                        let fileCollection = session.systemOwner + '_files';
+                        let fileCollection = session.systemOwner.toLowerCase() + '_files';
                         let fileKey = result.data.fileKey;
                         let file = session.request.files[fileKey];
                         let mimetype = file.mimetype;
@@ -150,8 +150,8 @@ class EMRouterManager {
                         let writestream = gfs.createWriteStream({ filename, content_type: mimetype, root: fileCollection });
                         fs.createReadStream(filePath).pipe(writestream);
                         writestream.on('close', function (file) {
+                            fileEntity._id = file._id.toString();
                             if (expositionAccessorInfo.type == 'Array') {
-                                fileEntity._id = file._id.toString();
                                 let index = (baseEntity[pathTo]).findIndex(e => e._id == file._id);
                                 (baseEntity[pathTo]).splice(index, 1);
                                 (baseEntity[pathTo]).push(fileEntity);
@@ -160,6 +160,7 @@ class EMRouterManager {
                                 baseEntity[pathTo] = fileEntity;
                             }
                             fileEntity = file;
+                            baseEntity.save();
                         });
                     }
                 }

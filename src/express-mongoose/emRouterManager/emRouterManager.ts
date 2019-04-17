@@ -1,6 +1,7 @@
 import express = require('express');
 import mongoose = require('mongoose');
 import gridfs = require('gridfs-stream');
+import fileUpload = require('express-fileupload');
 import fs = require('fs');
 import HttpStatus = require('http-status-codes');
 import { EMSession } from '../emSession/emSession';
@@ -126,13 +127,13 @@ class EMRouterManager {
                 }
                 else
                 {
-                    let fileCollection : string = session.systemOwner + '_files';
-                    let idFile = objectToExpose ? objectToExpose._id : null;
-                    let fileName = objectToExpose.name;
+                    let fileCollection : string = session.systemOwner.toLowerCase() + "_files";
+                    let idFile : string = objectToExpose ? objectToExpose._id : null;
+                    let fileName: string = objectToExpose.name;
   
                     let gfs = gridfs(session.serviceSession.mongooseConnection.db, mongoose.mongo);
 
-                    let readstream = gfs.createReadStream({root:fileCollection, _id: idFile });
+                    let readstream = gfs.createReadStream({root: fileCollection, _id: idFile });
                     readstream.pipe(session.response).attachment(fileName);  
                 }
             }
@@ -204,7 +205,7 @@ class EMRouterManager {
                 {
                     if(!result.error)
                     {
-                        let fileCollection : string = session.systemOwner + '_files';
+                        let fileCollection : string = session.systemOwner.toLowerCase() + '_files';
                         let fileKey = result.data.fileKey; 
                         let file = session.request.files[fileKey];
                         let mimetype = file.mimetype;
@@ -222,9 +223,9 @@ class EMRouterManager {
                         let writestream = gfs.createWriteStream({filename, content_type:mimetype, root:fileCollection})
                         fs.createReadStream(filePath).pipe(writestream);
                         writestream.on('close', function (file) {
+                            fileEntity._id = file._id.toString();  
                             if (expositionAccessorInfo.type == 'Array')
-                            {                          
-                                fileEntity._id = file._id.toString();                     
+                            {                                                                        
                                 let index = (baseEntity[pathTo]).findIndex( e => e._id == file._id );
                                 (baseEntity[pathTo]).splice(index, 1);
                                 (baseEntity[pathTo]).push(fileEntity);
@@ -233,7 +234,8 @@ class EMRouterManager {
                             {
                                 baseEntity[pathTo] = fileEntity;
                             }    
-                            fileEntity = file;                                                        
+                            fileEntity = file;       
+                            baseEntity.save();                                                 
                         });
                     }
                 }

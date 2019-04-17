@@ -22,7 +22,7 @@ class GfsMemberActivator extends MemberActivator
     {
         super( MemberBindingType.Chunks, extendedRoute, resourcePath )
 
-        this._defaultSchema =  options && options.schema ? options.schema : {name: String, fileExtension: String, size: Number };
+        this._defaultSchema =  options && options.schema ? options.schema : {_id: String, name: String, fileExtension: String, size: Number };
     }
 
     activateMember( entity : Entity, session : EMSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>

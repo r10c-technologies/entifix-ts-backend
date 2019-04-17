@@ -1,7 +1,8 @@
 //Core Dependencies
 import express = require('express');
-import bodyParser = require('body-parser');
 import fileUpload = require('express-fileupload');
+import bodyParser = require('body-parser');
+import multer = require('multer');
 import cors = require('cors');
 import amqp = require('amqplib/callback_api');
 import redis = require('redis');
@@ -119,15 +120,20 @@ abstract class EntifixApplication
     protected createMiddlewareFunctions() : Promise<void>
     {
         return new Promise<void>( (resolve,reject) => {
+            
             //JSON parser
             this._expressApp.use( bodyParser.json() );
-            
+
             //File uploader 
+            //this._expressApp.use( multer({dest: '/tmp-core-files/'}).any() );
+
+
             this._expressApp.use( fileUpload({
                 useTempFiles : true,
-                tempFileDir : '/tmp-files/'
-            }) );
-
+                tempFileDir : '/tmp-core-files/'
+            })); 
+            
+             
             //Enable cors if is required
             if (this.serviceConfiguration.cors && this.serviceConfiguration.cors.enable )
             {

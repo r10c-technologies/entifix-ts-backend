@@ -67,8 +67,8 @@ function DefinedAccessor( params? : {   exposition? : ExpositionType,
             info.schema = params.activator.defaultSchema;
         if (params.schema)
             info.schema = params.schema;
-        if (params.activator && params.activator.bindingType == MemberBindingType.Chunks && info.schema)
-            info.schema.select = false;
+/*         if (params.activator && params.activator.bindingType == MemberBindingType.Chunks && info.schema)
+            info.schema.select = false; */
 
         //Alias management
         if (params.alias)

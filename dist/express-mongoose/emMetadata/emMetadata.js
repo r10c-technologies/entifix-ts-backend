@@ -4,7 +4,7 @@ const hcMetaData_1 = require("../../hc-core/hcMetaData/hcMetaData");
 class GfsMemberActivator extends hcMetaData_1.MemberActivator {
     constructor(resourcePath, extendedRoute, options) {
         super(hcMetaData_1.MemberBindingType.Chunks, extendedRoute, resourcePath);
-        this._defaultSchema = options && options.schema ? options.schema : { name: String, fileExtension: String, size: Number };
+        this._defaultSchema = options && options.schema ? options.schema : { _id: String, name: String, fileExtension: String, size: Number };
     }
     activateMember(entity, session, accessorInfo, options) {
         switch (this.bindingType) {
