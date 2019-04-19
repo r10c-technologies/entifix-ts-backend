@@ -133,6 +133,8 @@ class EMRouterManager {
   
                     let gfs = gridfs(session.serviceSession.mongooseConnection.db, mongoose.mongo);
 
+                    //shirmigod
+                    // tengo que validar si existe el archivo antes de intentar devolverlo, de lo contrario da mongo error
                     let readstream = gfs.createReadStream({root: fileCollection, _id: idFile });
                     readstream.pipe(session.response).attachment(fileName);  
                 }
@@ -226,8 +228,6 @@ class EMRouterManager {
                             fileEntity._id = file._id.toString();  
                             if (expositionAccessorInfo.type == 'Array')
                             {                                                                        
-                                let index = (baseEntity[pathTo]).findIndex( e => e._id == file._id );
-                                (baseEntity[pathTo]).splice(index, 1);
                                 (baseEntity[pathTo]).push(fileEntity);
                             }
                             else

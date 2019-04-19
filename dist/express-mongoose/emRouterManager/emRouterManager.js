@@ -152,8 +152,6 @@ class EMRouterManager {
                         writestream.on('close', function (file) {
                             fileEntity._id = file._id.toString();
                             if (expositionAccessorInfo.type == 'Array') {
-                                let index = (baseEntity[pathTo]).findIndex(e => e._id == file._id);
-                                (baseEntity[pathTo]).splice(index, 1);
                                 (baseEntity[pathTo]).push(fileEntity);
                             }
                             else {
