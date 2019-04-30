@@ -73,16 +73,22 @@ class EMRouterManager {
             }
             if (expositionAccessorInfo.activator.bindingType == hcMetaData_1.MemberBindingType.Chunks) {
                 if (objectToExpose instanceof Array) {
-                    //serializar con response wrapper
                     constructionController.responseWrapper.object(session.response, objectToExpose);
                 }
                 else {
-                    let fileCollection = session.systemOwner.toLowerCase() + "_files";
+                    let fileCollection = session.systemOwner.toLowerCase();
                     let idFile = objectToExpose ? objectToExpose._id : null;
                     let fileName = objectToExpose.name;
                     let gfs = gridfs(session.serviceSession.mongooseConnection.db, mongoose.mongo);
-                    let readstream = gfs.createReadStream({ root: fileCollection, _id: idFile });
-                    readstream.pipe(session.response).attachment(fileName);
+                    gfs.exist({ root: fileCollection, _id: idFile }, function (err, result) {
+                        if (!err && result) {
+                            let readstream = gfs.createReadStream({ root: fileCollection, _id: idFile });
+                            readstream.pipe(session.response).attachment(fileName);
+                        }
+                        else {
+                            constructionController.responseWrapper.logicError(session.response, "The file does not exist in database");
+                        }
+                    });
                 }
             }
             else {
@@ -134,7 +140,7 @@ class EMRouterManager {
                 }
                 else {
                     if (!result.error) {
-                        let fileCollection = session.systemOwner.toLowerCase() + '_files';
+                        let fileCollection = session.systemOwner.toLowerCase();
                         let fileKey = result.data.fileKey;
                         let file = session.request.files[fileKey];
                         let mimetype = file.mimetype;
@@ -209,9 +215,10 @@ class EMRouterManager {
                         baseEntity[pathTo] = result;
                 }
                 else {
-                    if (!result.error) {
-                        let fileCollection = session.systemOwner + '_files';
-                        let id = result.data.id;
+                    if (!result.error && result.data.fileKey) {
+                        let member = expositionAccessorInfo.persistentAlias ? expositionAccessorInfo.persistentAlias : expositionAccessorInfo.name;
+                        let fileCollection = session.systemOwner.toLowerCase();
+                        let id = expositionAccessorInfo.type == 'Array' ? pathOverInstance[pathOverInstance.length - 1] : baseEntity[member]._id;
                         let fileKey = result.data.fileKey;
                         let file = session.request.files[fileKey];
                         let mimetype = file.mimetype;
@@ -224,23 +231,24 @@ class EMRouterManager {
                             size: fileSize
                         };
                         let gfs = gridfs(session.serviceSession.mongooseConnection.db, mongoose.mongo);
-                        gfs.findOne({ root: fileCollection, _id: id }, function (err, dfile) {
-                            if (!err) {
-                                gfs.remove({ root: fileCollection, _id: dfile._id }, function (err) {
+                        gfs.exist({ root: fileCollection, _id: id }, function (err, result) {
+                            if (!err && result) {
+                                gfs.remove({ root: fileCollection, _id: id }, function (err) {
                                     if (!err) {
                                         let writestream = gfs.createWriteStream({ root: fileCollection, _id: id, filename, content_type: mimetype });
                                         fs.createReadStream(filePath).pipe(writestream);
                                         writestream.on('close', function (file) {
                                             fileEntity._id = file._id.toString();
                                             if (expositionAccessorInfo.type == 'Array') {
-                                                let index = (baseEntity[pathTo]).findIndex(e => e._id == file._id);
-                                                (baseEntity[pathTo]).splice(index, 1);
-                                                (baseEntity[pathTo]).push(fileEntity);
+                                                let index = (baseEntity[member]).findIndex(e => e._id == file._id.toString());
+                                                (baseEntity[member]).splice(index, 1);
+                                                (baseEntity[member]).push(fileEntity);
                                             }
                                             else {
                                                 baseEntity[pathTo] = fileEntity;
                                             }
                                             fileEntity = file;
+                                            baseEntity.save();
                                         });
                                     }
                                 });
@@ -270,30 +278,75 @@ class EMRouterManager {
     }
     resolveComplexDelete(session, construtorType, instanceId, expositionAccessorInfo, pathOverInstance) {
         let constructionController = this.findController(construtorType);
-        //Arreglar Shirley
-        let expositionController = this.findController(expositionAccessorInfo.activator.entityInfo.name);
+        let expositionController;
+        let validateReqBody;
+        switch (expositionAccessorInfo.activator.bindingType) {
+            case hcMetaData_1.MemberBindingType.Reference:
+            case hcMetaData_1.MemberBindingType.Snapshot:
+                validateReqBody = () => {
+                    expositionController = this.findController(expositionAccessorInfo.activator.entityInfo.name);
+                    return expositionController.createInstance(session.request, session.response, { alwaysNew: true });
+                };
+                break;
+            case hcMetaData_1.MemberBindingType.Chunks:
+                validateReqBody = () => this.genericValidation(session.request, { bindingType: hcMetaData_1.MemberBindingType.Chunks, method: "delete" });
+                break;
+        }
         constructionController.findEntity(session, instanceId).then(baseEntity => {
-            expositionController.createInstance(session.request, session.response, { alwaysNew: true }).then(exEntity => {
+            validateReqBody().then(result => {
                 let objectToExpose = baseEntity[pathOverInstance[0]];
                 let pathTo = pathOverInstance[0];
+                let fileEntity = {};
                 for (let i = 1; i < pathOverInstance.length; i++) {
-                    objectToExpose = objectToExpose[pathOverInstance[i]];
+                    objectToExpose = objectToExpose ? objectToExpose[pathOverInstance[i]] : null;
                     pathTo = pathTo + '.' + pathOverInstance[i];
                 }
-                if (expositionAccessorInfo.type == 'Array') {
-                    let index = baseEntity[pathTo].findIndex(e => e._id == exEntity._id);
-                    baseEntity[pathTo].splice(index, 1);
+                if (result instanceof emEntity_1.EMEntity) {
+                    if (expositionAccessorInfo.type == 'Array') {
+                        let index = baseEntity[pathTo].findIndex(e => e._id == result._id);
+                        baseEntity[pathTo].splice(index, 1);
+                    }
+                    else
+                        baseEntity[pathTo] = result;
                 }
-                else
-                    baseEntity[pathTo] = exEntity;
+                else {
+                    if (!result.error && result.data.ok) {
+                        let member = expositionAccessorInfo.persistentAlias ? expositionAccessorInfo.persistentAlias : expositionAccessorInfo.name;
+                        let fileCollection = session.systemOwner.toLowerCase();
+                        let idFile = expositionAccessorInfo.type == 'Array' ? pathOverInstance[pathOverInstance.length - 1] : baseEntity[member]._id;
+                        let gfs = gridfs(session.serviceSession.mongooseConnection.db, mongoose.mongo);
+                        gfs.exist({ _id: idFile, root: fileCollection }, function (err, file) {
+                            if (!err || file) {
+                                gfs.remove({ _id: idFile, root: fileCollection }, function (err) {
+                                    if (!err) {
+                                        if (expositionAccessorInfo.type == 'Array') {
+                                            let index = (baseEntity[member]).findIndex(e => e._id == idFile);
+                                            (baseEntity[member]).splice(index, 1);
+                                        }
+                                        else {
+                                            baseEntity[member] = null;
+                                        }
+                                        baseEntity.save();
+                                    }
+                                });
+                            }
+                            else {
+                                constructionController.responseWrapper.logicError(session.response, "The file does not exists");
+                            }
+                        });
+                    }
+                }
                 baseEntity.save().then(movFlow => {
                     if (movFlow.continue)
-                        expositionController.responseWrapper.entity(session.response, exEntity);
+                        if (result instanceof emEntity_1.EMEntity)
+                            expositionController.responseWrapper.entity(session.response, result);
+                        else
+                            constructionController.responseWrapper.logicAccept(session.response, "File successfully deleted");
                     else
-                        expositionController.responseWrapper.logicError(session.response, movFlow.message);
-                }, error => expositionController.responseWrapper.exception(session.response, error));
+                        constructionController.responseWrapper.logicError(session.response, movFlow.message);
+                }, error => constructionController.responseWrapper.exception(session.response, error));
             });
-        }, error => expositionController.responseWrapper.exception(session.response, error));
+        }, error => constructionController.responseWrapper.exception(session.response, error));
     }
     getExpositionDetails() {
         return this._routers.map(r => { return { entityName: r.entityName, resourceName: r.controller.resourceName, basePath: r.basePath }; });
@@ -312,13 +365,13 @@ class EMRouterManager {
                 if (request.files && Object.keys(request.files).length > 0) {
                     let properties = Object.keys(request.files);
                     let fileKey = properties[0];
-                    if (options.method && options.method == 'update' && request.body && request.body.id)
-                        resolve({ data: { fileKey: fileKey, id: request.body.id } });
-                    else
-                        resolve({ data: { fileKey: fileKey } });
+                    resolve({ data: { fileKey: fileKey } });
+                }
+                else if (options.method && options.method == 'delete') {
+                    resolve({ data: { ok: true } });
                 }
                 else {
-                    resolve({ error: 'Uncomplete data submitted' });
+                    resolve({ error: 'File Handle Error' });
                 }
             }
             else {

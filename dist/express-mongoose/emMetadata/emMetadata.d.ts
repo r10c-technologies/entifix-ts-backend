@@ -39,6 +39,7 @@ declare class EMMemberActivator<TEntity extends EMEntity, TDocument extends Enti
     readonly defaultSchema: any;
 }
 interface IChunkMember {
+    _id: string;
     name: string;
     fileExtension: string;
     size: number;

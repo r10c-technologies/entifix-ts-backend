@@ -284,6 +284,7 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
 
 interface IChunkMember
 {
+    _id: string,
     name: string,
     fileExtension: string,
     size: number
