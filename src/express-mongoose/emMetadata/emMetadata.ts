@@ -1,16 +1,85 @@
+import gridfs = require('gridfs-stream');
+import mongoose = require('mongoose');
+
 import { EntityInfo, MemberActivator, AccessorInfo, MemberBindingType } from '../../hc-core/hcMetaData/hcMetaData';
 import { Entity } from '../../hc-core/hcEntity/hcEntity';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMSession } from '../emSession/emSession';
 
+class GfsMemberActivator extends MemberActivator
+{
+    //#region Properties
+
+    private _defaultSchema: any;
+
+    //#endregion
+
+    //#region Methods
+    
+    constructor( resourcePath : string, extendedRoute : boolean );
+    constructor( resourcePath : string, extendedRoute : boolean, options : { schema?: any } );
+    constructor( resourcePath : string, extendedRoute : boolean, options? : { schema?: any } )
+    {
+        super( MemberBindingType.Chunks, extendedRoute, resourcePath )
+
+        this._defaultSchema =  options && options.schema ? options.schema : {_id: String, name: String, fileExtension: String, size: Number };
+    }
+
+    activateMember( entity : Entity, session : EMSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
+    {
+        switch (this.bindingType) 
+        {
+            //shir: case para chunk
+            case MemberBindingType.Chunks:
+                return this.loadFileHeader(entity as EMEntity, session, accessorInfo, options);
+                
+        }        
+    }
+
+    
+    private loadFileHeader(entity : EMEntity, session : EMSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
+    {
+        return new Promise<{ oldValue? : any, newValue : any }>( (resolve, reject) => {
+            
+            let doc = entity.getDocument();
+            let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
+            let docData = doc[persistentMember];
+
+            let oldValue : any;
+            let newValue : any;
+
+            if (docData)
+            {
+                newValue = docData; 
+            }
+
+            if (options && options.oldValue)
+            {
+                oldValue = options.oldValue; 
+            }
+            resolve({newValue, oldValue});
+        });     
+    }
+
+    //#endregion
+
+    //#region Accessors
+
+    get referenceType ( )
+    { return this.bindingType == MemberBindingType.Reference ? 'object' : null; }
+
+    get defaultSchema ()
+    { return this._defaultSchema }
+
+    //#endregion
+
+}
 
 class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocument> extends MemberActivator 
 {
     //#region Properties
 
-    private _bindingType : MemberBindingType;
-    private _extendRoute : boolean;
-    private _resourcePath : string;
+    private _entityInfo : EntityInfo;
     
     //#endregion
 
@@ -20,17 +89,14 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
     constructor(entityInfo : EntityInfo, bindingType : MemberBindingType, extendRoute : boolean, options : { resourcePath? : string } );
     constructor(entityInfo : EntityInfo, bindingType : MemberBindingType, extendRoute : boolean, options? : { resourcePath? : string } )
     {
-        super(entityInfo);
+        super(bindingType, extendRoute, options != null && options.resourcePath != null ? options.resourcePath : entityInfo.name.toLowerCase());
 
-        this._bindingType = bindingType;
-        this._extendRoute = extendRoute;
-
-        this._resourcePath = options != null && options.resourcePath != null ? options.resourcePath : entityInfo.name.toLowerCase();
+        this._entityInfo = entityInfo;        
     }
 
     activateMember( entity : Entity, session : EMSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
     {
-        switch (this._bindingType) 
+        switch (this.bindingType) 
         {
             case MemberBindingType.Reference:
                 if (accessorInfo.type == 'Array')
@@ -199,25 +265,29 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
         });
     }
 
+
     //#endregion
 
     //#region Accessors
 
-    get bindingType ()
-    { return this._bindingType; }
-
-    get extendRoute ()
-    { return this._extendRoute; }
-
-    get resourcePath ()
-    { return this._resourcePath || this.entityInfo.name.toLowerCase(); }
+    get entityInfo()
+    { return this._entityInfo; }
 
     get referenceType ( )
-    { return this._bindingType == MemberBindingType.Reference ? 'string' : null; }
+    { return this.bindingType == MemberBindingType.Reference ? 'string' : null; }
 
+    get defaultSchema ()
+    { return null; }
     //#endregion
-
 
 }
 
-export { EMMemberActivator }
+interface IChunkMember
+{
+    _id: string,
+    name: string,
+    fileExtension: string,
+    size: number
+}
+
+export { EMMemberActivator, GfsMemberActivator, IChunkMember }

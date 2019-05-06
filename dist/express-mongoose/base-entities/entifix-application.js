@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 //Core Dependencies
 const express = require("express");
+const fileUpload = require("express-fileupload");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const events_1 = require("events");
@@ -57,6 +58,12 @@ class EntifixApplication {
         return new Promise((resolve, reject) => {
             //JSON parser
             this._expressApp.use(bodyParser.json());
+            //File uploader 
+            //this._expressApp.use( multer({dest: '/tmp-core-files/'}).any() );
+            this._expressApp.use(fileUpload({
+                useTempFiles: true,
+                tempFileDir: '/tmp-core-files/'
+            }));
             //Enable cors if is required
             if (this.serviceConfiguration.cors && this.serviceConfiguration.cors.enable) {
                 let defaultValues = this.serviceConfiguration.cors.options || {

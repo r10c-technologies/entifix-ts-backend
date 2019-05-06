@@ -3,7 +3,7 @@ import { EMSession } from '../emSession/emSession';
 import { EMEntityController } from '../emEntityController/emEntityController';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
-import { AccessorInfo } from '../../hc-core/hcMetaData/hcMetaData';
+import { AccessorInfo, MemberBindingType } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
 declare class EMRouterManager {
     private _serviceSession;
@@ -39,6 +39,10 @@ declare class EMRouterManager {
         basePath: string;
     }>;
     findController<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string): EMEntityController<TDocument, TEntity>;
+    genericValidation(request: express.Request, options?: {
+        bindingType?: MemberBindingType;
+        method?: string;
+    }): Promise<GenericRequestValidation>;
     private getCompleteBasePath;
     readonly serviceSession: EMServiceSession;
     readonly expressAppInstance: express.Application;
@@ -66,4 +70,10 @@ declare class EMSimpleController {
     protected readonly responseWrapper: EMResponseWrapper;
     protected readonly resouceName: string;
 }
-export { EMRouterManager, EMSimpleController };
+interface GenericRequestValidation {
+    data?: any;
+    error?: string;
+    errorData?: any;
+    devData?: any;
+}
+export { EMRouterManager, EMSimpleController, GenericRequestValidation };

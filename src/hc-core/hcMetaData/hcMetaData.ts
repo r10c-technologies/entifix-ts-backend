@@ -56,13 +56,23 @@ function DefinedAccessor( params? : {   exposition? : ExpositionType,
         var entityInfo = defineMetaData(target, CreationType.member);
         var reflectInfo = Reflect.getMetadata('design:type', target, key);
         
+        //Default values for accessor info
         var info = new AccessorInfo();
         info.name = key;
-        info.schema = params.schema;
         info.className = target.constructor.name;
         info.type = reflectInfo.name;
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
         info.activator = params.activator;
+
+        //Behavior for default schema and chunks
+        if (params.activator && params.activator.defaultSchema)
+            info.schema = params.activator.defaultSchema;
+        if (params.schema)
+            info.schema = params.schema;
+/*         if (params.activator && params.activator.bindingType == MemberBindingType.Chunks && info.schema)
+            info.schema.select = false; */
+
+        //Alias management
         info.display = params.display || getDisplayByCleanedName(key);
         
         if (params.alias)
@@ -74,6 +84,7 @@ function DefinedAccessor( params? : {   exposition? : ExpositionType,
         if (params.exposition)
             info.exposition = params.exposition;
 
+        //Warnings for types
         if (params.persistenceType && params.persistenceType == PersistenceType.Auto && params.schema)
             console.warn(`The Persistence type for ${key} is defined as Auto, so the defined Schema will be ignored`);
 
@@ -387,15 +398,19 @@ abstract class MemberActivator
 {
     //#region Properties
 
-    private _entityInfo : EntityInfo;
-    
+    private _bindingType : MemberBindingType;
+    private _resourcePath : string;
+    private _extendRoute : boolean;
+        
     //#endregion
 
     //#region Methods
         
-    constructor(info : EntityInfo)
+    constructor( bindingType : MemberBindingType, extendedRoute: boolean, resourcePath : string)
     {
-        this._entityInfo = info;
+        this._bindingType = bindingType;
+        this._extendRoute = extendedRoute;
+        this._resourcePath = resourcePath;
     }
 
     abstract activateMember( entity : Entity, session : HcSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
@@ -404,14 +419,18 @@ abstract class MemberActivator
 
     //#region Accessors
 
-    get entityInfo()
-    { return this._entityInfo; }
+    get bindingType () : MemberBindingType
+    { return this._bindingType; }
 
-    abstract get resourcePath() : string;
-    abstract get extendRoute () : boolean;
-    abstract get bindingType () : MemberBindingType;
-    abstract get referenceType () : string;
+    get resourcePath() : string
+    { return this._resourcePath; }
+
+    get extendRoute () : boolean
+    { return this._extendRoute; }
     
+    abstract get referenceType () : string;
+    abstract get defaultSchema () : any;
+
     //#endregion
 
 }
@@ -613,7 +632,8 @@ enum ExpositionType
 enum MemberBindingType
 {
     Reference = 1,
-    Snapshot = 2
+    Snapshot = 2,
+    Chunks = 3
 }
 
 enum RequestedType {

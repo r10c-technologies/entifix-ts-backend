@@ -31,13 +31,21 @@ function DefinedAccessor(params) {
     return function (target, key, descriptor) {
         var entityInfo = defineMetaData(target, CreationType.member);
         var reflectInfo = Reflect.getMetadata('design:type', target, key);
+        //Default values for accessor info
         var info = new AccessorInfo();
         info.name = key;
-        info.schema = params.schema;
         info.className = target.constructor.name;
         info.type = reflectInfo.name;
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
         info.activator = params.activator;
+        //Behavior for default schema and chunks
+        if (params.activator && params.activator.defaultSchema)
+            info.schema = params.activator.defaultSchema;
+        if (params.schema)
+            info.schema = params.schema;
+        /*         if (params.activator && params.activator.bindingType == MemberBindingType.Chunks && info.schema)
+                    info.schema.select = false; */
+        //Alias management
         info.display = params.display || getDisplayByCleanedName(key);
         if (params.alias)
             info.setAlias(params.alias);
@@ -47,6 +55,7 @@ function DefinedAccessor(params) {
             info.persistentAlias = params.persistentAlias;
         if (params.exposition)
             info.exposition = params.exposition;
+        //Warnings for types
         if (params.persistenceType && params.persistenceType == PersistenceType.Auto && params.schema)
             console.warn(`The Persistence type for ${key} is defined as Auto, so the defined Schema will be ignored`);
         if (reflectInfo.name == 'Object' && params.persistenceType != PersistenceType.Auto)
@@ -235,12 +244,16 @@ exports.EntityInfo = EntityInfo;
 class MemberActivator {
     //#endregion
     //#region Methods
-    constructor(info) {
-        this._entityInfo = info;
+    constructor(bindingType, extendedRoute, resourcePath) {
+        this._bindingType = bindingType;
+        this._extendRoute = extendedRoute;
+        this._resourcePath = resourcePath;
     }
     //#endregion
     //#region Accessors
-    get entityInfo() { return this._entityInfo; }
+    get bindingType() { return this._bindingType; }
+    get resourcePath() { return this._resourcePath; }
+    get extendRoute() { return this._extendRoute; }
 }
 exports.MemberActivator = MemberActivator;
 class MemberInfo {
@@ -333,6 +346,7 @@ var MemberBindingType;
 (function (MemberBindingType) {
     MemberBindingType[MemberBindingType["Reference"] = 1] = "Reference";
     MemberBindingType[MemberBindingType["Snapshot"] = 2] = "Snapshot";
+    MemberBindingType[MemberBindingType["Chunks"] = 3] = "Chunks";
 })(MemberBindingType || (MemberBindingType = {}));
 exports.MemberBindingType = MemberBindingType;
 var RequestedType;
