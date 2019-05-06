@@ -5,8 +5,8 @@ import { HcSession } from '../hcSession/hcSession';
 import { method } from 'bluebird';
 
 function DefinedEntity( );
-function DefinedEntity( params : { packageName? : string, abstract? : boolean, fixedSystemOwner? : string } );
-function DefinedEntity( params? : { packageName : string, abstract? : boolean, fixedSystemOwner? : string } )
+function DefinedEntity( params : { packageName? : string, abstract? : boolean, fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType> } )
+function DefinedEntity( params? : { packageName : string, abstract? : boolean, fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType> } )
 {    
     return function(target : Function)
     {
@@ -26,10 +26,11 @@ function DefinedEntity( params? : { packageName : string, abstract? : boolean, f
         if (info.name != target.name)
         {
             let options = {
-                fixedSystemOwner: params ? params.fixedSystemOwner : null
+                fixedSystemOwner: params ? params.fixedSystemOwner : null,
+                allowRequestedType: params ? params.allowRequestedType : true
             };
 
-            let newInfo = new EntityInfo(target.name, options );
+            let newInfo = new EntityInfo(target.name, options);
             newInfo.implementBaseInfo(info, tempIsAbstract );
             newInfo.packageName = tempPackageName;
             
@@ -45,7 +46,8 @@ function DefinedAccessor( params? : {   exposition? : ExpositionType,
                                         alias? : string,
                                         serializeAlias? : string,
                                         persistentAlias? : string,
-                                        activator? : MemberActivator } ) 
+                                        activator? : MemberActivator,
+                                        display? : string } ) 
 {
 
     params = params || { };
@@ -71,6 +73,8 @@ function DefinedAccessor( params? : {   exposition? : ExpositionType,
             info.schema.select = false; */
 
         //Alias management
+        info.display = params.display || getDisplayByCleanedName(key);
+        
         if (params.alias)
             info.setAlias(params.alias);
         if (params.serializeAlias)
@@ -240,25 +244,30 @@ class EntityInfo
     //#region Properties
     private _packageName: string;
     private _name : string;
+    private _display: string;
     private _definedMembers : Array<MemberInfo>;
     private _base : EntityInfo;
     private _isAbstract : boolean;
     private _fixedSystemOwner : string;
+    private _allowRequestedType : boolean | RequestedType | Array<RequestedType>;
 
     //#endregion
 
     //#region Methods
     constructor( name : string );
-    constructor( name : string, options: { fixedSystemOwner? : string } );
-    constructor( name : string, options?: { fixedSystemOwner? : string } )
+    constructor( name : string, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType> }, display : string );
+    constructor( name : string, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType> }, display? : string );
+    constructor( name : string, options?: { fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType> }, display?: string )
     {   
         this._name = name;
         this._definedMembers = new Array<MemberInfo>();    
         this._isAbstract = true;
+        this._display = display ? display : name;
 
-        if ( options )
+        if (options)
         {
             this._fixedSystemOwner = options.fixedSystemOwner;
+            this._allowRequestedType = options.allowRequestedType;
         }
     }
 
@@ -361,6 +370,10 @@ class EntityInfo
     { return this._name; }
     set name (value)
     { this._name = value; } 
+    get display () 
+    { return this._display; }
+    set display (value)
+    { this._display = value; } 
     get packageName ()
     { return this._packageName; }
     set packageName (value)
@@ -374,6 +387,9 @@ class EntityInfo
 
     get fixedSystemOwner()
     { return this._fixedSystemOwner; }
+
+    get allowRequestedType()
+    { return this._allowRequestedType; }
 
     //#endregion
 }
@@ -488,6 +504,7 @@ class AccessorInfo extends MemberInfo
 {
     //#region Properties
 
+    private _display : string;
     private _exposition : ExpositionType;
     private _schema : any;
     private _persistenceType : PersistenceType;
@@ -515,6 +532,11 @@ class AccessorInfo extends MemberInfo
     //#endregion
 
     //#region Accessors
+
+    get display () 
+    { return this._display; }
+    set display (value)
+    { this._display = value; }
 
     get exposition () 
     { return this._exposition; }
@@ -584,6 +606,11 @@ class MethodInfo extends MemberInfo
     //#endregion
 }
 
+function getDisplayByCleanedName(stringToClean : string) : string
+{
+    return stringToClean ? stringToClean.charAt(0).toUpperCase() + stringToClean.substring(1, stringToClean.length).toLowerCase() : "";
+}
+
 interface IMetaDataInfo 
 {
     entityInfo : EntityInfo
@@ -597,16 +624,21 @@ enum PersistenceType
 
 enum ExpositionType
 {
+    System = 'system',
     Normal = 'normal',
     ReadOnly = 'readOnly'
 }
-
 
 enum MemberBindingType
 {
     Reference = 1,
     Snapshot = 2,
     Chunks = 3
+}
+
+enum RequestedType {
+    XLS = 'xls',
+    PDF = 'pdf'
 }
 
 export {

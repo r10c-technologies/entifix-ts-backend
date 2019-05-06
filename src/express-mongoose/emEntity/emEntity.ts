@@ -77,7 +77,7 @@ class EMEntity extends Entity
             let exposedName = accessor.serializeAlias || accessor.name;
             let persistentName = accessor.persistentAlias || accessor.name;
 
-            if (accessor.exposition == ExpositionType.Normal)
+            if (accessor.exposition == ExpositionType.Normal || accessor.exposition == ExpositionType.System)
             {
                 let isPersistent = accessor.schema != null || accessor.persistenceType == PersistenceType.Auto;
                 if (isPersistent)
@@ -266,21 +266,21 @@ class EMEntity extends Entity
     set modified (value : Date)
     { this._document.modified = value; }
 
-    @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: Date, require: false } })
+    @DefinedAccessor({ schema : {  type: Date, require: false } })
     get deleted () : Date
     { return this._document.deleted; }
     set deleted (value : Date)
     { this._document.deleted = value; }
 
-    @DefinedAccessor({ exposition: ExpositionType.Normal, persistenceType: PersistenceType.Auto, serializeAlias: 'id' })
+    @DefinedAccessor({ exposition: ExpositionType.System, persistenceType: PersistenceType.Auto, serializeAlias: 'id', display: "Id" })
     get _id () : any
     { return this._document._id; }
 
-    @DefinedAccessor({ exposition: ExpositionType.Normal, persistenceType: PersistenceType.Auto, serializeAlias: 'v' })
+    @DefinedAccessor({ exposition: ExpositionType.System, persistenceType: PersistenceType.Auto, serializeAlias: 'v', display: "Version" })
     get __v () : number
     { return this._document.__v; }
 
-    @DefinedAccessor({ schema : { type: Boolean, require: true} })
+    @DefinedAccessor({ schema : { type: Boolean, require: true } })
     get deferredDeletion() : Boolean
     { return this._document.deferredDeletion; }
     set deferredDeletion( value : Boolean )

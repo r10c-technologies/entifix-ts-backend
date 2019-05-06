@@ -9,7 +9,11 @@ declare class EMRouterManager {
     private _serviceSession;
     private _expressAppInstance;
     private _routers;
+    private _basePath;
     constructor(serviceSession: EMServiceSession, exrpressAppInstance: express.Application);
+    constructor(serviceSession: EMServiceSession, exrpressAppInstance: express.Application, options: {
+        basePath?: string;
+    });
     exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity>(entityName: string): void;
     exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity>(entityName: string, options: {
         controller?: EMEntityController<TDocument, TEntity>;
@@ -39,8 +43,10 @@ declare class EMRouterManager {
         bindingType?: MemberBindingType;
         method?: string;
     }): Promise<GenericRequestValidation>;
+    private getCompleteBasePath;
     readonly serviceSession: EMServiceSession;
     readonly expressAppInstance: express.Application;
+    readonly basePath: string;
 }
 declare class EMSimpleController {
     private _retrieveMethod;

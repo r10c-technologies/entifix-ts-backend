@@ -36,6 +36,7 @@ class EMServiceSession
     private _devMode : boolean;
     private _allowFixedSystemOwners : boolean;
     private _cacheService : { host: string, port: number };
+    private _reportsService: { host : string, port : string, path : string, methodToRequest : string };
 
     //Main artifact instances
     private _amqpEventManager : AMQPEventManager;
@@ -59,8 +60,8 @@ class EMServiceSession
     //#region Methods
 
     constructor (serviceName: string, mongoService : string | MongoServiceConfig);
-    constructor (serviceName: string, mongoService : string | MongoServiceConfig, options: { amqpService? : string, cacheService? : { host: string, port: number } });
-    constructor (serviceName: string, mongoService : string | MongoServiceConfig, options?: { amqpService? : string, cacheService? : { host: string, port: number } })
+    constructor (serviceName: string, mongoService : string | MongoServiceConfig, options: { amqpService? : string, cacheService? : { host: string, port: number }, reportsService? : { host: string, port: string, path: string, methodToRequest: string } });
+    constructor (serviceName: string, mongoService : string | MongoServiceConfig, options?: { amqpService? : string, cacheService? : { host: string, port: number }, reportsService? : { host: string, port: string, path: string, methodToRequest: string } })
     {
         this._serviceName = serviceName;
         this._entitiesInfo = [];
@@ -84,6 +85,12 @@ class EMServiceSession
         if (options && options.cacheService)
         {
             this._cacheService = options.cacheService;
+        }
+
+        //Reports Service
+        if (options && options.reportsService)
+        {
+            this._reportsService = options.reportsService;
         }
     }
 
@@ -424,6 +431,9 @@ class EMServiceSession
 
     get authCacheClient() : redis.RedisClient
     { return this._authCacheClient; } 
+
+    get reportsService() : { host : string, port : string, path : string, methodToRequest : string }
+    { return this._reportsService; } 
 
 
     //#endregion

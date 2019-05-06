@@ -15,7 +15,8 @@ function DefinedEntity(params) {
         let info = target.prototype.entityInfo;
         if (info.name != target.name) {
             let options = {
-                fixedSystemOwner: params ? params.fixedSystemOwner : null
+                fixedSystemOwner: params ? params.fixedSystemOwner : null,
+                allowRequestedType: params ? params.allowRequestedType : true
             };
             let newInfo = new EntityInfo(target.name, options);
             newInfo.implementBaseInfo(info, tempIsAbstract);
@@ -37,6 +38,7 @@ function DefinedAccessor(params) {
         info.type = reflectInfo.name;
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
         info.activator = params.activator;
+<<<<<<< HEAD
         //Behavior for default schema and chunks
         if (params.activator && params.activator.defaultSchema)
             info.schema = params.activator.defaultSchema;
@@ -45,6 +47,9 @@ function DefinedAccessor(params) {
         /*         if (params.activator && params.activator.bindingType == MemberBindingType.Chunks && info.schema)
                     info.schema.select = false; */
         //Alias management
+=======
+        info.display = params.display || getDisplayByCleanedName(key);
+>>>>>>> develop
         if (params.alias)
             info.setAlias(params.alias);
         if (params.serializeAlias)
@@ -160,12 +165,14 @@ function isMetaDataInfo(object) {
     return 'entityInfo' in object;
 }
 class EntityInfo {
-    constructor(name, options) {
+    constructor(name, options, display) {
         this._name = name;
         this._definedMembers = new Array();
         this._isAbstract = true;
+        this._display = display ? display : name;
         if (options) {
             this._fixedSystemOwner = options.fixedSystemOwner;
+            this._allowRequestedType = options.allowRequestedType;
         }
     }
     addAccessorInfo(accessorInfo) {
@@ -227,11 +234,14 @@ class EntityInfo {
     //#region Accessors
     get name() { return this._name; }
     set name(value) { this._name = value; }
+    get display() { return this._display; }
+    set display(value) { this._display = value; }
     get packageName() { return this._packageName; }
     set packageName(value) { this._packageName = value; }
     get base() { return this._base; }
     get isAbstract() { return this._isAbstract; }
     get fixedSystemOwner() { return this._fixedSystemOwner; }
+    get allowRequestedType() { return this._allowRequestedType; }
 }
 exports.EntityInfo = EntityInfo;
 class MemberActivator {
@@ -288,6 +298,8 @@ class AccessorInfo extends MemberInfo {
     }
     //#endregion
     //#region Accessors
+    get display() { return this._display; }
+    set display(value) { this._display = value; }
     get exposition() { return this._exposition; }
     set exposition(value) { this._exposition = value; }
     get schema() { return this._schema; }
@@ -317,6 +329,9 @@ class MethodInfo extends MemberInfo {
     set eventName(value) { this._eventName = value; }
 }
 exports.MethodInfo = MethodInfo;
+function getDisplayByCleanedName(stringToClean) {
+    return stringToClean ? stringToClean.charAt(0).toUpperCase() + stringToClean.substring(1, stringToClean.length).toLowerCase() : "";
+}
 var PersistenceType;
 (function (PersistenceType) {
     PersistenceType[PersistenceType["Defined"] = 1] = "Defined";
@@ -325,6 +340,7 @@ var PersistenceType;
 exports.PersistenceType = PersistenceType;
 var ExpositionType;
 (function (ExpositionType) {
+    ExpositionType["System"] = "system";
     ExpositionType["Normal"] = "normal";
     ExpositionType["ReadOnly"] = "readOnly";
 })(ExpositionType || (ExpositionType = {}));
@@ -336,4 +352,9 @@ var MemberBindingType;
     MemberBindingType[MemberBindingType["Chunks"] = 3] = "Chunks";
 })(MemberBindingType || (MemberBindingType = {}));
 exports.MemberBindingType = MemberBindingType;
+var RequestedType;
+(function (RequestedType) {
+    RequestedType["XLS"] = "xls";
+    RequestedType["PDF"] = "pdf";
+})(RequestedType || (RequestedType = {}));
 //# sourceMappingURL=hcMetaData.js.map

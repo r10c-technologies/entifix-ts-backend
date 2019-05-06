@@ -28,17 +28,22 @@ class EMRouterManager {
     private _serviceSession : EMServiceSession;
     private _expressAppInstance : express.Application;
     private _routers : Array<IExpositionDetail>;
+    private _basePath: string;
 
     //#endregion
 
 
     //#regrion Methods
     
-    constructor (serviceSession : EMServiceSession, exrpressAppInstance : express.Application)
+    constructor (serviceSession : EMServiceSession, exrpressAppInstance : express.Application);
+    constructor (serviceSession : EMServiceSession, exrpressAppInstance : express.Application, options : { basePath? : string } );
+    constructor (serviceSession : EMServiceSession, exrpressAppInstance : express.Application, options? : { basePath? : string })
     {
         this._serviceSession = serviceSession;
         this._expressAppInstance = exrpressAppInstance;
         this._routers = new Array<IExpositionDetail>();
+
+        this._basePath = options && options.basePath ? options.basePath : null;
     }
 
     
@@ -46,26 +51,26 @@ class EMRouterManager {
     exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity> ( entityName : string, options : { controller? : EMEntityController<TDocument, TEntity>, basePath? : string, resourceName? : string  } ) : void;
     exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity> ( entityName : string, options? : { controller? : EMEntityController<TDocument, TEntity>, basePath? : string, resourceName? : string  } ) : void
     {
-        let basePath = options && options.basePath ? options.basePath : 'api';
+        let basePath = this.getCompleteBasePath( options && options.basePath ? options.basePath : null );
         let resourceName = options && options.resourceName ? options.resourceName : null; 
 
         let entityController : EMEntityController<TDocument, TEntity>;
         if (options && options.controller)
             entityController = options.controller;
         else            
-            entityController = new EMEntityController<TDocument, TEntity>( entityName, this, {  resourceName } );   
+            entityController = new EMEntityController<TDocument, TEntity>( entityName, this, { resourceName } );   
         
         this._routers.push( { entityName : entityName, controller : entityController, basePath } );
-        this._expressAppInstance.use('/' + basePath, entityController.router);
+        this._expressAppInstance.use(basePath, entityController.router);
     }
 
     atachController( controller : EMSimpleController );
     atachController( controller : EMSimpleController, options : { basePath? : string } );
     atachController( controller : EMSimpleController, options? : { basePath? : string } )
     {
-        let basePath = options && options.basePath ? options.basePath : 'api';
+        let basePath = this.getCompleteBasePath( options && options.basePath ? options.basePath : null );
         controller.createRoutes();
-        this._expressAppInstance.use('/'+ basePath, controller.router);
+        this._expressAppInstance.use(basePath, controller.router);
         this._routers.push( { entityName : null, controller: controller, basePath }) ;
     }
 
@@ -73,7 +78,7 @@ class EMRouterManager {
     exposeEnumeration( name: string, enumerator : any, options : { basePath? : string, resourceName? : string } ) : void;
     exposeEnumeration( name: string, enumerator : any, options?  : { basePath? : string, resourceName? : string } ) : void
     {
-        let basePath = options && options.basePath ? options.basePath : 'api';
+        let basePath = this.getCompleteBasePath( options && options.basePath ? options.basePath : null );
         let resourceName = options && options.resourceName ? options.resourceName : name.toLowerCase();
         let newController = new EMSimpleController(this, resourceName);
 
@@ -97,7 +102,7 @@ class EMRouterManager {
         }
 
         newController.createRoutes();
-        this._expressAppInstance.use('/'+ basePath, newController.router);
+        this._expressAppInstance.use(basePath, newController.router);
         this._routers.push( { entityName : name, controller: newController, basePath }) ;
     }
 
@@ -493,7 +498,6 @@ class EMRouterManager {
             //...
             //::
 
-            //shirmigod
             if (options && options.bindingType == MemberBindingType.Chunks)
             {
                 if(request.files && Object.keys(request.files).length > 0) 
@@ -517,6 +521,18 @@ class EMRouterManager {
             }         
         });
     }
+    private getCompleteBasePath( postFix? : string ) : string
+    {
+        let completeBasePath = '/';
+
+        if (this._basePath)
+            completeBasePath += this._basePath + '/';
+
+        completeBasePath += postFix || 'api';
+
+        return completeBasePath;
+    }
+
     //#endregion
 
 
@@ -530,6 +546,11 @@ class EMRouterManager {
     get expressAppInstance () : express.Application
     {
         return this._expressAppInstance;
+    }
+
+    get basePath() : string
+    {
+        return this._basePath;
     }
 
     //#endregion

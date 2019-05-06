@@ -24,6 +24,7 @@ declare class EMServiceSession {
     private _devMode;
     private _allowFixedSystemOwners;
     private _cacheService;
+    private _reportsService;
     private _amqpEventManager;
     private _entitiesInfo;
     private _userDevDataNotification;
@@ -33,6 +34,12 @@ declare class EMServiceSession {
         cacheService?: {
             host: string;
             port: number;
+        };
+        reportsService?: {
+            host: string;
+            port: string;
+            path: string;
+            methodToRequest: string;
         };
     });
     connect(): Promise<void>;
@@ -87,6 +94,12 @@ declare class EMServiceSession {
     readonly mainChannel: amqp.Channel;
     readonly allowFixedSystemOwners: boolean;
     readonly authCacheClient: redis.RedisClient;
+    readonly reportsService: {
+        host: string;
+        port: string;
+        path: string;
+        methodToRequest: string;
+    };
 }
 declare class EMSessionError {
     private _code;

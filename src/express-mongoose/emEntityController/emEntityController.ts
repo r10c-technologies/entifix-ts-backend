@@ -4,11 +4,12 @@ import { EMEntity, EntityDocument  } from '../emEntity/emEntity';
 import { EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity';
 import { EMResponseEntityWrapper, EMResponseWrapper } from '../emWrapper/emWrapper';
 import HttpStatus = require('http-status-codes');
-import express = require('express')
+import express = require('express');
 import { EntityInfo, AccessorInfo, MemberBindingType, DefinedParam } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMMemberActivator } from '../..';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EMEntityMultiKey } from '../emEntityMultiKey/emEntityMultiKey';
+import { EMModifyResponseContent } from './emModifyResponseContent';
 
 class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEntity>
 {
@@ -123,7 +124,24 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                     session.listEntities<TEntity, TDocument>(this._entityName, { filters, skip, take, sorting } ).then(
                         results => { 
                             let det = results.details || {};
-                            this._responseWrapper.entityCollection(response, results.entities, { total : det.total, skip : det.skip, take : det.take, devData: det.devData  } );
+
+                            if (EMModifyResponseContent.modificationRequested(request))
+                            {
+                                if (EMModifyResponseContent.canRequestThisType(request, this.entityInfo))
+                                {
+                                    EMModifyResponseContent.modify(request, this.entityInfo, session, { entities: results.entities })
+                                        .then(file => { this._responseWrapper.file(response, file as any); })
+                                        .catch(error => { this._responseWrapper.handledError(response, "Error to generate file in reports service. " + error, HttpStatus.BAD_GATEWAY, error) });
+                                }
+                                else 
+                                {
+                                    this._responseWrapper.handledError(response, "Method not allowed", HttpStatus.METHOD_NOT_ALLOWED);
+                                }
+                            }
+                            else
+                            {
+                                this._responseWrapper.entityCollection(response, results.entities, { total : det.total, skip : det.skip, take : det.take, devData: det.devData  } );
+                            }
                         },
                         error => this._responseWrapper.exception(response, error)
                     ).catch( error => this._responseWrapper.exception( response, error) );
@@ -597,7 +615,13 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     private getArrayPath( request : express.Request) : Array<string>
     {
         let arrayPath = request.path.split('/');
-        arrayPath.splice(0,2);
+        let basePathCount = 2;
+        
+        if (this._routerManager.basePath)
+            basePathCount++;
+
+        arrayPath.splice(0,basePathCount);
+        
         return arrayPath;
     }
 

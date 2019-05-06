@@ -42,7 +42,7 @@ let EMEntity = EMEntity_1 = class EMEntity extends hcEntity_1.Entity {
         info.getAccessors().filter(accessor => accessor.exposition).forEach(accessor => {
             let exposedName = accessor.serializeAlias || accessor.name;
             let persistentName = accessor.persistentAlias || accessor.name;
-            if (accessor.exposition == hcMetaData_1.ExpositionType.Normal) {
+            if (accessor.exposition == hcMetaData_1.ExpositionType.Normal || accessor.exposition == hcMetaData_1.ExpositionType.System) {
                 let isPersistent = accessor.schema != null || accessor.persistenceType == hcMetaData_1.PersistenceType.Auto;
                 if (isPersistent) {
                     if (simpleObject.hasOwnProperty(exposedName)) {
@@ -193,17 +193,17 @@ __decorate([
     __metadata("design:paramtypes", [Date])
 ], EMEntity.prototype, "modified", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.ReadOnly, schema: { type: Date, require: false } }),
+    hcMetaData_1.DefinedAccessor({ schema: { type: Date, require: false } }),
     __metadata("design:type", Date),
     __metadata("design:paramtypes", [Date])
 ], EMEntity.prototype, "deleted", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'id' }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.System, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'id', display: "Id" }),
     __metadata("design:type", Object),
     __metadata("design:paramtypes", [])
 ], EMEntity.prototype, "_id", null);
 __decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'v' }),
+    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.System, persistenceType: hcMetaData_1.PersistenceType.Auto, serializeAlias: 'v', display: "Version" }),
     __metadata("design:type", Number),
     __metadata("design:paramtypes", [])
 ], EMEntity.prototype, "__v", null);

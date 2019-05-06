@@ -41,7 +41,7 @@ class EntifixApplication {
     }
     createServiceSession() {
         return new Promise((resolve, reject) => {
-            this._serviceSession = new emServiceSession_1.EMServiceSession(this.serviceConfiguration.serviceName, this.serviceConfiguration.mongoService, { amqpService: this.serviceConfiguration.amqpService, cacheService: this.serviceConfiguration.authCacheService });
+            this._serviceSession = new emServiceSession_1.EMServiceSession(this.serviceConfiguration.serviceName, this.serviceConfiguration.mongoService, { amqpService: this.serviceConfiguration.amqpService, cacheService: this.serviceConfiguration.authCacheService, reportsService: this.serviceConfiguration.reportsService });
             this.configSessionAMQPConneciton();
             if (this.serviceConfiguration.devMode)
                 this._serviceSession.enableDevMode();
@@ -67,19 +67,22 @@ class EntifixApplication {
             //Enable cors if is required
             if (this.serviceConfiguration.cors && this.serviceConfiguration.cors.enable) {
                 let defaultValues = this.serviceConfiguration.cors.options || {
-                    allowedHeaders: ["Origin", "Content-Type", "Accept", "Authorization", "Charset"],
+                    allowedHeaders: ["Origin", "Content-Type", "Accept", "Authorization", "Charset", "X-Requested-Type", "X-Page-Size", "X-Table-Striped", "X-Page-Orientation"],
                     credentials: true,
                     methods: "GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE",
                     preflightContinue: false
                 };
                 this._expressApp.use(cors(defaultValues));
             }
-            //Health check
-            this._expressApp.get('/', (request, response) => {
+            //Health checks
+            let healthCheck = (request, response) => {
                 response.json({
                     message: this.serviceConfiguration.serviceName + " is working correctly"
                 });
-            });
+            };
+            this._expressApp.get('/', healthCheck);
+            if (this.serviceConfiguration.basePath)
+                this._expressApp.get('/' + this.serviceConfiguration.basePath, healthCheck);
             //Error handler
             this._expressApp.use((error, request, response, next) => {
                 let data;
@@ -108,10 +111,13 @@ class EntifixApplication {
     }
     protectRoutes() {
         //Default values
-        let pathProtected = this.serviceConfiguration.protectRoutes && this.serviceConfiguration.protectRoutes.path ? this.serviceConfiguration.protectRoutes.path : 'api';
         let header = this.serviceConfiguration.protectRoutes && this.serviceConfiguration.protectRoutes.header ? this.serviceConfiguration.protectRoutes.header : 'Authorization';
+        let pathProtected = '/';
+        if (this.serviceConfiguration.basePath)
+            pathProtected += (this.serviceConfiguration.basePath + '/');
+        pathProtected += (this.serviceConfiguration.protectRoutes && this.serviceConfiguration.protectRoutes.path ? this.serviceConfiguration.protectRoutes.path : 'api');
         //Register Function on express middleware
-        this._expressApp.use('/' + pathProtected, (request, response, next) => {
+        this._expressApp.use(pathProtected, (request, response, next) => {
             let deniedAccess = (message, errorCode, error) => response.status(errorCode || 401).send(hcWrapper_1.Wrapper.wrapError(message, error).serializeSimpleObject());
             //TOKEN VALIDATION
             var token = request.get(header);
@@ -138,7 +144,7 @@ class EntifixApplication {
             this.registerEntities();
             if (this.serviceConfiguration.devMode)
                 this._serviceSession.createDeveloperModels();
-            this._routerManager = new emRouterManager_1.EMRouterManager(this._serviceSession, this._expressApp);
+            this._routerManager = new emRouterManager_1.EMRouterManager(this._serviceSession, this._expressApp, { basePath: this.serviceConfiguration.basePath });
             this.exposeEntities();
             if (this.serviceConfiguration.amqpService && this.useDefaultAMQPInteraction) {
                 this._eventManager = this.serviceSession.createAndBindEventManager();

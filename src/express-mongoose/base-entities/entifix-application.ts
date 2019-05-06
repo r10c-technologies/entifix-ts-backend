@@ -17,7 +17,6 @@ import { EMServiceSession } from '../emServiceSession/emServiceSession';
 import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 import { TokenValidationRequestRPC } from '../../amqp-events/amqp-base-events/TokenValidationRequestRPC';
 import { TokenValidationResponseRPC } from '../../amqp-events/amqp-base-events/TokenValidationResponseRPC';
-import { EMSession } from '../emSession/emSession';
 
 interface EntifixAppConfig
 { 
@@ -30,7 +29,9 @@ interface EntifixAppConfig
     devMode? : boolean,
     protectRoutes? : { enable: boolean, header?: string, path ? : string },
     session?: { refreshPeriod?: number, expireLimit? : number, tokenSecret: string },
-    authCacheService?: { host : string, port : number }
+    authCacheService?: { host : string, port : number },
+    reportsService?: { host : string, port : string, path : string, methodToRequest : string },
+    basePath?: string
 }
 
 interface MongoServiceConfig {
@@ -96,11 +97,11 @@ abstract class EntifixApplication
 
     private createServiceSession( ) : Promise<void>
     {
-        return new Promise<void>((resolve,reject)=>{       
+        return new Promise<void>((resolve,reject)=>{
             this._serviceSession = new EMServiceSession(
                 this.serviceConfiguration.serviceName, 
                 this.serviceConfiguration.mongoService, 
-                { amqpService:  this.serviceConfiguration.amqpService, cacheService: this.serviceConfiguration.authCacheService } 
+                { amqpService:  this.serviceConfiguration.amqpService, cacheService: this.serviceConfiguration.authCacheService, reportsService: this.serviceConfiguration.reportsService }
             );
 
             this.configSessionAMQPConneciton();
@@ -138,7 +139,7 @@ abstract class EntifixApplication
             if (this.serviceConfiguration.cors && this.serviceConfiguration.cors.enable )
             {
                 let defaultValues : cors.CorsOptions = this.serviceConfiguration.cors.options || {
-                    allowedHeaders: ["Origin", "Content-Type", "Accept", "Authorization", "Charset"],
+                    allowedHeaders: ["Origin", "Content-Type", "Accept", "Authorization", "Charset", "X-Requested-Type", "X-Page-Size", "X-Table-Striped", "X-Page-Orientation"],
                     credentials: true,
                     methods: "GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE",
                     preflightContinue: false
@@ -147,12 +148,16 @@ abstract class EntifixApplication
                 this._expressApp.use(cors(defaultValues));
             }
 
-            //Health check
-            this._expressApp.get('/', ( request:express.Request, response: express.Response )=> {            
+            //Health checks
+            let healthCheck = ( request:express.Request, response: express.Response )=> {            
                 response.json({
                     message: this.serviceConfiguration.serviceName + " is working correctly"
                 });        
-            });
+            };
+
+            this._expressApp.get('/', healthCheck );
+            if (this.serviceConfiguration.basePath) 
+                this._expressApp.get('/' + this.serviceConfiguration.basePath, healthCheck);
 
             //Error handler
             this._expressApp.use( (error : any, request : express.Request, response : express.Response, next : express.NextFunction) => {
@@ -189,11 +194,17 @@ abstract class EntifixApplication
     private protectRoutes() : void 
     {
         //Default values
-        let pathProtected = this.serviceConfiguration.protectRoutes && this.serviceConfiguration.protectRoutes.path ? this.serviceConfiguration.protectRoutes.path : 'api';
         let header = this.serviceConfiguration.protectRoutes && this.serviceConfiguration.protectRoutes.header ? this.serviceConfiguration.protectRoutes.header : 'Authorization';
+        
+        let pathProtected = '/';
 
+        if (this.serviceConfiguration.basePath)
+            pathProtected += (this.serviceConfiguration.basePath + '/');
+
+        pathProtected += (this.serviceConfiguration.protectRoutes && this.serviceConfiguration.protectRoutes.path ? this.serviceConfiguration.protectRoutes.path : 'api');
+        
         //Register Function on express middleware
-        this._expressApp.use('/'+ pathProtected, (request, response, next) => {
+        this._expressApp.use(pathProtected, (request, response, next) => {
 
             let deniedAccess = (message, errorCode?, error?) => response.status(errorCode || 401).send( Wrapper.wrapError(message, error).serializeSimpleObject() );
             
@@ -233,7 +244,7 @@ abstract class EntifixApplication
             if (this.serviceConfiguration.devMode)
                 this._serviceSession.createDeveloperModels();
             
-            this._routerManager = new EMRouterManager( this._serviceSession, this._expressApp ); 
+            this._routerManager = new EMRouterManager( this._serviceSession, this._expressApp, { basePath: this.serviceConfiguration.basePath } ); 
             this.exposeEntities();
 
 

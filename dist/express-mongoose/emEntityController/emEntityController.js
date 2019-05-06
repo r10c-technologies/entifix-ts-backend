@@ -6,6 +6,7 @@ const emWrapper_1 = require("../emWrapper/emWrapper");
 const HttpStatus = require("http-status-codes");
 const express = require("express");
 const hcMetaData_1 = require("../../hc-core/hcMetaData/hcMetaData");
+const emModifyResponseContent_1 = require("./emModifyResponseContent");
 class EMEntityController {
     constructor(entityName, routerManager, options) {
         this._entityName = entityName;
@@ -67,7 +68,19 @@ class EMEntityController {
                 if (this._useEntities)
                     session.listEntities(this._entityName, { filters, skip, take, sorting }).then(results => {
                         let det = results.details || {};
-                        this._responseWrapper.entityCollection(response, results.entities, { total: det.total, skip: det.skip, take: det.take, devData: det.devData });
+                        if (emModifyResponseContent_1.EMModifyResponseContent.modificationRequested(request)) {
+                            if (emModifyResponseContent_1.EMModifyResponseContent.canRequestThisType(request, this.entityInfo)) {
+                                emModifyResponseContent_1.EMModifyResponseContent.modify(request, this.entityInfo, session, { entities: results.entities })
+                                    .then(file => { this._responseWrapper.file(response, file); })
+                                    .catch(error => { this._responseWrapper.handledError(response, "Error to generate file in reports service. " + error, HttpStatus.BAD_GATEWAY, error); });
+                            }
+                            else {
+                                this._responseWrapper.handledError(response, "Method not allowed", HttpStatus.METHOD_NOT_ALLOWED);
+                            }
+                        }
+                        else {
+                            this._responseWrapper.entityCollection(response, results.entities, { total: det.total, skip: det.skip, take: det.take, devData: det.devData });
+                        }
                     }, error => this._responseWrapper.exception(response, error)).catch(error => this._responseWrapper.exception(response, error));
                 else
                     session.listDocuments(this._entityName, { filters, skip, take, sorting }).then(results => {
@@ -381,7 +394,10 @@ class EMEntityController {
     //#region On complex request/response session methods
     getArrayPath(request) {
         let arrayPath = request.path.split('/');
-        arrayPath.splice(0, 2);
+        let basePathCount = 2;
+        if (this._routerManager.basePath)
+            basePathCount++;
+        arrayPath.splice(0, basePathCount);
         return arrayPath;
     }
     getDefinedRouteMethods() {

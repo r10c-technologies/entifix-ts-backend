@@ -14,15 +14,14 @@ const hcMetaData_1 = require("../../hc-core/hcMetaData/hcMetaData");
 class IExpositionDetail {
 }
 class EMRouterManager {
-    //#endregion
-    //#regrion Methods
-    constructor(serviceSession, exrpressAppInstance) {
+    constructor(serviceSession, exrpressAppInstance, options) {
         this._serviceSession = serviceSession;
         this._expressAppInstance = exrpressAppInstance;
         this._routers = new Array();
+        this._basePath = options && options.basePath ? options.basePath : null;
     }
     exposeEntity(entityName, options) {
-        let basePath = options && options.basePath ? options.basePath : 'api';
+        let basePath = this.getCompleteBasePath(options && options.basePath ? options.basePath : null);
         let resourceName = options && options.resourceName ? options.resourceName : null;
         let entityController;
         if (options && options.controller)
@@ -30,16 +29,16 @@ class EMRouterManager {
         else
             entityController = new emEntityController_1.EMEntityController(entityName, this, { resourceName });
         this._routers.push({ entityName: entityName, controller: entityController, basePath });
-        this._expressAppInstance.use('/' + basePath, entityController.router);
+        this._expressAppInstance.use(basePath, entityController.router);
     }
     atachController(controller, options) {
-        let basePath = options && options.basePath ? options.basePath : 'api';
+        let basePath = this.getCompleteBasePath(options && options.basePath ? options.basePath : null);
         controller.createRoutes();
-        this._expressAppInstance.use('/' + basePath, controller.router);
+        this._expressAppInstance.use(basePath, controller.router);
         this._routers.push({ entityName: null, controller: controller, basePath });
     }
     exposeEnumeration(name, enumerator, options) {
-        let basePath = options && options.basePath ? options.basePath : 'api';
+        let basePath = this.getCompleteBasePath(options && options.basePath ? options.basePath : null);
         let resourceName = options && options.resourceName ? options.resourceName : name.toLowerCase();
         let newController = new EMSimpleController(this, resourceName);
         let keys = Object.keys(enumerator);
@@ -57,7 +56,7 @@ class EMRouterManager {
             res.send(hcWrapper_1.Wrapper.wrapObject(false, null, objectToExpose).serializeSimpleObject());
         };
         newController.createRoutes();
-        this._expressAppInstance.use('/' + basePath, newController.router);
+        this._expressAppInstance.use(basePath, newController.router);
         this._routers.push({ entityName: name, controller: newController, basePath });
     }
     resolveComplexRetrieve(session, construtorType, instanceId, expositionAccessorInfo, pathOverInstance) {
@@ -354,6 +353,7 @@ class EMRouterManager {
     findController(entityName) {
         return this._routers.find(ed => ed.entityName == entityName).controller;
     }
+<<<<<<< HEAD
     genericValidation(request, options) {
         return new Promise((resolve, reject) => {
             //Implement more types of validations
@@ -377,6 +377,14 @@ class EMRouterManager {
             else {
             }
         });
+=======
+    getCompleteBasePath(postFix) {
+        let completeBasePath = '/';
+        if (this._basePath)
+            completeBasePath += this._basePath + '/';
+        completeBasePath += postFix || 'api';
+        return completeBasePath;
+>>>>>>> develop
     }
     //#endregion
     //#regrion Accessors (Properties)
@@ -385,6 +393,9 @@ class EMRouterManager {
     }
     get expressAppInstance() {
         return this._expressAppInstance;
+    }
+    get basePath() {
+        return this._basePath;
     }
 }
 exports.EMRouterManager = EMRouterManager;
