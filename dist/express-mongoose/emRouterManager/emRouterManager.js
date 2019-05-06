@@ -353,14 +353,12 @@ class EMRouterManager {
     findController(entityName) {
         return this._routers.find(ed => ed.entityName == entityName).controller;
     }
-<<<<<<< HEAD
     genericValidation(request, options) {
         return new Promise((resolve, reject) => {
             //Implement more types of validations
             //...
             //...
             //::
-            //shirmigod
             if (options && options.bindingType == hcMetaData_1.MemberBindingType.Chunks) {
                 if (request.files && Object.keys(request.files).length > 0) {
                     let properties = Object.keys(request.files);
@@ -377,14 +375,13 @@ class EMRouterManager {
             else {
             }
         });
-=======
+    }
     getCompleteBasePath(postFix) {
         let completeBasePath = '/';
         if (this._basePath)
             completeBasePath += this._basePath + '/';
         completeBasePath += postFix || 'api';
         return completeBasePath;
->>>>>>> develop
     }
     //#endregion
     //#regrion Accessors (Properties)

@@ -38,7 +38,6 @@ function DefinedAccessor(params) {
         info.type = reflectInfo.name;
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
         info.activator = params.activator;
-<<<<<<< HEAD
         //Behavior for default schema and chunks
         if (params.activator && params.activator.defaultSchema)
             info.schema = params.activator.defaultSchema;
@@ -47,9 +46,7 @@ function DefinedAccessor(params) {
         /*         if (params.activator && params.activator.bindingType == MemberBindingType.Chunks && info.schema)
                     info.schema.select = false; */
         //Alias management
-=======
         info.display = params.display || getDisplayByCleanedName(key);
->>>>>>> develop
         if (params.alias)
             info.setAlias(params.alias);
         if (params.serializeAlias)
