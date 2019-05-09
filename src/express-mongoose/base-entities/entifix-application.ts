@@ -28,10 +28,11 @@ interface EntifixAppConfig
     cors? : { enable: boolean, options?: cors.CorsOptions },
     devMode? : boolean,
     protectRoutes? : { enable: boolean, header?: string, path ? : string },
-    session?: { refreshPeriod?: number, expireLimit? : number, tokenSecret: string },
+    session?: { refreshPeriod?: number, expireLimit? : number, tokenSecret?: string },
     authCacheService?: { host : string, port : number },
     reportsService?: { host : string, port : string, path : string, methodToRequest : string },
-    basePath?: string
+    basePath?: string,
+    useCacheForTokens?: boolean
 }
 
 interface MongoServiceConfig {
@@ -376,7 +377,7 @@ abstract class EntifixApplication
             (resolve, reject) => 
             {
                 let keyCache = this.createKeyCache(token, request);
-                this.serviceSession.authCacheClient.get(keyCache, ( error, value) => {
+                this.serviceSession.authCacheClient.get('tokenValidation:' + keyCache, ( error, value) => {
                     if (!error)
                     {
                         if (value)
@@ -400,9 +401,9 @@ abstract class EntifixApplication
         return new Promise<void> (
             (resolve, reject) =>
             {
-                let keyCache = this.createKeyCache(token,request);
+                let keyCache = this.createKeyCache(token, request);
                 let resultString = JSON.stringify(result);
-                this.serviceSession.authCacheClient.set( keyCache, resultString, 'tokenValidation', this.sessionRefreshPeriod, error => {
+                this.serviceSession.authCacheClient.set('tokenValidation:' + keyCache, resultString, 'EX', this.sessionRefreshPeriod, error => {
                     if (!error)
                         resolve();
                     else
@@ -417,7 +418,7 @@ abstract class EntifixApplication
         // let keyCacheToProcess = token + '-' + request.method + '-' + request.originalUrl;
         // return crypto.createHash('sha256').update(keyCacheToProcess).digest().toString();
 
-        return token + '-' + request.method + '-' + request.originalUrl;
+        return request.method + '-' + request.originalUrl + '-' + token;
     }
 
     //#endregion

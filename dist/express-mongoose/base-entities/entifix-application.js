@@ -231,7 +231,7 @@ class EntifixApplication {
     getTokenValidationCache(token, request) {
         return new Promise((resolve, reject) => {
             let keyCache = this.createKeyCache(token, request);
-            this.serviceSession.authCacheClient.get(keyCache, (error, value) => {
+            this.serviceSession.authCacheClient.get('tokenValidation:' + keyCache, (error, value) => {
                 if (!error) {
                     if (value) {
                         let cacheResult = JSON.parse(value);
@@ -249,7 +249,7 @@ class EntifixApplication {
         return new Promise((resolve, reject) => {
             let keyCache = this.createKeyCache(token, request);
             let resultString = JSON.stringify(result);
-            this.serviceSession.authCacheClient.set(keyCache, resultString, 'tokenValidation', this.sessionRefreshPeriod, error => {
+            this.serviceSession.authCacheClient.set('tokenValidation:' + keyCache, resultString, 'EX', this.sessionRefreshPeriod, error => {
                 if (!error)
                     resolve();
                 else
@@ -260,7 +260,7 @@ class EntifixApplication {
     createKeyCache(token, request) {
         // let keyCacheToProcess = token + '-' + request.method + '-' + request.originalUrl;
         // return crypto.createHash('sha256').update(keyCacheToProcess).digest().toString();
-        return token + '-' + request.method + '-' + request.originalUrl;
+        return request.method + '-' + request.originalUrl + '-' + token;
     }
     //#endregion
     //#region Accessors
