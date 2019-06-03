@@ -6,11 +6,13 @@ import 'moment';
 
 //CORE FRAMEWORK
 import { HcSession } from '../../hc-core/hcSession/hcSession';
-import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType, MethodInfo} from '../../hc-core/hcMetaData/hcMetaData';
+import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType, MethodInfo, MemberActivator} from '../../hc-core/hcMetaData/hcMetaData';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMServiceSession } from '../emServiceSession/emServiceSession'; 
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import moment = require('moment');
+import { stringify } from 'querystring';
+import { filter } from 'bluebird';
 
 class EMSession extends HcSession
 {
@@ -456,7 +458,7 @@ class EMSession extends HcSession
         document.deletedBy = this._privateUserData.idUser;
     }
 
-    private resolveToMongoFilters(entityName : string, filters? : Array<EMSessionFilter>) : { filters?: any, inconsistencies : Array<{property:string, message:string}> }
+    private resolveToMongoFilters(entityName : string, filters? : Array<EMSessionFilter>, recursive: boolean) : { filters?: any, inconsistencies : Array<{property:string, message:string}> }
     {        
         let info : EntityInfo = this.getInfo(entityName);
         let inconsistencies : Array<{property:string, message:string}>;
@@ -471,6 +473,21 @@ class EMSession extends HcSession
                     .filter( m => (m instanceof AccessorInfo) && ( m.schema != null || m.persistenceType == PersistenceType.Auto) )
                     .map( m => { return  { property: m.name, type: m.type, serializeAlias : (m as AccessorInfo).serializeAlias, persistentAlias : (m as AccessorInfo).persistentAlias } });
 
+        if(!recursive)
+        {
+            let activatorAccessors = info.getAccessors().filter(a => a.activator instanceof MemberActivator);
+        
+            let correctedFilters = filters.filter(f => 
+                (f.property.split(".").length > 1) && 
+                (activatorAccessors.find(a => a.name == f.property.split(".")[0]))).forEach(f => f.property = f.property.split(".")[1]);
+
+            //llamar a método recursivo al recorrer activatorAccessors 
+            // pasar a funcion la validacion del mongoFilterConversion para reutilizarla aquí
+            activatorAccessors.forEach(aa => {
+                this.resolveToMongoFilters(aa.type, correctedFilters, true);
+            });    
+        }
+        
         //Base mongo filters
         let mongoFilters : any;
             
@@ -481,7 +498,7 @@ class EMSession extends HcSession
             
             let opFilters = [];
 
-            //get all filters
+            //get all filters 
             for (let filter of filters)
             {
                 let pMember = persistentMembers.find( pm => pm.property == filter.property || pm.serializeAlias == filter.property || pm.persistentAlias == filter.property);
@@ -519,6 +536,8 @@ class EMSession extends HcSession
         return { filters: mongoFilters, inconsistencies };
     }
 
+    //ahora tiene que devolver una promesa porque se hace consulta a bd
+    //shirmigod
     private parseMongoFilter( sessionFilter : EMSessionFilter, propertyType : string, persistentName : string ) : { err : boolean, value?: any, message? : string }
     {           
         //Check and convert the filter value 
@@ -564,12 +583,13 @@ class EMSession extends HcSession
                     valueFilter = sessionFilter.value;
                 
                 break;
+            // shirmigod validacion id reference
                 
             default:
                 valueFilter = sessionFilter.value;
         };
 
-        
+        // agragar operador $in
         //Set the table of conversions for filters and mongo filters 
         let configConvesions : Array<{ operators : Array<string>, mongoOperator?: string, filterTypes?: Array<string>, valueModifier? : (v) => any }> =
         [
@@ -591,7 +611,7 @@ class EMSession extends HcSession
                 let value : any;
 
                 if (conf.mongoOperator)
-                    value = { [persistentName] : { [conf.mongoOperator ] : valueFilter} };
+                    value = { [persistentName] : { [conf.mongoOperator ] : valueFilter} }; // valueFilter sera un array y el operador un '$in'
                 else
                     value = { [persistentName] : valueFilter };
                     
