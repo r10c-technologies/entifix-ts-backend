@@ -458,34 +458,70 @@ class EMSession extends HcSession
         document.deletedBy = this._privateUserData.idUser;
     }
 
-    private resolveToMongoFilters(entityName : string, filters? : Array<EMSessionFilter>, recursive: boolean) : { filters?: any, inconsistencies : Array<{property:string, message:string}> }
+    private resolveToMongoFilters(entityName : string, filters? : Array<EMSessionFilter>) : { filters?: any, inconsistencies : Array<{property:string, message:string}> }
     {        
         let info : EntityInfo = this.getInfo(entityName);
         let inconsistencies : Array<{property:string, message:string}>;
+        let opFilters = [];
         let addInconsistency = ( i : {property:string, message:string}) => { 
             if (!inconsistencies)
                 inconsistencies = new Array<{property:string, message:string}>();
             inconsistencies.push(i);
-        };
+        };        
 
         let persistentMembers = 
                 info.getAllMembers()
                     .filter( m => (m instanceof AccessorInfo) && ( m.schema != null || m.persistenceType == PersistenceType.Auto) )
                     .map( m => { return  { property: m.name, type: m.type, serializeAlias : (m as AccessorInfo).serializeAlias, persistentAlias : (m as AccessorInfo).persistentAlias } });
 
+        let recursive = true; // metodo para verificar que entity tiene activators y filtros compuestos (con punto)
         if(!recursive)
         {
-            let activatorAccessors = info.getAccessors().filter(a => a.activator instanceof MemberActivator);
-        
-            let correctedFilters = filters.filter(f => 
-                (f.property.split(".").length > 1) && 
-                (activatorAccessors.find(a => a.name == f.property.split(".")[0]))).forEach(f => f.property = f.property.split(".")[1]);
+            let entitiesMongoFilters: [{entity: string, mongoFilters: any, property: string}];
+            let entityFilters: [{entity: string, filters: any, property: string}];
+            info.getAccessors()
+            .filter(a => a.activator instanceof MemberActivator)
+            .forEach(a => {
+                let eFilters = filters
+                               .filter(f => (f.property.split(".").length > 1) && ( a.name == f.property.split(".")[0]))
+                               .map(f => {
+                                    let nf = f;
+                                    nf.property = f.property.split(".")[1];
+                                    return nf;
+                                });
 
-            //llamar a método recursivo al recorrer activatorAccessors 
-            // pasar a funcion la validacion del mongoFilterConversion para reutilizarla aquí
-            activatorAccessors.forEach(aa => {
-                this.resolveToMongoFilters(aa.type, correctedFilters, true);
-            });    
+                entityFilters.push({entity: a.type, filters: eFilters, property: a.name});
+            });
+
+            entityFilters.forEach(ef => {
+                entitiesMongoFilters.push({entity: ef.entity, mongoFilters: this.resolveToMongoFilters(ef.entity, ef.filters), property: ef.property});
+            });
+
+            let asynkTasks = entitiesMongoFilters.map(emf => {
+                return new Promise<{property: string, values: string[]}>( (resolve, reject) => {
+                    this.getModel(emf.entity).find(emf.mongoFilters).select("_id").exec((err, res) => {
+                        if(!err)
+                        {
+                            resolve({property: emf.property, values: res})
+                        }
+                        else
+                            reject(err);
+                    });
+                });
+            });
+
+            Promise.all(asynkTasks).then(results => {
+                results.forEach(r => {
+                    let type = entityFilters.filter(f => f.property == r.property)[0].filters[0].type;
+
+                    if (type == FilterType.Fixed)
+                            mongoFilters.$and.push({[r.property]: {$in: [r.values]}});   
+                    
+                    else if (type == FilterType.Optional)
+                            opFilters.push( {[r.property]: {$in: [r.values]}} );
+                });
+            }).catch(e => this.createError(e, "Error on complex filters"));
+        
         }
         
         //Base mongo filters
@@ -495,8 +531,6 @@ class EMSession extends HcSession
         if (filters != null && filters.length > 0)
         {
             mongoFilters = { $and : [ { deferredDeletion: { $in: [null, false] } } ] };  
-            
-            let opFilters = [];
 
             //get all filters 
             for (let filter of filters)
@@ -536,8 +570,6 @@ class EMSession extends HcSession
         return { filters: mongoFilters, inconsistencies };
     }
 
-    //ahora tiene que devolver una promesa porque se hace consulta a bd
-    //shirmigod
     private parseMongoFilter( sessionFilter : EMSessionFilter, propertyType : string, persistentName : string ) : { err : boolean, value?: any, message? : string }
     {           
         //Check and convert the filter value 
