@@ -298,6 +298,7 @@ class EMSession extends hcSession_1.HcSession {
     resolveToMongoFilters(entityName, filters) {
         let info = this.getInfo(entityName);
         let inconsistencies;
+        let opFilters = [];
         let addInconsistency = (i) => {
             if (!inconsistencies)
                 inconsistencies = new Array();
@@ -306,13 +307,50 @@ class EMSession extends hcSession_1.HcSession {
         let persistentMembers = info.getAllMembers()
             .filter(m => (m instanceof hcMetaData_1.AccessorInfo) && (m.schema != null || m.persistenceType == hcMetaData_1.PersistenceType.Auto))
             .map(m => { return { property: m.name, type: m.type, serializeAlias: m.serializeAlias, persistentAlias: m.persistentAlias }; });
+        let recursive = true; // metodo para verificar que entity tiene activators y filtros compuestos (con punto)
+        if (!recursive) {
+            let entitiesMongoFilters;
+            let entityFilters;
+            info.getAccessors()
+                .filter(a => a.activator instanceof hcMetaData_1.MemberActivator)
+                .forEach(a => {
+                let eFilters = filters
+                    .filter(f => (f.property.split(".").length > 1) && (a.name == f.property.split(".")[0]))
+                    .map(f => {
+                    let nf = f;
+                    nf.property = f.property.split(".")[1];
+                    return nf;
+                });
+                //verificar si tiene nombre persistente
+                entityFilters.push({ entity: a.type, filters: eFilters, property: a.name });
+            });
+            entityFilters.forEach(ef => {
+                entitiesMongoFilters.push({ entity: ef.entity, mongoFilters: this.resolveToMongoFilters(ef.entity, ef.filters), property: ef.property });
+            });
+            let asynkTasks = entitiesMongoFilters.map(emf => {
+                return new Promise((resolve, reject) => {
+                    this.getModel(emf.entity).find(emf.mongoFilters).select('_id').exec((err, res) => {
+                        if (!err) {
+                            let tempRes = res;
+                            resolve({ property: emf.property, values: tempRes });
+                        }
+                        else
+                            reject(err);
+                    });
+                });
+            });
+            Promise.all(asynkTasks).then(results => {
+                results.forEach(r => {
+                    mongoFilters.$and.push({ [r.property]: { $in: [r.values] } });
+                });
+            }).catch(e => this.createError(e, "Error on complex filters"));
+        }
         //Base mongo filters
         let mongoFilters;
         // Convert all the fixed and optional filters in Mongoose Filetrs
         if (filters != null && filters.length > 0) {
             mongoFilters = { $and: [{ deferredDeletion: { $in: [null, false] } }] };
-            let opFilters = [];
-            //get all filters
+            //get all filters 
             for (let filter of filters) {
                 let pMember = persistentMembers.find(pm => pm.property == filter.property || pm.serializeAlias == filter.property || pm.persistentAlias == filter.property);
                 if (pMember) {
@@ -376,10 +414,12 @@ class EMSession extends hcSession_1.HcSession {
                 else
                     valueFilter = sessionFilter.value;
                 break;
+            // shirmigod validacion id reference
             default:
                 valueFilter = sessionFilter.value;
         }
         ;
+        // agragar operador $in
         //Set the table of conversions for filters and mongo filters 
         let configConvesions = [
             { operators: ['=', 'eq'] },
@@ -396,7 +436,7 @@ class EMSession extends hcSession_1.HcSession {
             if (conf.filterTypes == null || (conf.filterTypes != null && conf.filterTypes.find(at => at == propertyType) != null)) {
                 let value;
                 if (conf.mongoOperator)
-                    value = { [persistentName]: { [conf.mongoOperator]: valueFilter } };
+                    value = { [persistentName]: { [conf.mongoOperator]: valueFilter } }; // valueFilter sera un array y el operador un '$in'
                 else
                     value = { [persistentName]: valueFilter };
                 return { err: false, value };

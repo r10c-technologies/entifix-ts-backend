@@ -32,6 +32,7 @@ declare class EMRouterManager {
     resolveComplexRetrieve(session: EMSession, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
     resolveComplexCreate(session: EMSession, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
     resolveComplexUpdate(session: EMSession, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
+    private saveEntityChunkMember;
     resolveComplexDelete(session: EMSession, construtorType: string, instanceId: string, expositionAccessorInfo: AccessorInfo, pathOverInstance: Array<string>): void;
     getExpositionDetails(): Array<{
         entityName: string;

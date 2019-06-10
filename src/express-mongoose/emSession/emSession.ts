@@ -490,6 +490,7 @@ class EMSession extends HcSession
                                     return nf;
                                 });
 
+                                //verificar si tiene nombre persistente
                 entityFilters.push({entity: a.type, filters: eFilters, property: a.name});
             });
 
@@ -499,10 +500,11 @@ class EMSession extends HcSession
 
             let asynkTasks = entitiesMongoFilters.map(emf => {
                 return new Promise<{property: string, values: string[]}>( (resolve, reject) => {
-                    this.getModel(emf.entity).find(emf.mongoFilters).select("_id").exec((err, res) => {
+                    this.getModel(emf.entity).find(emf.mongoFilters).select('_id').exec((err, res) => {
                         if(!err)
                         {
-                            resolve({property: emf.property, values: res})
+                            let tempRes = <string[]> (res as any) ;
+                            resolve({property: emf.property, values: tempRes})
                         }
                         else
                             reject(err);
@@ -512,16 +514,9 @@ class EMSession extends HcSession
 
             Promise.all(asynkTasks).then(results => {
                 results.forEach(r => {
-                    let type = entityFilters.filter(f => f.property == r.property)[0].filters[0].type;
-
-                    if (type == FilterType.Fixed)
-                            mongoFilters.$and.push({[r.property]: {$in: [r.values]}});   
-                    
-                    else if (type == FilterType.Optional)
-                            opFilters.push( {[r.property]: {$in: [r.values]}} );
+                    mongoFilters.$and.push({[r.property]: {$in: [r.values]}});     
                 });
-            }).catch(e => this.createError(e, "Error on complex filters"));
-        
+            }).catch(e => this.createError(e, "Error on complex filters"));      
         }
         
         //Base mongo filters
