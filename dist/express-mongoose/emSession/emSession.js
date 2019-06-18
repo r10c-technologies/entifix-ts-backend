@@ -307,10 +307,10 @@ class EMSession extends hcSession_1.HcSession {
         let persistentMembers = info.getAllMembers()
             .filter(m => (m instanceof hcMetaData_1.AccessorInfo) && (m.schema != null || m.persistenceType == hcMetaData_1.PersistenceType.Auto))
             .map(m => { return { property: m.name, type: m.type, serializeAlias: m.serializeAlias, persistentAlias: m.persistentAlias }; });
-        let recursive = true; // metodo para verificar que entity tiene activators y filtros compuestos (con punto)
-        if (!recursive) {
-            let entitiesMongoFilters;
-            let entityFilters;
+        if (info.getAccessors().filter(a => a.activator instanceof hcMetaData_1.MemberActivator).length > 0 &&
+            filters.filter(f => (f.property.split(".").length > 1))) {
+            let entitiesMongoFilters = new Array();
+            let entityFilters = new Array();
             info.getAccessors()
                 .filter(a => a.activator instanceof hcMetaData_1.MemberActivator)
                 .forEach(a => {
@@ -321,17 +321,17 @@ class EMSession extends hcSession_1.HcSession {
                     nf.property = f.property.split(".")[1];
                     return nf;
                 });
-                //verificar si tiene nombre persistente
-                entityFilters.push({ entity: a.type, filters: eFilters, property: a.name });
+                if (eFilters.length > 0)
+                    entityFilters.push({ entity: a.type, filters: eFilters, property: a.persistentAlias ? a.persistentAlias : a.name });
             });
             entityFilters.forEach(ef => {
                 entitiesMongoFilters.push({ entity: ef.entity, mongoFilters: this.resolveToMongoFilters(ef.entity, ef.filters), property: ef.property });
             });
             let asynkTasks = entitiesMongoFilters.map(emf => {
                 return new Promise((resolve, reject) => {
-                    this.getModel(emf.entity).find(emf.mongoFilters).select('_id').exec((err, res) => {
+                    this.getModel(emf.entity).find(emf.mongoFilters.filters).select('_id').exec((err, res) => {
                         if (!err) {
-                            let tempRes = res;
+                            let tempRes = res.map(r => r.id);
                             resolve({ property: emf.property, values: tempRes });
                         }
                         else
