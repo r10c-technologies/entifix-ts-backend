@@ -24,11 +24,16 @@ interface DefinedMetaParam {
     required?: boolean;
     special?: boolean;
 }
-declare function DefinedParam(paramName: string, required?: boolean): (target: Object, propertyKey: string | symbol, parameterIndex: number) => void;
+declare function DefinedParam(paramName: string): any;
+declare function DefinedParam(paramName: string, options: {
+    required?: boolean;
+}): any;
 declare function SessionParam(): (target: Object, propertyKey: string | symbol, parameterIndex: number) => void;
-declare function DefinedMethod(params?: {
+declare function DefinedMethod(): any;
+declare function DefinedMethod(params: {
     eventName?: string;
-}): (target: any, propertyName: string, descriptor: TypedPropertyDescriptor<Function>) => void;
+    returnActionData?: boolean;
+}): any;
 declare class EntityInfo {
     private _packageName;
     private _name;
@@ -122,9 +127,11 @@ declare class AccessorInfo extends MemberInfo {
 declare class MethodInfo extends MemberInfo {
     private _parameters;
     private _eventName;
+    private _returnActionData;
     constructor();
     parameters: DefinedMetaParam[];
     eventName: string;
+    returnActionData: boolean;
 }
 interface IMetaDataInfo {
     entityInfo: EntityInfo;

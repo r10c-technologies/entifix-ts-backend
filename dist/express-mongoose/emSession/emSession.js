@@ -272,6 +272,23 @@ class EMSession extends hcSession_1.HcSession {
             });
         });
     }
+    findByKey(info, key) {
+        return new Promise((resolve, reject) => {
+            let normalizedFilter = {
+                keys: {
+                    serviceName: key.serviceName,
+                    entityName: key.entityName,
+                    value: key.value
+                }
+            };
+            this.listEntitiesByQuery(info, normalizedFilter).then(entities => {
+                if (entities.length > 0)
+                    resolve(entities[0]);
+                else
+                    resolve(null);
+            }).catch(err => reject(this.createError(err, 'Error on retrive Entity Multikey')));
+        });
+    }
     setFiltering(filtering) {
         this._anchoredFiltering = filtering;
     }

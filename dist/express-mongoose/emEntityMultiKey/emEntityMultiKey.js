@@ -12,20 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const hcMetaData_1 = require("../../hc-core/hcMetaData/hcMetaData");
 const emEntity_1 = require("../emEntity/emEntity");
 const emMetadata_1 = require("../emMetadata/emMetadata");
-let EMEntityMultiKey = class EMEntityMultiKey extends emEntity_1.EMEntity {
-    get keys() { return this._keys; }
-    set keys(value) { this._keys = value; this._document.keys = value ? value.map(v => v.getDocument()) : null; }
-};
-__decorate([
-    hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, schema: { type: Array }, activator: new emMetadata_1.EMMemberActivator(KeyDetail.getInfo(), hcMetaData_1.MemberBindingType.Snapshot, true) }),
-    __metadata("design:type", Array),
-    __metadata("design:paramtypes", [Array])
-], EMEntityMultiKey.prototype, "keys", null);
-EMEntityMultiKey = __decorate([
-    hcMetaData_1.DefinedEntity({ packageName: 'CORE', abstract: true })
-], EMEntityMultiKey);
-exports.EMEntityMultiKey = EMEntityMultiKey;
-let KeyDetail = class KeyDetail extends emEntity_1.EMEntity {
+let EntityKey = class EntityKey extends emEntity_1.EMEntity {
     //#region Properties
     //#endregion
     //#region Methods
@@ -42,19 +29,48 @@ __decorate([
     hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, schema: { type: String, required: true } }),
     __metadata("design:type", String),
     __metadata("design:paramtypes", [String])
-], KeyDetail.prototype, "serviceName", null);
+], EntityKey.prototype, "serviceName", null);
 __decorate([
     hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, schema: { type: String, required: true } }),
     __metadata("design:type", String),
     __metadata("design:paramtypes", [String])
-], KeyDetail.prototype, "entityName", null);
+], EntityKey.prototype, "entityName", null);
 __decorate([
     hcMetaData_1.DefinedAccessor({ exposition: hcMetaData_1.ExpositionType.Normal, schema: { type: String, required: true } }),
     __metadata("design:type", String),
     __metadata("design:paramtypes", [String])
-], KeyDetail.prototype, "value", null);
-KeyDetail = __decorate([
+], EntityKey.prototype, "value", null);
+EntityKey = __decorate([
     hcMetaData_1.DefinedEntity({ packageName: 'CORE' })
-], KeyDetail);
-exports.KeyDetail = KeyDetail;
+], EntityKey);
+exports.EntityKey = EntityKey;
+let EMEntityMultiKey = class EMEntityMultiKey extends emEntity_1.EMEntity {
+    //#region Properties
+    //#endregion
+    //#region Methods
+    static isMultiKeyEntity(entityInfo) {
+        let base = entityInfo.base;
+        let isMultiKeyEntity = base ? base.name == 'EMEntityMultiKey' : false;
+        while (base != null && !isMultiKeyEntity) {
+            isMultiKeyEntity = base.name == 'EMEntityMultiKey';
+            base = base.base;
+        }
+        return isMultiKeyEntity;
+    }
+    get keys() { return this._keys; }
+    set keys(value) { this._keys = value; this._document.keys = value ? value.map(v => v.getDocument()) : null; }
+};
+__decorate([
+    hcMetaData_1.DefinedAccessor({
+        exposition: hcMetaData_1.ExpositionType.Normal,
+        schema: { type: Array },
+        activator: new emMetadata_1.EMMemberActivator(EntityKey.getInfo(), hcMetaData_1.MemberBindingType.Snapshot, true)
+    }),
+    __metadata("design:type", Array),
+    __metadata("design:paramtypes", [Array])
+], EMEntityMultiKey.prototype, "keys", null);
+EMEntityMultiKey = __decorate([
+    hcMetaData_1.DefinedEntity({ packageName: 'CORE', abstract: true })
+], EMEntityMultiKey);
+exports.EMEntityMultiKey = EMEntityMultiKey;
 //# sourceMappingURL=emEntityMultiKey.js.map

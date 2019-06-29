@@ -64,26 +64,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     
         //Operator methods
         if (this.entityInfo.getDefinedMethods().length > 0)
-            this._router.patch('/'+ this._resourceName + '/:_id', ( request, response, next) => this.action( request, response ));
-
-        //Multikey manage methods
-        if (this.isMultiKeyEntity())
-            this._router.get( '/key/:service/:entity/:id', (request, response, next) => this.retrieveByKey( request, response, next ) );        
-    }
-
-
-    private isMultiKeyEntity( )
-    {
-        let base = this.entityInfo.base;
-        let isMultiKeyEntity = base ? base.name == 'EMEntityMultiKey' : false;
-
-        while ( base != null && !isMultiKeyEntity)
-        {
-            isMultiKeyEntity = base.name == 'EMEntityMultiKey';
-            base = base.base;
-        }
-
-        return isMultiKeyEntity;
+            this._router.patch('/'+ this._resourceName + '/:_id', ( request, response, next) => this.action( request, response ));    
     }
 
     //#endregion
@@ -294,7 +275,6 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     action ( request : express.Request, response : express.Response, options? : { paramId?: string } ) : void
     {
         let paramId = options ? options.paramId : '_id';
-
         let validation = this.validateActionRequest(request, response);
 
         if (validation.isValidPayload)
@@ -305,63 +285,54 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                     session.findEntity<TEntity, TDocument>(this.entityInfo, id).then(
                         entity => {
                             let methodInstace = entity[validation.methodName];
-                            let specialParameters = [ session ];
-                            let returnedFromAction = methodInstace.apply( entity, [ ...validation.parameters, specialParameters ] );
                             let methodInfo = this.entityInfo.getDefinedMethods().find( dm => dm.name == validation.methodName );
-
-                            if (methodInfo.eventName)
+                            
+                            if (methodInstace && methodInfo)
                             {
-                                let checkAndPublishData = resultData => {
-                                    if (resultData.continue != null) {
-                                        if (resultData.continue == true)
-                                            session.publishAMQPAction( methodInfo, id,resultData.data );
-                                    }
-                                    else
-                                        session.publishAMQPAction( methodInfo, id, resultData);
-                                };
+                                let specialParameters = [ session ];
+                                
+                                //Execute action in entity
+                                let returnedFromAction = methodInstace.apply( entity, [ ...validation.parameters, specialParameters ] );
+                                
+                                if (methodInfo.eventName)
+                                {
+                                    let checkAndPublishData = resultData => {
+                                        if (resultData.continue != null) {
+                                            if (resultData.continue == true)
+                                            {
+                                                session.publishAMQPAction( methodInfo, id,resultData.data );
+                                                resolveRequest(resultData);                                                
+                                            }
+                                            else
+                                                this.responseWrapper.logicError(response, resultData.message );
+                                        }
+                                        else
+                                        {
+                                            session.publishAMQPAction( methodInfo, id, resultData);
+                                            resolveRequest(resultData);
+                                        }
+                                    };
 
-                                if (returnedFromAction instanceof Promise)
-                                    returnedFromAction.then( result => checkAndPublishData(result) );
-                                else
-                                    checkAndPublishData(returnedFromAction);
+                                    let resolveRequest = data => {
+                                        if (methodInfo.returnActionData)
+                                            this.responseWrapper.logicAccept( response, "Operación ejecutada", data );
+                                        else
+                                            this.responseWrapper.logicAccept( response, "Operación ejecutada" );
+                                    }
+
+                                    if (returnedFromAction instanceof Promise)
+                                        returnedFromAction.then( result => checkAndPublishData(result) );
+                                    else
+                                        checkAndPublishData(returnedFromAction);
+                                }
                             }
+                            else
+                                this._responseWrapper.handledError( response, 'NOT FOUND OPERATION FOR ENTITY', HttpStatus.NOT_FOUND );
                         }
                     ).catch( e => this._responseWrapper.exception( response, e ) );                
                 }}
             );
         }
-    }
-
-    retrieveByKey( request : express.Request, response : express.Response, next : express.NextFunction ) : void
-    {
-        this.createSession( request, response ).then( session => { if (session) {
-            let serviceName = request.params.service;
-            let entityName = request.params.entity;
-            let id = request.params.id;
-
-            if ( serviceName && entityName && id )
-            {
-                let filters = {
-                    keys: { serviceName, entityName, value: id }
-                };
-
-                session.listEntitiesByQuery<TEntity, TDocument>( this.entityInfo, filters ).then( 
-                    entities => {
-                        this._responseWrapper.entityCollection(response, entities)
-                    } 
-                ).catch( err => this._responseWrapper.exception(response, err ) );
-            }
-            else
-            {
-                let responseWithError = messageDetails => this._responseWrapper.handledError( response, 'Incomplete request', HttpStatus.BAD_REQUEST, {  details: messageDetails } );
-                if (!serviceName)
-                    responseWithError('It is necessary a service name: /key/<ServiceName>/<Entity>/<id>');
-                else if (!entityName)
-                    responseWithError('It is necessary an entity name: /key/<ServiceName>/<Entity>/<id>');
-                else if (!id)
-                    responseWithError('It is necessary an id: /key/<ServiceName>/<Entity>/<id>');
-            }
-        }});
     }
 
     //#endregion
@@ -553,7 +524,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             let details : any = { errorDescription: message };
             if (nonValid)
                 details.nonValid = nonValid;
-            this._responseWrapper.handledError( response, 'Unvalid payload', HttpStatus.BAD_REQUEST, details );
+            this._responseWrapper.handledError( response, 'Not valid payload', HttpStatus.BAD_REQUEST, details );
 
             return { isValidPayload: false };
         };
@@ -599,12 +570,9 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
         
         if ( nonValid )
-            return responseWithBadRequest( `There are unvalid data in the request`, nonValid );
+            return responseWithBadRequest( `There is non valid data in the request`, nonValid );
 
         return { isValidPayload: true, methodName: operator, parameters };
-
-
-
     }
 
     //#endregion

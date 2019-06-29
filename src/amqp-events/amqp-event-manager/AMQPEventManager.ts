@@ -106,7 +106,8 @@ class AMQPEventManager
                 if (!pub.instance.specificQueue)
                     c.publish( pub.instance.exchangeDescription.name, pub.instance.routingKey, content, publishOptions );
                 else
-                    c.sendToQueue( pub.instance.specificQueue, content, publishOptions );
+                    // c.sendToQueue( pub.instance.specificQueue, content, publishOptions );
+                    c.sendToQueue( pub.instance.specificQueue, content, { contentType:'application/json' } );
 
             });
         });
@@ -178,14 +179,7 @@ class AMQPEventManager
 
         if (existingExchange)
         {
-            let inconsistence = false;
-            for ( let p in existingExchange )
-            {
-                if ( existingExchange[p] != exchangeDescription[p] )
-                    inconsistence = true;
-            }
-
-            if (inconsistence)
+            if ( JSON.stringify(existingExchange) != JSON.stringify(exchangeDescription)  )
                 this.serviceSession.throwException(`There are inconsistences with the exchange '${exchangeDescription.name}'. Please check if all connections are using it in the same way`);
         }
         else

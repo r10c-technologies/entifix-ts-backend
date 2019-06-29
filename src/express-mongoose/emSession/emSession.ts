@@ -10,6 +10,7 @@ import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionTyp
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMServiceSession } from '../emServiceSession/emServiceSession'; 
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
+import { EMEntityMultiKey, EntityKey, IEntityKey, IEntityKeyModel } from '../emEntityMultiKey/emEntityMultiKey';
 import moment = require('moment');
 
 class EMSession extends HcSession
@@ -21,6 +22,8 @@ class EMSession extends HcSession
     protected _privateUserData : PrivateUserData;
     protected _serviceSession: EMServiceSession;
     
+    private _anchoredFiltering : EMSessionFilter | Array<EMSessionFilter>;
+        
     //#endregion
 
 
@@ -418,8 +421,27 @@ class EMSession extends HcSession
         }); 
     }
 
+    findByKey<TEntity extends EMEntityMultiKey, TDocument extends EntityDocument>(info : EntityInfo, key : IEntityKey ) : Promise<TEntity>
+    {
+        return new Promise<TEntity>( (resolve,reject) => {
+            let normalizedFilter = {
+                keys: {
+                    serviceName: key.serviceName,
+                    entityName: key.entityName,
+                    value: key.value
+                }
+            };
 
-    private _anchoredFiltering : EMSessionFilter | Array<EMSessionFilter>;
+            this.listEntitiesByQuery<TEntity, TDocument>( info, normalizedFilter ).then( 
+                entities => {
+                    if (entities.length > 0)
+                        resolve(entities[0]);
+                    else
+                        resolve(null);
+                } 
+            ).catch( err => reject( this.createError( err, 'Error on retrive Entity Multikey')) );
+        })
+    }
 
     setFiltering( filtering : EMSessionFilter | Array<EMSessionFilter>)
     {

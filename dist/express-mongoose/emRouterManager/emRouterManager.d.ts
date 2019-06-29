@@ -5,6 +5,7 @@ import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import { AccessorInfo, MemberBindingType } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
+import { EMEntityMultiKey } from '../emEntityMultiKey/emEntityMultiKey';
 declare class EMRouterManager {
     private _serviceSession;
     private _expressAppInstance;
@@ -17,6 +18,11 @@ declare class EMRouterManager {
     exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity>(entityName: string): void;
     exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity>(entityName: string, options: {
         controller?: EMEntityController<TDocument, TEntity>;
+        basePath?: string;
+        resourceName?: string;
+    }): void;
+    exposeEntityMultiKey<TDocument extends EntityDocument, TEntityMK extends EMEntityMultiKey>(entityName: string, options: {
+        controller?: EMEntityController<TDocument, TEntityMK>;
         basePath?: string;
         resourceName?: string;
     }): void;
