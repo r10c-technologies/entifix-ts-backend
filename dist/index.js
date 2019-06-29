@@ -25,5 +25,5 @@ __export(require("./amqp-events/amqp-event-manager/AMQPEventManager"));
 __export(require("./amqp-events/amqp-sender/AMQPSender"));
 __export(require("./express-mongoose/emEntityMultiKey/emEntityMultiKey"));
 //Submodules
-__export(require("./transactions/transactionIndex"));
+__export(require("./transactions"));
 //# sourceMappingURL=index.js.map

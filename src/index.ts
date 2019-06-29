@@ -23,4 +23,4 @@ export * from './amqp-events/amqp-sender/AMQPSender';
 export * from './express-mongoose/emEntityMultiKey/emEntityMultiKey';
 
 //Submodules
-export * from './transactions/transactionIndex';
+export * from './transactions';
