@@ -11,7 +11,8 @@
     "license": "MIT",
     "scripts": {
         "compile": "tsc",
-        "package": "gulp package"
+        "package": "gulp package",
+        "package-src": "gulp package-src"
     },
     "dependencies": {
         "amqplib": "^0.5.2",

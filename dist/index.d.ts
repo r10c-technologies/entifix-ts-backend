@@ -21,4 +21,3 @@ export * from './amqp-events/amqp-event-manager/AMQPEventManager';
 export * from './amqp-events/amqp-models/amqp-models';
 export * from './amqp-events/amqp-sender/AMQPSender';
 export * from './express-mongoose/emEntityMultiKey/emEntityMultiKey';
-export * from './transactions';

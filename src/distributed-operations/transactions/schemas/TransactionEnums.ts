@@ -3,7 +3,7 @@
 
 
 
-enum ErrorType 
+enum TransactionErrorType 
 {
     insuficcientData = 'insuficcientData',
     inconsistentData = 'inconsistentData',
@@ -14,12 +14,12 @@ enum ErrorType
 
 enum TransactionStage
 {
-    validation = 'validation'
+    validation = 'validation',
 
 }
 
 export { 
-    ErrorType, 
+    TransactionErrorType, 
     TransactionStage
 }
 

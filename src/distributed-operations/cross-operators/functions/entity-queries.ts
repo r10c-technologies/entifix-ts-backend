@@ -1,8 +1,8 @@
 
-import { EMEntityMultiKey, EntityKey } from '../../express-mongoose/emEntityMultiKey/emEntityMultiKey';
-import { EMSession } from '../../express-mongoose/emSession/emSession';
-import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
-import { EMEntity, EntityDocument } from '../../express-mongoose/emEntity/emEntity';
+import { EMEntityMultiKey, EntityKey } from '../../../express-mongoose/emEntityMultiKey/emEntityMultiKey';
+import { EMSession } from '../../../express-mongoose/emSession/emSession';
+import { EntityInfo } from '../../../hc-core/hcMetaData/hcMetaData';
+import { EMEntity, EntityDocument } from '../../../express-mongoose/emEntity/emEntity';
 import { SearchOperator } from '../schemas/CrossEnums';
 
 
