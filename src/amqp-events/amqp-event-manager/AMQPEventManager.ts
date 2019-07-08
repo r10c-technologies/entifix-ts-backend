@@ -181,7 +181,7 @@ class AMQPEventManager
             let inconsistence = false;
             for ( let p in existingExchange )
             {
-                if ( existingExchange[p] != exchangeDescription[p] )
+                if ( JSON.stringify(existingExchange[p]) != JSON.stringify(exchangeDescription[p]) )
                     inconsistence = true;
             }
 
