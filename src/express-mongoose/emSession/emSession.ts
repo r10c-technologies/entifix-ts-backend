@@ -125,79 +125,80 @@ class EMSession extends HcSession
                     filters.push(this._anchoredFiltering);
             }
 
-            let mongoFilters = this.resolveToMongoFilters(entityName, filters);
-            let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
-           
-            if ( mongoFilters.inconsistencies || (mongoSorting != null && mongoSorting.inconsistencies) )
-            {
-                inconsistencies = { message: 'Some query params were ignored because of inconsistency' };
-                if (mongoFilters.inconsistencies)
-                    inconsistencies.filtering = mongoFilters.inconsistencies;
-                if (mongoSorting && mongoSorting.inconsistencies)
-                    inconsistencies.sorting = mongoSorting.inconsistencies;
-            }                
+            this.resolveToMongoFilters(entityName, filters).then(mongoFilters => {
+                //let mongoFilters = this.resolveToMongoFilters(entityName, filters);
+                let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
             
-            //CREATE QUERY =====>>>>>
-            let query = this.getModel<T>(entityName).find( mongoFilters.filters );
-            let countQuery = this.getModel<T>(entityName).find( mongoFilters.filters );
-
-            if (mongoSorting != null && mongoSorting.sorting != null)
-                query = query.sort( mongoSorting.sorting );
-            
-            if (skip > 0)
-                query = query.skip(skip);
-            if (take != null)
-                query = query.limit(take);
-                        
-            //EXECUTE QUERIES =====>>>>>
-            let results : Array<T>;
-            let count : number;
-            let lastError : any;
-            let listResolved = false, countResolved = false, fullResolved = false;
-            
-            query.exec( ( err, resultQuery) => { 
-                if (!err)
-                    results = resultQuery;
-                else
-                    lastError = err;
-
-                listResolved = true;
-                if (listResolved && countResolved)
-                    resolvePromise();
-            });
-
-            countQuery.count((err, resultCount) => {
-                if (!err)
-                    count = resultCount;
-                else
-                    lastError = err;
-
-                countResolved = true;
-                if (listResolved && countResolved)
-                    resolvePromise();
-            });
-
-            var resolvePromise = () => {
-                if (!fullResolved)
+                if ( mongoFilters.inconsistencies || (mongoSorting != null && mongoSorting.inconsistencies) )
                 {
-                    fullResolved = true;
-                    if (!lastError)
-                    {
-                        let result : ListDocsResultDetails<T> = { docs: results, details: { total: count } };
-                        if (skip > 0 ) 
-                            result.details.skip = skip;
-                        if (take != null ) 
-                            result.details.take = take;
-                        if (inconsistencies)
-                            result.details.devData = { inconsistencies };
-
-                        resolve( result )
-                    }
-                    else
-                        reject( lastError );                    
+                    inconsistencies = { message: 'Some query params were ignored because of inconsistency' };
+                    if (mongoFilters.inconsistencies)
+                        inconsistencies.filtering = mongoFilters.inconsistencies;
+                    if (mongoSorting && mongoSorting.inconsistencies)
+                        inconsistencies.sorting = mongoSorting.inconsistencies;
                 }                
-            };
+                
+                //CREATE QUERY =====>>>>>
+                let query = this.getModel<T>(entityName).find( mongoFilters.filters );
+                let countQuery = this.getModel<T>(entityName).find( mongoFilters.filters );
 
+                if (mongoSorting != null && mongoSorting.sorting != null)
+                    query = query.sort( mongoSorting.sorting );
+                
+                if (skip > 0)
+                    query = query.skip(skip);
+                if (take != null)
+                    query = query.limit(take);
+                            
+                //EXECUTE QUERIES =====>>>>>
+                let results : Array<T>;
+                let count : number;
+                let lastError : any;
+                let listResolved = false, countResolved = false, fullResolved = false;
+                
+                query.exec( ( err, resultQuery) => { 
+                    if (!err)
+                        results = resultQuery;
+                    else
+                        lastError = err;
+
+                    listResolved = true;
+                    if (listResolved && countResolved)
+                        resolvePromise();
+                });
+
+                countQuery.count((err, resultCount) => {
+                    if (!err)
+                        count = resultCount;
+                    else
+                        lastError = err;
+
+                    countResolved = true;
+                    if (listResolved && countResolved)
+                        resolvePromise();
+                });
+
+                var resolvePromise = () => {
+                    if (!fullResolved)
+                    {
+                        fullResolved = true;
+                        if (!lastError)
+                        {
+                            let result : ListDocsResultDetails<T> = { docs: results, details: { total: count } };
+                            if (skip > 0 ) 
+                                result.details.skip = skip;
+                            if (take != null ) 
+                                result.details.take = take;
+                            if (inconsistencies)
+                                result.details.devData = { inconsistencies };
+
+                            resolve( result )
+                        }
+                        else
+                            reject( lastError );                    
+                    }                
+                };
+            });
         }); 
     }
 
@@ -473,7 +474,6 @@ class EMSession extends HcSession
 
             let complexFiltersAsync = () => {
                 return new Promise<FiltersConversion>( (resolve, reject) => { 
-                    let entitiesMongoFilters = new Array<{entity: string, mongoFilters: any, property: string}>();
                     let entityFilters = new Array<{entity: string, filters: any, property: string}>();
                     info.getAccessors()
                     .filter(a => a.activator instanceof MemberActivator)
@@ -489,29 +489,37 @@ class EMSession extends HcSession
                             entityFilters.push({entity: a.type, filters: eFilters, property: a.persistentAlias? a.persistentAlias: a.name});
                     });
 
-                    entityFilters.forEach(ef => {
-                        entitiesMongoFilters.push({entity: ef.entity, mongoFilters: this.resolveToMongoFilters(ef.entity, ef.filters), property: ef.property});
-                    });
+                    let entityMongoFiltersPromises = entityFilters.map(ef => 
+                         this.resolveToMongoFilters(ef.entity, ef.filters).then( filtersConversion => {
+                             return {
+                                 entity: ef.entity,
+                                 filtersConversion,
+                                 property: ef.property
+                             }
+                         })
+                    );
 
-                    let asynkTasks = entitiesMongoFilters.map(emf => {
-                        return new Promise<{property: string, values: string[]}>( (resolve, reject) => {
-                            this.getModel(emf.entity).find(emf.mongoFilters.filters).select('_id').exec((err, res) => {
-                                if(!err)
-                                {
-                                    let tempRes = <string[]> (res.map(r => r.id) as any) ;
-                                    resolve({property: emf.property, values: tempRes})
-                                }
-                                else
-                                    reject(err);
+                    Promise.all(entityMongoFiltersPromises).then( complexEntitiesFilters => {
+                        let asynkTasks = complexEntitiesFilters.map(emf => {
+                            return new Promise<{property: string, values: string[]}>( (resolve, reject) => {
+                                this.getModel(emf.entity).find(emf.filtersConversion.filters).select('_id').exec((err, res) => {
+                                    if(!err)
+                                    {
+                                        let tempRes = <string[]> (res.map(r => r.id) as any) ;
+                                        resolve({property: emf.property, values: tempRes})
+                                    }
+                                    else
+                                        reject(err);
+                                });
                             });
                         });
-                    });
-
-                    Promise.all(asynkTasks).then(results => {
-                        let values = results.map((v) => {
-                            return {[v.property]: {$in: [v.values]}}
-                        });
-                        resolve({filters: values})
+    
+                        Promise.all(asynkTasks).then(results => {
+                            let values = results.map((v) => {
+                                return {[v.property]: {$in: [v.values]}}
+                            });
+                            resolve({filters: values})
+                        }).catch(e => this.createError(e, "Error on complex filters"));
                     }).catch(e => this.createError(e, "Error on complex filters"));
                 });               
             };

@@ -67,64 +67,66 @@ class EMSession extends hcSession_1.HcSession {
                 else
                     filters.push(this._anchoredFiltering);
             }
-            let mongoFilters = this.resolveToMongoFilters(entityName, filters);
-            let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
-            if (mongoFilters.inconsistencies || (mongoSorting != null && mongoSorting.inconsistencies)) {
-                inconsistencies = { message: 'Some query params were ignored because of inconsistency' };
-                if (mongoFilters.inconsistencies)
-                    inconsistencies.filtering = mongoFilters.inconsistencies;
-                if (mongoSorting && mongoSorting.inconsistencies)
-                    inconsistencies.sorting = mongoSorting.inconsistencies;
-            }
-            //CREATE QUERY =====>>>>>
-            let query = this.getModel(entityName).find(mongoFilters.filters);
-            let countQuery = this.getModel(entityName).find(mongoFilters.filters);
-            if (mongoSorting != null && mongoSorting.sorting != null)
-                query = query.sort(mongoSorting.sorting);
-            if (skip > 0)
-                query = query.skip(skip);
-            if (take != null)
-                query = query.limit(take);
-            //EXECUTE QUERIES =====>>>>>
-            let results;
-            let count;
-            let lastError;
-            let listResolved = false, countResolved = false, fullResolved = false;
-            query.exec((err, resultQuery) => {
-                if (!err)
-                    results = resultQuery;
-                else
-                    lastError = err;
-                listResolved = true;
-                if (listResolved && countResolved)
-                    resolvePromise();
-            });
-            countQuery.count((err, resultCount) => {
-                if (!err)
-                    count = resultCount;
-                else
-                    lastError = err;
-                countResolved = true;
-                if (listResolved && countResolved)
-                    resolvePromise();
-            });
-            var resolvePromise = () => {
-                if (!fullResolved) {
-                    fullResolved = true;
-                    if (!lastError) {
-                        let result = { docs: results, details: { total: count } };
-                        if (skip > 0)
-                            result.details.skip = skip;
-                        if (take != null)
-                            result.details.take = take;
-                        if (inconsistencies)
-                            result.details.devData = { inconsistencies };
-                        resolve(result);
-                    }
-                    else
-                        reject(lastError);
+            this.resolveToMongoFilters(entityName, filters).then(mongoFilters => {
+                //let mongoFilters = this.resolveToMongoFilters(entityName, filters);
+                let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
+                if (mongoFilters.inconsistencies || (mongoSorting != null && mongoSorting.inconsistencies)) {
+                    inconsistencies = { message: 'Some query params were ignored because of inconsistency' };
+                    if (mongoFilters.inconsistencies)
+                        inconsistencies.filtering = mongoFilters.inconsistencies;
+                    if (mongoSorting && mongoSorting.inconsistencies)
+                        inconsistencies.sorting = mongoSorting.inconsistencies;
                 }
-            };
+                //CREATE QUERY =====>>>>>
+                let query = this.getModel(entityName).find(mongoFilters.filters);
+                let countQuery = this.getModel(entityName).find(mongoFilters.filters);
+                if (mongoSorting != null && mongoSorting.sorting != null)
+                    query = query.sort(mongoSorting.sorting);
+                if (skip > 0)
+                    query = query.skip(skip);
+                if (take != null)
+                    query = query.limit(take);
+                //EXECUTE QUERIES =====>>>>>
+                let results;
+                let count;
+                let lastError;
+                let listResolved = false, countResolved = false, fullResolved = false;
+                query.exec((err, resultQuery) => {
+                    if (!err)
+                        results = resultQuery;
+                    else
+                        lastError = err;
+                    listResolved = true;
+                    if (listResolved && countResolved)
+                        resolvePromise();
+                });
+                countQuery.count((err, resultCount) => {
+                    if (!err)
+                        count = resultCount;
+                    else
+                        lastError = err;
+                    countResolved = true;
+                    if (listResolved && countResolved)
+                        resolvePromise();
+                });
+                var resolvePromise = () => {
+                    if (!fullResolved) {
+                        fullResolved = true;
+                        if (!lastError) {
+                            let result = { docs: results, details: { total: count } };
+                            if (skip > 0)
+                                result.details.skip = skip;
+                            if (take != null)
+                                result.details.take = take;
+                            if (inconsistencies)
+                                result.details.devData = { inconsistencies };
+                            resolve(result);
+                        }
+                        else
+                            reject(lastError);
+                    }
+                };
+            });
         });
     }
     findDocument(entityName, id) {
@@ -296,88 +298,122 @@ class EMSession extends hcSession_1.HcSession {
         document.deletedBy = this._privateUserData.idUser;
     }
     resolveToMongoFilters(entityName, filters) {
-        let info = this.getInfo(entityName);
-        let inconsistencies;
-        let opFilters = [];
-        let addInconsistency = (i) => {
-            if (!inconsistencies)
-                inconsistencies = new Array();
-            inconsistencies.push(i);
-        };
-        let persistentMembers = info.getAllMembers()
-            .filter(m => (m instanceof hcMetaData_1.AccessorInfo) && (m.schema != null || m.persistenceType == hcMetaData_1.PersistenceType.Auto))
-            .map(m => { return { property: m.name, type: m.type, serializeAlias: m.serializeAlias, persistentAlias: m.persistentAlias }; });
-        if (info.getAccessors().filter(a => a.activator instanceof hcMetaData_1.MemberActivator).length > 0 &&
-            filters.filter(f => (f.property.split(".").length > 1))) {
-            let entitiesMongoFilters = new Array();
-            let entityFilters = new Array();
-            info.getAccessors()
-                .filter(a => a.activator instanceof hcMetaData_1.MemberActivator)
-                .forEach(a => {
-                let eFilters = filters
-                    .filter(f => (f.property.split(".").length > 1) && (a.name == f.property.split(".")[0]))
-                    .map(f => {
-                    let nf = f;
-                    nf.property = f.property.split(".")[1];
-                    return nf;
-                });
-                if (eFilters.length > 0)
-                    entityFilters.push({ entity: a.type, filters: eFilters, property: a.persistentAlias ? a.persistentAlias : a.name });
-            });
-            entityFilters.forEach(ef => {
-                entitiesMongoFilters.push({ entity: ef.entity, mongoFilters: this.resolveToMongoFilters(ef.entity, ef.filters), property: ef.property });
-            });
-            let asynkTasks = entitiesMongoFilters.map(emf => {
+        return new Promise((resolve, reject) => {
+            let info = this.getInfo(entityName);
+            let inconsistencies;
+            let opFilters = [];
+            let addInconsistency = (i) => {
+                if (!inconsistencies)
+                    inconsistencies = new Array();
+                inconsistencies.push(i);
+            };
+            let complexFiltersAsync = () => {
                 return new Promise((resolve, reject) => {
-                    this.getModel(emf.entity).find(emf.mongoFilters.filters).select('_id').exec((err, res) => {
-                        if (!err) {
-                            let tempRes = res.map(r => r.id);
-                            resolve({ property: emf.property, values: tempRes });
-                        }
-                        else
-                            reject(err);
+                    let entityFilters = new Array();
+                    info.getAccessors()
+                        .filter(a => a.activator instanceof hcMetaData_1.MemberActivator)
+                        .forEach(a => {
+                        let eFilters = filters
+                            .filter(f => (f.property.split(".").length > 1) && (a.name == f.property.split(".")[0]))
+                            .map(f => {
+                            let nf = f;
+                            nf.property = f.property.split(".")[1];
+                            return nf;
+                        });
+                        if (eFilters.length > 0)
+                            entityFilters.push({ entity: a.type, filters: eFilters, property: a.persistentAlias ? a.persistentAlias : a.name });
                     });
+                    let entityMongoFiltersPromises = entityFilters.map(ef => this.resolveToMongoFilters(ef.entity, ef.filters).then(filtersConversion => {
+                        return {
+                            entity: ef.entity,
+                            filtersConversion,
+                            property: ef.property
+                        };
+                    }));
+                    Promise.all(entityMongoFiltersPromises).then(complexEntitiesFilters => {
+                        let asynkTasks = complexEntitiesFilters.map(emf => {
+                            return new Promise((resolve, reject) => {
+                                this.getModel(emf.entity).find(emf.filtersConversion.filters).select('_id').exec((err, res) => {
+                                    if (!err) {
+                                        let tempRes = res.map(r => r.id);
+                                        resolve({ property: emf.property, values: tempRes });
+                                    }
+                                    else
+                                        reject(err);
+                                });
+                            });
+                        });
+                        Promise.all(asynkTasks).then(results => {
+                            let values = results.map((v) => {
+                                return { [v.property]: { $in: [v.values] } };
+                            });
+                            resolve({ filters: values });
+                        }).catch(e => this.createError(e, "Error on complex filters"));
+                    }).catch(e => this.createError(e, "Error on complex filters"));
                 });
-            });
-            Promise.all(asynkTasks).then(results => {
-                results.forEach(r => {
-                    mongoFilters.$and.push({ [r.property]: { $in: [r.values] } });
-                });
-            }).catch(e => this.createError(e, "Error on complex filters"));
-        }
-        //Base mongo filters
-        let mongoFilters;
-        // Convert all the fixed and optional filters in Mongoose Filetrs
-        if (filters != null && filters.length > 0) {
-            mongoFilters = { $and: [{ deferredDeletion: { $in: [null, false] } }] };
-            //get all filters 
-            for (let filter of filters) {
-                let pMember = persistentMembers.find(pm => pm.property == filter.property || pm.serializeAlias == filter.property || pm.persistentAlias == filter.property);
-                if (pMember) {
-                    let persistentName = pMember.persistentAlias ? pMember.persistentAlias : pMember.property;
-                    let mongoFilterConversion = this.parseMongoFilter(filter, pMember.type, persistentName);
-                    if (!mongoFilterConversion.err) {
-                        if (filter.filterType == FilterType.Fixed)
-                            mongoFilters.$and.push(mongoFilterConversion.value);
-                        if (filter.filterType == FilterType.Optional)
-                            opFilters.push(mongoFilterConversion.value);
+            };
+            let simpleFiltersAsync = () => {
+                return new Promise((resolve, reject) => {
+                    //Base mongo filters
+                    let mongoFilters;
+                    let persistentMembers = info.getAllMembers()
+                        .filter(m => (m instanceof hcMetaData_1.AccessorInfo) && (m.schema != null || m.persistenceType == hcMetaData_1.PersistenceType.Auto))
+                        .map(m => { return { property: m.name, type: m.type, serializeAlias: m.serializeAlias, persistentAlias: m.persistentAlias }; });
+                    // Convert all the fixed and optional filters in Mongoose Filetrs       
+                    if (filters != null && filters.length > 0) {
+                        mongoFilters = { $and: [] };
+                        //get all filters 
+                        for (let filter of filters) {
+                            let pMember = persistentMembers.find(pm => pm.property == filter.property || pm.serializeAlias == filter.property || pm.persistentAlias == filter.property);
+                            if (pMember) {
+                                let persistentName = pMember.persistentAlias ? pMember.persistentAlias : pMember.property;
+                                let mongoFilterConversion = this.parseMongoFilter(filter, pMember.type, persistentName);
+                                if (!mongoFilterConversion.err) {
+                                    if (filter.filterType == FilterType.Fixed)
+                                        mongoFilters.$and.push(mongoFilterConversion.value);
+                                    if (filter.filterType == FilterType.Optional)
+                                        opFilters.push(mongoFilterConversion.value);
+                                }
+                                else
+                                    addInconsistency({ property: filter.property, message: mongoFilterConversion.message });
+                            }
+                            else
+                                addInconsistency({ property: filter.property, message: 'Attempt to filter by a non persistent member' });
+                        }
+                        if (opFilters.length > 0) {
+                            if (opFilters.length > 1)
+                                mongoFilters.$and.push({ $or: opFilters });
+                            else
+                                mongoFilters.$and.push(opFilters[0]);
+                        }
                     }
-                    else
-                        addInconsistency({ property: filter.property, message: mongoFilterConversion.message });
-                }
+                    resolve({ filters: mongoFilters, inconsistencies });
+                });
+            };
+            let mainAsyncTasks = new Array();
+            if (info.getAccessors().filter(a => a.activator instanceof hcMetaData_1.MemberActivator).length > 0 && filters.filter(f => (f.property.split(".").length > 1)))
+                mainAsyncTasks.push(complexFiltersAsync());
+            mainAsyncTasks.push(simpleFiltersAsync());
+            Promise.all(mainAsyncTasks).then(results => {
+                let finalFilter;
+                let inconsistencies = new Array();
+                results.forEach(r => {
+                    if (r.filters && r.filters.$and && r.filters.$and.length > 0) {
+                        if (r.inconsistencies) {
+                            inconsistencies = r.inconsistencies;
+                        }
+                        if (!finalFilter)
+                            finalFilter = { $and: [] };
+                        finalFilter.$and = finalFilter.$and.concat(r.filters.$and);
+                    }
+                });
+                if (finalFilter && finalFilter.$and)
+                    finalFilter.$and.push({ deferredDeletion: { $in: [null, false] } });
                 else
-                    addInconsistency({ property: filter.property, message: 'Attempt to filter by a non persistent member' });
-            }
-            if (opFilters.length > 0) {
-                if (opFilters.length > 1)
-                    mongoFilters.$and.push({ $or: opFilters });
-                else
-                    mongoFilters.$and.push(opFilters[0]);
-            }
-        }
-        else
-            mongoFilters = { deferredDeletion: { $in: [null, false] } };
-        return { filters: mongoFilters, inconsistencies };
+                    finalFilter = { deferredDeletion: { $in: [null, false] } };
+                resolve({ filters: finalFilter, inconsistencies });
+            }).catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
+        });
     }
     parseMongoFilter(sessionFilter, propertyType, persistentName) {
         //Check and convert the filter value 

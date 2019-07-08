@@ -110,4 +110,11 @@ interface ListEntitiesResultDetails<TEntity extends EMEntity> {
         devData?: any;
     };
 }
-export { EMSession, EMSessionFilter, FilterType, SortType, EMSessionSort, ListOptions };
+interface FiltersConversion {
+    filters?: any;
+    inconsistencies?: Array<{
+        property: string;
+        message: string;
+    }>;
+}
+export { EMSession, EMSessionFilter, FilterType, SortType, EMSessionSort, ListOptions, FiltersConversion };
