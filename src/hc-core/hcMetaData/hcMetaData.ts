@@ -113,14 +113,16 @@ interface DefinedMetaParam {
     special?: boolean;
 }
 
-function DefinedParam( paramName : string, required? : boolean )
+function DefinedParam( paramName : string)
+function DefinedParam( paramName : string, options : { required?: boolean } );
+function DefinedParam( paramName : string, options? : { required?: boolean } )
 {
     if (!paramName)
         throw "Name param is required";
     
     return function(target: Object, propertyKey: string | symbol, parameterIndex: number) 
     {
-        required = required != null ? required : false; 
+        let required = options && options.required != null ? options.required : false; 
         let definedParameters: Array<DefinedMetaParam> = Reflect.getOwnMetadata(definedParamKey, target, propertyKey) || new Array<DefinedMetaParam>();
         definedParameters.push({ name: paramName, index: parameterIndex, required });
 
@@ -140,7 +142,9 @@ function SessionParam( )
 }
 
 
-function DefinedMethod( params? : { eventName?: string } )
+function DefinedMethod( );
+function DefinedMethod( params : { eventName?: string, returnActionData? : boolean } );
+function DefinedMethod( params? : { eventName?: string, returnActionData? : boolean } )
 {
     return function(target: any, propertyName: string, descriptor: TypedPropertyDescriptor<Function>)
     {
@@ -152,6 +156,7 @@ function DefinedMethod( params? : { eventName?: string } )
         methodInfo.className = target.constructor.name;
         methodInfo.parameters = Reflect.getOwnMetadata( definedParamKey, target, propertyName );
         methodInfo.eventName = params.eventName;
+        methodInfo.returnActionData = params.returnActionData;
         entityInfo.addMethodInfo(methodInfo);
 
         let originalMethod = descriptor.value;
@@ -577,6 +582,7 @@ class MethodInfo extends MemberInfo
 
     private _parameters : Array<DefinedMetaParam>;
     private _eventName : string;
+    private _returnActionData : boolean;
 
     //#endregion
 
@@ -602,6 +608,12 @@ class MethodInfo extends MemberInfo
     { return this._eventName; }
     set eventName ( value )
     { this._eventName = value; }
+
+    get returnActionData ()
+    { return this._returnActionData; }
+    set returnActionData( value )
+    { this._returnActionData = value; }
+
 
     //#endregion
 }

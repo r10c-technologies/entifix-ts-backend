@@ -11,6 +11,7 @@ const emEntity_1 = require("../emEntity/emEntity");
 const emWrapper_1 = require("../emWrapper/emWrapper");
 const hcWrapper_1 = require("../../hc-core/hcWrapper/hcWrapper");
 const hcMetaData_1 = require("../../hc-core/hcMetaData/hcMetaData");
+const emEntityMultiKeyController_1 = require("../emEntityMultikeyController/emEntityMultiKeyController");
 class IExpositionDetail {
 }
 class EMRouterManager {
@@ -23,13 +24,18 @@ class EMRouterManager {
     exposeEntity(entityName, options) {
         let basePath = this.getCompleteBasePath(options && options.basePath ? options.basePath : null);
         let resourceName = options && options.resourceName ? options.resourceName : null;
-        let entityController;
-        if (options && options.controller)
-            entityController = options.controller;
-        else
+        let entityController = options && options.controller ? options.controller : null;
+        if (!entityController)
             entityController = new emEntityController_1.EMEntityController(entityName, this, { resourceName });
         this._routers.push({ entityName: entityName, controller: entityController, basePath });
         this._expressAppInstance.use(basePath, entityController.router);
+    }
+    exposeEntityMultiKey(entityName, options) {
+        options = options || {};
+        let resourceName = options && options.resourceName ? options.resourceName : null;
+        if (!options.controller)
+            options.controller = new emEntityMultiKeyController_1.EMEntityMutltiKeyController(entityName, this, { resourceName });
+        this.exposeEntity(entityName, options);
     }
     atachController(controller, options) {
         let basePath = this.getCompleteBasePath(options && options.basePath ? options.basePath : null);

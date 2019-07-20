@@ -1,23 +1,25 @@
+import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EntityDocument, EMEntity } from "../emEntity/emEntity";
+interface IEntityKey {
+    serviceName: string;
+    entityName: string;
+    value: string;
+}
+interface IEntityKeyModel extends IEntityKey, EntityDocument {
+}
+declare class EntityKey extends EMEntity implements IEntityKey {
+    serviceName: string;
+    entityName: string;
+    value: string;
+}
 interface IEntityMultiKey {
-    keys: Array<IKeyDetail>;
+    keys: Array<IEntityKey>;
 }
 interface IEntityMultiKeyModel extends IEntityMultiKey, EntityDocument {
 }
 declare class EMEntityMultiKey extends EMEntity implements IEntityMultiKey {
+    static isMultiKeyEntity(entityInfo: EntityInfo): boolean;
     private _keys;
-    keys: Array<KeyDetail>;
+    keys: Array<EntityKey>;
 }
-interface IKeyDetail {
-    serviceName: string;
-    entityName: string;
-    value: string;
-}
-interface IKeyDetailModel extends IKeyDetail, EntityDocument {
-}
-declare class KeyDetail extends EMEntity implements IKeyDetail {
-    serviceName: string;
-    entityName: string;
-    value: string;
-}
-export { EMEntityMultiKey, IEntityMultiKey, IEntityMultiKeyModel, KeyDetail, IKeyDetail, IKeyDetailModel };
+export { EMEntityMultiKey, IEntityMultiKey, IEntityMultiKeyModel, EntityKey, IEntityKey, IEntityKeyModel };

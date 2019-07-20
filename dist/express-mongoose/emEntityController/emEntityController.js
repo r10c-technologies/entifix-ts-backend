@@ -31,18 +31,6 @@ class EMEntityController {
         //Operator methods
         if (this.entityInfo.getDefinedMethods().length > 0)
             this._router.patch('/' + this._resourceName + '/:_id', (request, response, next) => this.action(request, response));
-        //Multikey manage methods
-        if (this.isMultiKeyEntity())
-            this._router.get('/key/:service/:entity/:id', (request, response, next) => this.retrieveByKey(request, response, next));
-    }
-    isMultiKeyEntity() {
-        let base = this.entityInfo.base;
-        let isMultiKeyEntity = base ? base.name == 'EMEntityMultiKey' : false;
-        while (base != null && !isMultiKeyEntity) {
-            isMultiKeyEntity = base.name == 'EMEntityMultiKey';
-            base = base.base;
-        }
-        return isMultiKeyEntity;
     }
     //#endregion
     //#region On request/response session  methods
@@ -176,53 +164,44 @@ class EMEntityController {
                     let id = request.params[paramId];
                     session.findEntity(this.entityInfo, id).then(entity => {
                         let methodInstace = entity[validation.methodName];
-                        let specialParameters = [session];
-                        let returnedFromAction = methodInstace.apply(entity, [...validation.parameters, specialParameters]);
                         let methodInfo = this.entityInfo.getDefinedMethods().find(dm => dm.name == validation.methodName);
-                        if (methodInfo.eventName) {
-                            let checkAndPublishData = resultData => {
-                                if (resultData.continue != null) {
-                                    if (resultData.continue == true)
-                                        session.publishAMQPAction(methodInfo, id, resultData.data);
-                                }
+                        if (methodInstace && methodInfo) {
+                            let specialParameters = [session];
+                            //Execute action in entity
+                            let returnedFromAction = methodInstace.apply(entity, [...validation.parameters, specialParameters]);
+                            if (methodInfo.eventName) {
+                                let checkAndPublishData = resultData => {
+                                    if (resultData.continue != null) {
+                                        if (resultData.continue == true) {
+                                            session.publishAMQPAction(methodInfo, id, resultData.data);
+                                            resolveRequest(resultData);
+                                        }
+                                        else
+                                            this.responseWrapper.logicError(response, resultData.message);
+                                    }
+                                    else {
+                                        session.publishAMQPAction(methodInfo, id, resultData);
+                                        resolveRequest(resultData);
+                                    }
+                                };
+                                let resolveRequest = data => {
+                                    if (methodInfo.returnActionData)
+                                        this.responseWrapper.logicAccept(response, "Operación ejecutada", data);
+                                    else
+                                        this.responseWrapper.logicAccept(response, "Operación ejecutada");
+                                };
+                                if (returnedFromAction instanceof Promise)
+                                    returnedFromAction.then(result => checkAndPublishData(result));
                                 else
-                                    session.publishAMQPAction(methodInfo, id, resultData);
-                            };
-                            if (returnedFromAction instanceof Promise)
-                                returnedFromAction.then(result => checkAndPublishData(result));
-                            else
-                                checkAndPublishData(returnedFromAction);
+                                    checkAndPublishData(returnedFromAction);
+                            }
                         }
+                        else
+                            this._responseWrapper.handledError(response, 'NOT FOUND OPERATION FOR ENTITY', HttpStatus.NOT_FOUND);
                     }).catch(e => this._responseWrapper.exception(response, e));
                 }
             });
         }
-    }
-    retrieveByKey(request, response, next) {
-        this.createSession(request, response).then(session => {
-            if (session) {
-                let serviceName = request.params.service;
-                let entityName = request.params.entity;
-                let id = request.params.id;
-                if (serviceName && entityName && id) {
-                    let filters = {
-                        keys: { serviceName, entityName, value: id }
-                    };
-                    session.listEntitiesByQuery(this.entityInfo, filters).then(entities => {
-                        this._responseWrapper.entityCollection(response, entities);
-                    }).catch(err => this._responseWrapper.exception(response, err));
-                }
-                else {
-                    let responseWithError = messageDetails => this._responseWrapper.handledError(response, 'Incomplete request', HttpStatus.BAD_REQUEST, { details: messageDetails });
-                    if (!serviceName)
-                        responseWithError('It is necessary a service name: /key/<ServiceName>/<Entity>/<id>');
-                    else if (!entityName)
-                        responseWithError('It is necessary an entity name: /key/<ServiceName>/<Entity>/<id>');
-                    else if (!id)
-                        responseWithError('It is necessary an id: /key/<ServiceName>/<Entity>/<id>');
-                }
-            }
-        });
     }
     //#endregion
     //#region Utility methods
@@ -353,7 +332,7 @@ class EMEntityController {
             let details = { errorDescription: message };
             if (nonValid)
                 details.nonValid = nonValid;
-            this._responseWrapper.handledError(response, 'Unvalid payload', HttpStatus.BAD_REQUEST, details);
+            this._responseWrapper.handledError(response, 'Not valid payload', HttpStatus.BAD_REQUEST, details);
             return { isValidPayload: false };
         };
         let operator = simpleObject.op;
@@ -387,7 +366,7 @@ class EMEntityController {
         delete simpleObject.parameters;
         let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
         if (nonValid)
-            return responseWithBadRequest(`There are unvalid data in the request`, nonValid);
+            return responseWithBadRequest(`There is non valid data in the request`, nonValid);
         return { isValidPayload: true, methodName: operator, parameters };
     }
     //#endregion

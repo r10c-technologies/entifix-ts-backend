@@ -70,11 +70,11 @@ function DefinedProperty() {
     };
 }
 const definedParamKey = Symbol("definedParam");
-function DefinedParam(paramName, required) {
+function DefinedParam(paramName, options) {
     if (!paramName)
         throw "Name param is required";
     return function (target, propertyKey, parameterIndex) {
-        required = required != null ? required : false;
+        let required = options && options.required != null ? options.required : false;
         let definedParameters = Reflect.getOwnMetadata(definedParamKey, target, propertyKey) || new Array();
         definedParameters.push({ name: paramName, index: parameterIndex, required });
         Reflect.defineMetadata(definedParamKey, definedParameters, target, propertyKey);
@@ -98,6 +98,7 @@ function DefinedMethod(params) {
         methodInfo.className = target.constructor.name;
         methodInfo.parameters = Reflect.getOwnMetadata(definedParamKey, target, propertyName);
         methodInfo.eventName = params.eventName;
+        methodInfo.returnActionData = params.returnActionData;
         entityInfo.addMethodInfo(methodInfo);
         let originalMethod = descriptor.value;
         descriptor.value = function () {
@@ -324,6 +325,8 @@ class MethodInfo extends MemberInfo {
     set parameters(value) { this._parameters = value; }
     get eventName() { return this._eventName; }
     set eventName(value) { this._eventName = value; }
+    get returnActionData() { return this._returnActionData; }
+    set returnActionData(value) { this._returnActionData = value; }
 }
 exports.MethodInfo = MethodInfo;
 function getDisplayByCleanedName(stringToClean) {

@@ -56,7 +56,8 @@ class AMQPEventManager {
                 if (!pub.instance.specificQueue)
                     c.publish(pub.instance.exchangeDescription.name, pub.instance.routingKey, content, publishOptions);
                 else
-                    c.sendToQueue(pub.instance.specificQueue, content, publishOptions);
+                    // c.sendToQueue( pub.instance.specificQueue, content, publishOptions );
+                    c.sendToQueue(pub.instance.specificQueue, content, { contentType: 'application/json' });
             });
         });
     }
@@ -106,7 +107,7 @@ class AMQPEventManager {
         if (existingExchange) {
             let inconsistence = false;
             for (let p in existingExchange) {
-                if (existingExchange[p] != exchangeDescription[p])
+                if (JSON.stringify(existingExchange[p]) != JSON.stringify(exchangeDescription[p]))
                     inconsistence = true;
             }
             if (inconsistence)

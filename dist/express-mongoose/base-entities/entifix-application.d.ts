@@ -26,7 +26,7 @@ interface EntifixAppConfig {
     session?: {
         refreshPeriod?: number;
         expireLimit?: number;
-        tokenSecret: string;
+        tokenSecret?: string;
     };
     authCacheService?: {
         host: string;
@@ -39,6 +39,7 @@ interface EntifixAppConfig {
         methodToRequest: string;
     };
     basePath?: string;
+    useCacheForTokens?: boolean;
 }
 interface MongoServiceConfig {
     user: string;

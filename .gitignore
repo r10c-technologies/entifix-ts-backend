@@ -59,3 +59,6 @@ typings/
 
 # settings
 .vscode/settings.json
+
+#Dist files
+dist

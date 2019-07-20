@@ -6,11 +6,13 @@ import { EntityInfo, MethodInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
+import { EMEntityMultiKey, IEntityKey } from '../emEntityMultiKey/emEntityMultiKey';
 declare class EMSession extends HcSession {
     private _request;
     private _response;
     protected _privateUserData: PrivateUserData;
     protected _serviceSession: EMServiceSession;
+    private _anchoredFiltering;
     constructor(serviceSession: EMServiceSession, options: {
         request: express.Request;
         response: express.Response;
@@ -44,7 +46,7 @@ declare class EMSession extends HcSession {
     listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string, options: ListOptions): Promise<ListEntitiesResultDetails<TEntity>>;
     listDocumentsByQuery<TDocument extends EntityDocument>(entityName: string, mongoFilters: any): Promise<Array<TDocument>>;
     listEntitiesByQuery<TEntity extends EMEntity, TDocument extends EntityDocument>(info: EntityInfo, mongoFilters: any): Promise<Array<TEntity>>;
-    private _anchoredFiltering;
+    findByKey<TEntity extends EMEntityMultiKey, TDocument extends EntityDocument>(info: EntityInfo, key: IEntityKey): Promise<TEntity>;
     setFiltering(filtering: EMSessionFilter | Array<EMSessionFilter>): void;
     clearFiltering(): void;
     private createError;

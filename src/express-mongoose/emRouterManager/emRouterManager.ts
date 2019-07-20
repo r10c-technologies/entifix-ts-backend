@@ -13,6 +13,8 @@ import { AccessorInfo, MemberBindingType } from '../../hc-core/hcMetaData/hcMeta
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
 import { resolve, reject } from 'bluebird';
 import { EMMemberActivator } from '../emMetadata/emMetadata';
+import { EMEntityMultiKey } from '../emEntityMultiKey/emEntityMultiKey';
+import { EMEntityMutltiKeyController } from '../emEntityMultikeyController/emEntityMultiKeyController';
 
 class IExpositionDetail
 {
@@ -54,14 +56,23 @@ class EMRouterManager {
         let basePath = this.getCompleteBasePath( options && options.basePath ? options.basePath : null );
         let resourceName = options && options.resourceName ? options.resourceName : null; 
 
-        let entityController : EMEntityController<TDocument, TEntity>;
-        if (options && options.controller)
-            entityController = options.controller;
-        else            
-            entityController = new EMEntityController<TDocument, TEntity>( entityName, this, { resourceName } );   
-        
+        let entityController = options && options.controller ? options.controller : null;
+        if(!entityController)
+            entityController = new EMEntityController<TDocument, TEntity>( entityName, this, { resourceName } );
+            
         this._routers.push( { entityName : entityName, controller : entityController, basePath } );
         this._expressAppInstance.use(basePath, entityController.router);
+    }
+
+    exposeEntityMultiKey<TDocument extends EntityDocument, TEntityMK  extends EMEntityMultiKey >( entityName: string, options : { controller? : EMEntityController<TDocument, TEntityMK>, basePath? : string, resourceName? : string  }  ) : void 
+    { 
+        options = options || {};
+        let resourceName = options && options.resourceName ? options.resourceName : null; 
+        
+        if (!options.controller)
+            options.controller = new EMEntityMutltiKeyController<TDocument, TEntityMK>( entityName, this, { resourceName } );
+        
+        this.exposeEntity<TDocument, TEntityMK>(entityName, options);
     }
 
     atachController( controller : EMSimpleController );

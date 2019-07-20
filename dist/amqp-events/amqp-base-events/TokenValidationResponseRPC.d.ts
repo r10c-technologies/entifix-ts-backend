@@ -1,3 +1,4 @@
+import amqp = require('amqplib/callback_api');
 import { AMQPSender } from '../amqp-sender/AMQPSender';
 import { AMQPEventArgs } from '../amqp-event-args/AMQPEventArgs';
 import { AMQPDelegate } from "../amqp-delegate/AMQPDelegate";
@@ -7,9 +8,7 @@ declare class TokenValidationResponseRPC extends AMQPDelegate {
     execute(sender: AMQPSender, eventArgs: AMQPEventArgs): Promise<void>;
     readonly queueDescription: {
         name: string;
-        options: {
-            durable: boolean;
-        };
+        options: amqp.Options.AssertQueue;
     };
     processTokenAction: (tokenValidationRequest: TokenValidationRequest) => Promise<TokenValidationResponse>;
 }
