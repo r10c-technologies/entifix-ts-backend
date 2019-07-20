@@ -105,7 +105,12 @@ class AMQPEventManager {
     verifyExchageDescription(exchangeDescription) {
         let existingExchange = this._exchangesDescription.find(e => e.name == exchangeDescription.name);
         if (existingExchange) {
-            if (JSON.stringify(existingExchange) != JSON.stringify(exchangeDescription))
+            let inconsistence = false;
+            for (let p in existingExchange) {
+                if (JSON.stringify(existingExchange[p]) != JSON.stringify(exchangeDescription[p]))
+                    inconsistence = true;
+            }
+            if (inconsistence)
                 this.serviceSession.throwException(`There are inconsistences with the exchange '${exchangeDescription.name}'. Please check if all connections are using it in the same way`);
         }
         else
