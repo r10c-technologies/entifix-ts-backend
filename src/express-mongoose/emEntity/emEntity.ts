@@ -133,7 +133,6 @@ class EMEntity extends Entity
                             this._session.createDocument(this.entityInfo.name, this._document).then(
                                 documentCreated => {
                                     this._document = documentCreated;
-                                    this.onSaved();
                                     let asynkTask = this.onSaved();
                                     if (asynkTask)
                                         asynkTask.then( ()=> resolve({ continue: true})).catch( () => resolve({ continue: true}));
