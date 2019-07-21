@@ -79,7 +79,6 @@ let EMEntity = EMEntity_1 = class EMEntity extends hcEntity_1.Entity {
                     if (this._document.isNew) {
                         this._session.createDocument(this.entityInfo.name, this._document).then(documentCreated => {
                             this._document = documentCreated;
-                            this.onSaved();
                             let asynkTask = this.onSaved();
                             if (asynkTask)
                                 asynkTask.then(() => resolve({ continue: true })).catch(() => resolve({ continue: true }));
