@@ -25,10 +25,7 @@ class TokenValidationResponseRPC extends AMQPDelegate
             let options : amqp.Options.Publish = {
                 correlationId: eventArgs.originalMessage.properties.correlationId,
                 contentType: 'application/json',
-                contentEncoding: 'UTF-8',
-                headers: {
-                    '__TypeId__':'com.plustech.reportscore.model.AMQMessage'
-                }
+                contentEncoding: 'UTF-8'
             };
             
             this.processTokenAction(tokenRequest).then(
