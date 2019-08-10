@@ -480,31 +480,24 @@ class EMRouterManager {
         let sendException = error => constructionController.responseWrapper.exception( session.response, error );   
 
         constructionController.findEntity(session, instanceId).then( baseEntity => {
-            
-            let objectToExpose : any = baseEntity[pathOverInstance[0]];
-            let pathTo = pathOverInstance[0];
-            
-            let saveBaseEntity = (objectToSend) => {
+            let saveBaseEntity = () => {
                 baseEntity.save().then( movFlow => {
-                    if (movFlow.continue) {
-                        if(objectToSend instanceof EMEntity)
-                            constructionController.responseWrapper.entity( session.response, objectToSend);
-                        else
-                            constructionController.responseWrapper.object( session.response, objectToSend);
-                    }                       
+                    if (movFlow.continue) 
+                        constructionController.responseWrapper.logicAccept( session.response, "Record deleted" );
                     else
                         constructionController.responseWrapper.logicError( session.response, movFlow.message);
                 },
                 error => constructionController.responseWrapper.exception( session.response, error ));  
             };
 
+            let objectToExpose : any = baseEntity[pathOverInstance[0]];
+            let pathTo = pathOverInstance[0];
             for (let i = 1; i < pathOverInstance.length; i++) {
                 objectToExpose = objectToExpose ? objectToExpose[pathOverInstance[i]] : null;
                 pathTo = pathTo + '.' + pathOverInstance[i];
             }
 
-            if (expositionAccessorInfo.activator.bindingType == MemberBindingType.Chunks) 
-            {
+            if (expositionAccessorInfo.activator.bindingType == MemberBindingType.Chunks) {
                 this.genericValidation( session.request, { bindingType: MemberBindingType.Chunks, method:"delete"} ).then( result => {
                     if(!result.error && result.data.ok) {
                         this.saveEntityChunkMember(session, 
@@ -514,7 +507,7 @@ class EMRouterManager {
                             construtorType,
                             pathTo,
                             'delete').then((f) => {
-                            saveBaseEntity(f);
+                            saveBaseEntity();
                         }).catch(e => constructionController.responseWrapper.exception(session.response, e));
                     }
                     else
@@ -523,13 +516,20 @@ class EMRouterManager {
             }
             else {
                 if (expositionAccessorInfo.type == 'Array') {
-                    // let index = (baseEntity[pathTo] as Array<EMEntity>).findIndex( e => e._id == result._id );
-                    // (baseEntity[pathTo] as Array<EMEntity>).splice(index, 1);
+                    let tempId = pathOverInstance[pathOverInstance.length - 1];
+                    pathTo = pathTo.substring(0, pathTo.length-tempId.length-1);
+                    let index = (baseEntity[pathTo] as Array<EMEntity>).findIndex( e => e._id == tempId );
+                    if (index >= 0) {
+                        (baseEntity[pathTo] as Array<EMEntity>).splice(index, 1);
+                        saveBaseEntity();
+                    }
+                    else
+                        constructionController.responseWrapper.handledError(session.response, "Record not found to delete", HttpStatus.BAD_REQUEST );
                 }  
-                else
+                else {
                     baseEntity[pathTo] = null;
-
-                saveBaseEntity(baseEntity);
+                    saveBaseEntity();
+                }
             }        
         }).catch(sendException);
     }

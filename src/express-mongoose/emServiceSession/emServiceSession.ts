@@ -124,7 +124,7 @@ class EMServiceSession
         }) );
         
         asyncConn.push( new Promise<void>((resolve,reject)=>{
-            if (this._cacheService)
+            if (this._cacheService && this._cacheService.host && this._cacheService.port )
             {
                 this._authCacheClient = redis.createClient({ host: this._cacheService.host, port : this._cacheService.port });
                 this._authCacheClient.on( "error ", err => this.throwException(err));
