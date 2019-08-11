@@ -57,8 +57,12 @@ class EMEntity extends Entity
         
         this.entityInfo.getAccessors().filter( accessor => accessor.exposition ).forEach( accessor => {
             let nameSerialized = accessor.serializeAlias || accessor.name;
-            if ( accessor.activator != null && this[accessor.name] != null )
-                simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
+            if ( accessor.activator != null && this[accessor.name] != null ) {
+                if (accessor.type == "Array") 
+                    simpleObject[nameSerialized] = ( this[accessor.name] as Array<EMEntity>).map( e =>  e._id); 
+                else
+                    simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
+            }
             else
                 simpleObject[nameSerialized] = this[accessor.name];
         });
