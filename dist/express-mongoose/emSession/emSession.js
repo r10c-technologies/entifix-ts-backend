@@ -70,7 +70,7 @@ class EMSession extends hcSession_1.HcSession {
             this.resolveToMongoFilters(entityName, filters).then(mongoFilters => {
                 //let mongoFilters = this.resolveToMongoFilters(entityName, filters);
                 let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
-                if (mongoFilters.inconsistencies || (mongoSorting != null && mongoSorting.inconsistencies)) {
+                if (mongoFilters.inconsistencies.length > 0 && (mongoFilters.inconsistencies || (mongoSorting != null && mongoSorting.inconsistencies))) {
                     inconsistencies = { message: 'Some query params were ignored because of inconsistency' };
                     if (mongoFilters.inconsistencies)
                         inconsistencies.filtering = mongoFilters.inconsistencies;
@@ -324,21 +324,20 @@ class EMSession extends hcSession_1.HcSession {
                     inconsistencies = new Array();
                 inconsistencies.push(i);
             };
-            let complexFiltersAsync = () => {
+            let complexFiltersAsync = (complexFilters) => {
                 return new Promise((resolve, reject) => {
                     let entityFilters = new Array();
                     info.getAccessors()
                         .filter(a => a.activator instanceof hcMetaData_1.MemberActivator)
                         .forEach(a => {
-                        let eFilters = filters
-                            .filter(f => (f.property.split(".").length > 1) && (a.name == f.property.split(".")[0]))
-                            .map(f => {
-                            let nf = f;
-                            nf.property = f.property.split(".")[1];
-                            return nf;
-                        });
-                        if (eFilters.length > 0)
-                            entityFilters.push({ entity: a.type, filters: eFilters, property: a.persistentAlias ? a.persistentAlias : a.name });
+                        let eFilters = complexFilters
+                            .filter(f => (f.complexFilter == true) && (a.name == f.parentProperty));
+                        if (eFilters.length > 0) {
+                            entityFilters.push({ entity: a.type, filters: eFilters.map(mf => {
+                                    mf.complexFilter = false;
+                                    return mf;
+                                }), property: a.persistentAlias ? a.persistentAlias : a.name });
+                        }
                     });
                     let entityMongoFiltersPromises = entityFilters.map(ef => this.resolveToMongoFilters(ef.entity, ef.filters).then(filtersConversion => {
                         return {
@@ -347,6 +346,10 @@ class EMSession extends hcSession_1.HcSession {
                             property: ef.property
                         };
                     }));
+                    filters.map(mf => {
+                        mf.complexFilter = true;
+                        return mf;
+                    });
                     Promise.all(entityMongoFiltersPromises).then(complexEntitiesFilters => {
                         let asynkTasks = complexEntitiesFilters.map(emf => {
                             return new Promise((resolve, reject) => {
@@ -362,14 +365,14 @@ class EMSession extends hcSession_1.HcSession {
                         });
                         Promise.all(asynkTasks).then(results => {
                             let values = results.map((v) => {
-                                return { [v.property]: { $in: [v.values] } };
+                                return { $and: [{ [v.property]: { $in: [v.values] } }] };
                             });
                             resolve({ filters: values });
                         }).catch(e => this.createError(e, "Error on complex filters"));
                     }).catch(e => this.createError(e, "Error on complex filters"));
                 });
             };
-            let simpleFiltersAsync = () => {
+            let simpleFiltersAsync = (simpleFilters) => {
                 return new Promise((resolve, reject) => {
                     //Base mongo filters
                     let mongoFilters;
@@ -377,10 +380,10 @@ class EMSession extends hcSession_1.HcSession {
                         .filter(m => (m instanceof hcMetaData_1.AccessorInfo) && (m.schema != null || m.persistenceType == hcMetaData_1.PersistenceType.Auto))
                         .map(m => { return { property: m.name, type: m.type, serializeAlias: m.serializeAlias, persistentAlias: m.persistentAlias }; });
                     // Convert all the fixed and optional filters in Mongoose Filetrs       
-                    if (filters != null && filters.length > 0) {
+                    if (simpleFilters != null && simpleFilters.length > 0) {
                         mongoFilters = { $and: [] };
                         //get all filters 
-                        for (let filter of filters) {
+                        for (let filter of simpleFilters) {
                             let pMember = persistentMembers.find(pm => pm.property == filter.property || pm.serializeAlias == filter.property || pm.persistentAlias == filter.property);
                             if (pMember) {
                                 let persistentName = pMember.persistentAlias ? pMember.persistentAlias : pMember.property;
@@ -408,9 +411,10 @@ class EMSession extends hcSession_1.HcSession {
                 });
             };
             let mainAsyncTasks = new Array();
-            if (info.getAccessors().filter(a => a.activator instanceof hcMetaData_1.MemberActivator).length > 0 && filters.filter(f => (f.property.split(".").length > 1)))
-                mainAsyncTasks.push(complexFiltersAsync());
-            mainAsyncTasks.push(simpleFiltersAsync());
+            if (filters.filter(f => (f.complexFilter == true)).length > 0)
+                mainAsyncTasks.push(complexFiltersAsync(filters.filter(f => (f.complexFilter == true))));
+            if (filters.filter(f => (f.complexFilter == false)).length > 0)
+                mainAsyncTasks.push(simpleFiltersAsync(filters.filter(f => (f.complexFilter == false))));
             Promise.all(mainAsyncTasks).then(results => {
                 let finalFilter;
                 let inconsistencies = new Array();
@@ -422,6 +426,16 @@ class EMSession extends hcSession_1.HcSession {
                         if (!finalFilter)
                             finalFilter = { $and: [] };
                         finalFilter.$and = finalFilter.$and.concat(r.filters.$and);
+                    }
+                    if (r.filters instanceof Array && r.filters.length > 0) {
+                        r.filters.forEach(cf => {
+                            if (cf.inconsistencies) {
+                                inconsistencies = cf.inconsistencies;
+                            }
+                            if (!finalFilter)
+                                finalFilter = { $and: [] };
+                            finalFilter.$and = finalFilter.$and.concat(cf.$and);
+                        });
                     }
                 });
                 if (finalFilter && finalFilter.$and)

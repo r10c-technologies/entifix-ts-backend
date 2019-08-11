@@ -564,6 +564,15 @@ class Filter extends QueryParam {
     manageValue() {
         let splitted = this._paramValue.split('|');
         this._property = splitted[0];
+        if (this._property.split(".").length > 1) {
+            this._complexFilter = true;
+            this._parentProperty = this._property.split(".")[0];
+            this._property = this._property.split(".")[1];
+        }
+        else {
+            this._complexFilter = false;
+            this._parentProperty = null;
+        }
         this._operator = splitted[1];
         if (splitted[2] == 'null' || splitted[2] == 'undefined')
             this._value = null;
@@ -580,5 +589,9 @@ class Filter extends QueryParam {
     set value(v) { this._value = v; }
     get filterType() { return this._filterType; }
     set filterType(value) { this._filterType = value; }
+    get complexFilter() { return this._complexFilter; }
+    set complexFilter(value) { this._complexFilter = value; }
+    get parentProperty() { return this._parentProperty; }
+    set parentProperty(value) { this._parentProperty = value; }
 }
 //# sourceMappingURL=emEntityController.js.map

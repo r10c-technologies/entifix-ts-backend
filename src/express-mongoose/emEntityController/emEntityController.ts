@@ -893,6 +893,8 @@ class Filter extends QueryParam implements EMSessionFilter
     private _property : string;
     private _operator : string;
     private _value : string;
+    private _complexFilter: boolean;
+    private _parentProperty: string;
     private _filterType: FilterType;
     //#endregion
 
@@ -910,6 +912,18 @@ class Filter extends QueryParam implements EMSessionFilter
         let splitted = this._paramValue.split('|');
 
         this._property = splitted[0];
+
+        if(this._property.split(".").length > 1)
+        {
+            this._complexFilter = true;
+            this._parentProperty = this._property.split(".")[0];
+            this._property = this._property.split(".")[1];
+        }
+        else 
+        {
+            this._complexFilter = false;
+            this._parentProperty = null;
+        }
         this._operator = splitted[1];
 
         if (splitted[2] == 'null' || splitted[2] == 'undefined')
@@ -941,6 +955,16 @@ class Filter extends QueryParam implements EMSessionFilter
     { return this._filterType; }
     set filterType (value)
     { this._filterType = value; }
+
+    get complexFilter ()
+    { return this._complexFilter; }
+    set complexFilter (value)
+    { this._complexFilter = value; }
+
+    get parentProperty ()
+    { return this._parentProperty; }
+    set parentProperty (value)
+    { this._parentProperty = value; }
     
     //#endregion
 }

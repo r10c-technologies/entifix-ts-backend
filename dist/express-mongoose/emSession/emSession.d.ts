@@ -74,6 +74,8 @@ interface EMSessionFilter {
     property: string;
     operator: string;
     value: string;
+    complexFilter: boolean;
+    parentProperty: string;
     filterType: FilterType;
 }
 interface EMSessionSort {

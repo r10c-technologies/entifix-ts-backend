@@ -129,10 +129,9 @@ class EMSession extends HcSession
             }
 
             this.resolveToMongoFilters(entityName, filters).then(mongoFilters => {
-                //let mongoFilters = this.resolveToMongoFilters(entityName, filters);
                 let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
             
-                if ( mongoFilters.inconsistencies || (mongoSorting != null && mongoSorting.inconsistencies) )
+                if (mongoFilters.inconsistencies.length > 0 && (mongoFilters.inconsistencies || (mongoSorting != null && mongoSorting.inconsistencies)))
                 {
                     inconsistencies = { message: 'Some query params were ignored because of inconsistency' };
                     if (mongoFilters.inconsistencies)
@@ -494,21 +493,22 @@ class EMSession extends HcSession
                 inconsistencies.push(i);
             };        
 
-            let complexFiltersAsync = () => {
+            let complexFiltersAsync = (complexFilters) => {
                 return new Promise<FiltersConversion>( (resolve, reject) => { 
                     let entityFilters = new Array<{entity: string, filters: any, property: string}>();
                     info.getAccessors()
                     .filter(a => a.activator instanceof MemberActivator)
                     .forEach(a => {
-                        let eFilters = filters
-                                    .filter(f => (f.property.split(".").length > 1) && ( a.name == f.property.split(".")[0]))
-                                    .map(f => {
-                                            let nf = f;
-                                            nf.property = f.property.split(".")[1];
-                                            return nf;
-                                        });
+                        let eFilters = complexFilters
+                                    .filter(f => (f.complexFilter == true) && ( a.name == f.parentProperty));
+                                                                      
                         if(eFilters.length > 0)
-                            entityFilters.push({entity: a.type, filters: eFilters, property: a.persistentAlias? a.persistentAlias: a.name});
+                        {
+                            entityFilters.push({entity: a.type, filters: eFilters.map(mf => {
+                                mf.complexFilter = false;
+                                return mf
+                            }), property: a.persistentAlias ? a.persistentAlias : a.name});
+                        }                            
                     });
 
                     let entityMongoFiltersPromises = entityFilters.map(ef => 
@@ -520,6 +520,11 @@ class EMSession extends HcSession
                              }
                          })
                     );
+
+                    filters.map(mf => {
+                        mf.complexFilter = true;
+                        return mf
+                    });
 
                     Promise.all(entityMongoFiltersPromises).then( complexEntitiesFilters => {
                         let asynkTasks = complexEntitiesFilters.map(emf => {
@@ -538,7 +543,7 @@ class EMSession extends HcSession
     
                         Promise.all(asynkTasks).then(results => {
                             let values = results.map((v) => {
-                                return {[v.property]: {$in: [v.values]}}
+                                return { $and : [ {[v.property]: {$in: [v.values]}}]}
                             });
                             resolve({filters: values})
                         }).catch(e => this.createError(e, "Error on complex filters"));
@@ -546,7 +551,7 @@ class EMSession extends HcSession
                 });               
             };
           
-            let simpleFiltersAsync = () => {
+            let simpleFiltersAsync = (simpleFilters) => {
                 return new Promise<FiltersConversion>( (resolve, reject) => { 
                     //Base mongo filters
                     let mongoFilters : any;
@@ -556,12 +561,12 @@ class EMSession extends HcSession
                         .map( m => { return  { property: m.name, type: m.type, serializeAlias : (m as AccessorInfo).serializeAlias, persistentAlias : (m as AccessorInfo).persistentAlias } });
 
                     // Convert all the fixed and optional filters in Mongoose Filetrs       
-                    if (filters != null && filters.length > 0)
+                    if (simpleFilters != null &&  simpleFilters.length > 0)
                     {
                         mongoFilters = { $and : [] };  
 
                         //get all filters 
-                        for (let filter of filters)
+                        for (let filter of simpleFilters)
                         {
                             let pMember = persistentMembers.find( pm => pm.property == filter.property || pm.serializeAlias == filter.property || pm.persistentAlias == filter.property);
                             if (pMember)
@@ -597,10 +602,12 @@ class EMSession extends HcSession
             
             let mainAsyncTasks = new Array<Promise<FiltersConversion>>();
 
-            if(info.getAccessors().filter(a => a.activator instanceof MemberActivator).length > 0 && filters.filter(f => (f.property.split(".").length > 1)))
-                mainAsyncTasks.push(complexFiltersAsync());
+            if(filters.filter(f => (f.complexFilter == true)).length > 0)
+                mainAsyncTasks.push(complexFiltersAsync(filters.filter(f => (f.complexFilter == true))));
 
-            mainAsyncTasks.push(simpleFiltersAsync());
+            if(filters.filter(f => (f.complexFilter == false)).length > 0)
+                mainAsyncTasks.push(simpleFiltersAsync(filters.filter(f => (f.complexFilter == false))));
+            
 
             Promise.all(mainAsyncTasks).then(results =>{
                 let finalFilter : any;
@@ -617,6 +624,19 @@ class EMSession extends HcSession
                             finalFilter = {$and: []}; 
 
                         finalFilter.$and = finalFilter.$and.concat(r.filters.$and);
+                    }
+                    if(r.filters instanceof Array && r.filters.length > 0)
+                    {
+                        r.filters.forEach(cf => {
+                            if(cf.inconsistencies)
+                            {
+                                inconsistencies = cf.inconsistencies;
+                            }
+                            if(!finalFilter)
+                                finalFilter = {$and: []}; 
+
+                            finalFilter.$and = finalFilter.$and.concat(cf.$and);
+                        });
                     }
                 });
 
@@ -676,13 +696,11 @@ class EMSession extends HcSession
                     valueFilter = sessionFilter.value;
                 
                 break;
-            // shirmigod validacion id reference
                 
             default:
                 valueFilter = sessionFilter.value;
         };
 
-        // agragar operador $in
         //Set the table of conversions for filters and mongo filters 
         let configConvesions : Array<{ operators : Array<string>, mongoOperator?: string, filterTypes?: Array<string>, valueModifier? : (v) => any }> =
         [
@@ -911,6 +929,8 @@ interface EMSessionFilter
     property: string,
     operator: string,
     value: string,
+    complexFilter: boolean,
+    parentProperty: string,
     filterType: FilterType
 }
 
