@@ -68,7 +68,6 @@ class EMSession extends hcSession_1.HcSession {
                     filters.push(this._anchoredFiltering);
             }
             this.resolveToMongoFilters(entityName, filters).then(mongoFilters => {
-                //let mongoFilters = this.resolveToMongoFilters(entityName, filters);
                 let mongoSorting = this.resolveToMongoSorting(entityName, options != null && options.sorting != null ? options.sorting : null);
                 if (mongoFilters.inconsistencies.length > 0 && (mongoFilters.inconsistencies || (mongoSorting != null && mongoSorting.inconsistencies))) {
                     inconsistencies = { message: 'Some query params were ignored because of inconsistency' };
@@ -481,12 +480,10 @@ class EMSession extends hcSession_1.HcSession {
                 else
                     valueFilter = sessionFilter.value;
                 break;
-            // shirmigod validacion id reference
             default:
                 valueFilter = sessionFilter.value;
         }
         ;
-        // agragar operador $in
         //Set the table of conversions for filters and mongo filters 
         let configConvesions = [
             { operators: ['=', 'eq'] },

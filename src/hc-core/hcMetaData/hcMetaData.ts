@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import { error } from 'util';
 import { Entity } from '../hcEntity/hcEntity';
 import { HcSession } from '../hcSession/hcSession';
-import { method } from 'bluebird';
 
 function DefinedEntity( );
 function DefinedEntity( params : { packageName? : string, abstract? : boolean, fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType> } )
@@ -19,7 +18,7 @@ function DefinedEntity( params? : { packageName : string, abstract? : boolean, f
         //let info = defineMetaData( target, CreationType.class );
         
         if (!target.prototype.entityInfo)
-            target.prototype.entityInfo = new EntityInfo(target.name);
+            target.prototype.entityInfo = new EntityInfo(target);
         
         let info = target.prototype.entityInfo;
 
@@ -30,7 +29,7 @@ function DefinedEntity( params? : { packageName : string, abstract? : boolean, f
                 allowRequestedType: params ? params.allowRequestedType : true
             };
 
-            let newInfo = new EntityInfo(target.name, options);
+            let newInfo = new EntityInfo(target, options);
             newInfo.implementBaseInfo(info, tempIsAbstract );
             newInfo.packageName = tempPackageName;
             
@@ -247,6 +246,7 @@ function isMetaDataInfo(object: any): object is IMetaDataInfo
 class EntityInfo
 {
     //#region Properties
+    private _entityConstructor : Function;
     private _packageName: string;
     private _name : string;
     private _display: string;
@@ -259,12 +259,13 @@ class EntityInfo
     //#endregion
 
     //#region Methods
-    constructor( name : string );
-    constructor( name : string, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType> }, display : string );
-    constructor( name : string, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType> }, display? : string );
-    constructor( name : string, options?: { fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType> }, display?: string )
+    constructor( entityConstructor : Function );
+    constructor( entityConstructor : Function, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType> }, display : string );
+    constructor( entityConstructor : Function, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType> }, display? : string );
+    constructor( entityConstructor : Function, options?: { fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType> }, display?: string )
     {   
-        this._name = name;
+        this._entityConstructor = entityConstructor;
+        this._name = entityConstructor.name;
         this._definedMembers = new Array<MemberInfo>();    
         this._isAbstract = true;
         this._display = display ? display : name;
@@ -371,16 +372,24 @@ class EntityInfo
 
     //#region Accessors
 
+    get entityConstructor () 
+    { return this._entityConstructor; }
+
     get name () 
     { return this._name; }
-    set name (value)
-    { this._name = value; } 
+    
+    // set name (value)
+    // { this._name = value; } 
+    
     get display () 
     { return this._display; }
-    set display (value)
-    { this._display = value; } 
+    
+    // set display (value)
+    // { this._display = value; } 
+    
     get packageName ()
     { return this._packageName; }
+    
     set packageName (value)
     { this._packageName = value; }
 

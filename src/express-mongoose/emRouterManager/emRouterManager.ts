@@ -209,12 +209,11 @@ class EMRouterManager {
 
                 let saveBaseEntity = (objectToSend) => {
                     baseEntity.save().then( movFlow => {
-                        if (movFlow.continue)
-                        {
+                        if (movFlow.continue) {
                             if(objectToSend instanceof EMEntity)
-                                constructionController.responseWrapper.entity( session.response, objectToSend);
+                                constructionController.responseWrapper.entity( session.response, objectToSend );
                             else
-                                constructionController.responseWrapper.object( session.response, objectToSend);
+                                constructionController.responseWrapper.object( session.response, objectToSend );
                         }                       
                         else
                             constructionController.responseWrapper.logicError( session.response, movFlow.message);
@@ -222,16 +221,13 @@ class EMRouterManager {
                     error => constructionController.responseWrapper.exception( session.response, error ));  
                 };
 
-                for (let i = 1; i < pathOverInstance.length; i++)
-                {
+                for (let i = 1; i < pathOverInstance.length; i++) {
                     objectToExpose = objectToExpose ? objectToExpose[pathOverInstance[i]] : null;
                     pathTo = pathTo + '.' + pathOverInstance[i];
                 }
 
-                if (result instanceof EMEntity)
-                {
-                    if (expositionAccessorInfo.type == 'Array')
-                    {
+                if (result instanceof EMEntity) {
+                    if (expositionAccessorInfo.type == 'Array') {
                         if (baseEntity[pathTo] == null)
                                 baseEntity[pathTo] = [];
 
@@ -239,11 +235,11 @@ class EMRouterManager {
                     }                    
                     else
                         baseEntity[pathTo] = result;
-                    }
-                else
-                {
-                    if(!result.error)
-                    {
+                
+                    saveBaseEntity(baseEntity);
+                }
+                else {
+                    if(!result.error) {
                         this.saveEntityChunkMember(session, 
                             expositionAccessorInfo, 
                             pathOverInstance,                                                   
@@ -255,10 +251,8 @@ class EMRouterManager {
                                 saveBaseEntity(f);
                         }).catch(e => constructionController.responseWrapper.exception(session.response, e));
                     }
-                    else
-                    {
-                        constructionController.responseWrapper.handledError(session.response, result.error, HttpStatus.BAD_REQUEST);
-                    }        
+                    else 
+                        constructionController.responseWrapper.handledError(session.response, result.error, HttpStatus.BAD_REQUEST);                            
                 }               
             }).catch(sendException);        
         }).catch(sendException);
@@ -483,67 +477,29 @@ class EMRouterManager {
     resolveComplexDelete(session : EMSession, construtorType : string, instanceId : string, expositionAccessorInfo : AccessorInfo, pathOverInstance : Array<string> ) : void
     {
         let constructionController = this.findController(construtorType);
-        let expositionController : EMEntityController<EntityDocument,EMEntity>;
-        let validateReqBody : () => Promise<EMEntity|GenericRequestValidation>;
-
         let sendException = error => constructionController.responseWrapper.exception( session.response, error );   
 
-        switch (expositionAccessorInfo.activator.bindingType)
-        {
-            case MemberBindingType.Reference:
-            case MemberBindingType.Snapshot:
-                validateReqBody = () => {
-                    expositionController = this.findController( (expositionAccessorInfo.activator as EMMemberActivator<EMEntity, EntityDocument>).entityInfo.name);
-                    return expositionController.createInstance( session.request, session.response, { alwaysNew: true } );
-                }
-                break;
-
-            case MemberBindingType.Chunks:
-                validateReqBody = () => this.genericValidation( session.request, { bindingType: MemberBindingType.Chunks, method:"delete"} );    
-                break;
-        }
-
         constructionController.findEntity(session, instanceId).then( baseEntity => {
-            validateReqBody().then( result => {
-
-                let objectToExpose : any = baseEntity[pathOverInstance[0]];
-                let pathTo = pathOverInstance[0];
-                
-                let saveBaseEntity = (objectToSend) => {
-                    baseEntity.save().then( movFlow => {
-                        if (movFlow.continue)
-                        {
-                            if(objectToSend instanceof EMEntity)
-                                constructionController.responseWrapper.entity( session.response, objectToSend);
-                            else
-                                constructionController.responseWrapper.object( session.response, objectToSend);
-                        }                       
-                        else
-                            constructionController.responseWrapper.logicError( session.response, movFlow.message);
-                    },
-                    error => constructionController.responseWrapper.exception( session.response, error ));  
-                };
-
-                for (let i = 1; i < pathOverInstance.length; i++)
-                {
-                    objectToExpose = objectToExpose ? objectToExpose[pathOverInstance[i]] : null;
-                    pathTo = pathTo + '.' + pathOverInstance[i];
-                }
-
-                if (result instanceof EMEntity)
-                {
-                    if (expositionAccessorInfo.type == 'Array')
-                    {
-                        let index = (baseEntity[pathTo] as Array<EMEntity>).findIndex( e => e._id == result._id );
-                        (baseEntity[pathTo] as Array<EMEntity>).splice(index, 1);
-                    }  
+            let saveBaseEntity = () => {
+                baseEntity.save().then( movFlow => {
+                    if (movFlow.continue) 
+                        constructionController.responseWrapper.logicAccept( session.response, "Record deleted" );
                     else
-                        baseEntity[pathTo] = result;
-                }
-                else
-                {
-                    if(!result.error && result.data.ok)
-                    {
+                        constructionController.responseWrapper.logicError( session.response, movFlow.message);
+                },
+                error => constructionController.responseWrapper.exception( session.response, error ));  
+            };
+
+            let objectToExpose : any = baseEntity[pathOverInstance[0]];
+            let pathTo = pathOverInstance[0];
+            for (let i = 1; i < pathOverInstance.length; i++) {
+                objectToExpose = objectToExpose ? objectToExpose[pathOverInstance[i]] : null;
+                pathTo = pathTo + '.' + pathOverInstance[i];
+            }
+
+            if (expositionAccessorInfo.activator.bindingType == MemberBindingType.Chunks) {
+                this.genericValidation( session.request, { bindingType: MemberBindingType.Chunks, method:"delete"} ).then( result => {
+                    if(!result.error && result.data.ok) {
                         this.saveEntityChunkMember(session, 
                             expositionAccessorInfo, 
                             pathOverInstance,                                                   
@@ -551,15 +507,30 @@ class EMRouterManager {
                             construtorType,
                             pathTo,
                             'delete').then((f) => {
-                            saveBaseEntity(f);
+                            saveBaseEntity();
                         }).catch(e => constructionController.responseWrapper.exception(session.response, e));
                     }
                     else
-                    {
                         constructionController.responseWrapper.handledError(session.response, result.error, HttpStatus.BAD_REQUEST);
-                    }        
-                }               
-            }).catch(sendException);        
+                });
+            }
+            else {
+                if (expositionAccessorInfo.type == 'Array') {
+                    let tempId = pathOverInstance[pathOverInstance.length - 1];
+                    pathTo = pathTo.substring(0, pathTo.length-tempId.length-1);
+                    let index = (baseEntity[pathTo] as Array<EMEntity>).findIndex( e => e._id == tempId );
+                    if (index >= 0) {
+                        (baseEntity[pathTo] as Array<EMEntity>).splice(index, 1);
+                        saveBaseEntity();
+                    }
+                    else
+                        constructionController.responseWrapper.handledError(session.response, "Record not found to delete", HttpStatus.BAD_REQUEST );
+                }  
+                else {
+                    baseEntity[pathTo] = null;
+                    saveBaseEntity();
+                }
+            }        
         }).catch(sendException);
     }
     
@@ -576,32 +547,29 @@ class EMRouterManager {
     genericValidation (request : express.Request, options? : { bindingType? : MemberBindingType, method? : string}) : Promise<GenericRequestValidation>
     {
         return new Promise<GenericRequestValidation>( (resolve, reject) => {
+            
+            if (options && options.bindingType == MemberBindingType.Chunks) {
+                if (request.files && Object.keys(request.files).length > 0) {
+                    let properties: string[] = Object.keys(request.files);
+                    let fileKey = properties[0];
+                    resolve({ data: { fileKey: fileKey } });
+                }
+                else if (options.method && options.method == 'delete') 
+                    resolve({ data: { ok: true } });
+                else 
+                    resolve({ error: 'File Handle Error' });
+            } 
+
+            if (options && options.method == 'delete') {
+                resolve();
+            }
+
             //Implement more types of validations
             //...
             //...
             //::
 
-            if (options && options.bindingType == MemberBindingType.Chunks)
-            {
-                if(request.files && Object.keys(request.files).length > 0) 
-                {                  
-                    let properties : string[]  = Object.keys(request.files);
-                    let fileKey = properties[0];
-                    resolve({data : {fileKey:fileKey}});
-                } 
-                else if(options.method && options.method == 'delete')
-                {
-                    resolve({data : {ok: true}});             
-                }
-                else
-                {
-                    resolve({ error: 'File Handle Error' });
-                }  
-            } 
-            else 
-            {
-                
-            }         
+
         });
     }
     private getCompleteBasePath( postFix? : string ) : string

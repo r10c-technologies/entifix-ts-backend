@@ -3,8 +3,8 @@ import mongoose = require('mongoose');
 import { Entity, EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity';
 import { EMSession } from '../emSession/emSession';
 import { DefinedAccessor, DefinedEntity, PersistenceType, EntityInfo, ExpositionType, MemberBindingType } from '../../hc-core/hcMetaData/hcMetaData';
-import { emitKeypressEvents } from 'readline';
-
+import { EntityEventLogType } from '../../amqp-events/amqp-entity-logger/AMQPEntityLogger';
+import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 
 interface IBaseEntity
 {
@@ -57,8 +57,12 @@ class EMEntity extends Entity
         
         this.entityInfo.getAccessors().filter( accessor => accessor.exposition ).forEach( accessor => {
             let nameSerialized = accessor.serializeAlias || accessor.name;
-            if ( accessor.activator != null && this[accessor.name] != null )
-                simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
+            if ( accessor.activator != null && this[accessor.name] != null ) {
+                if (accessor.type == "Array") 
+                    simpleObject[nameSerialized] = ( this[accessor.name] as Array<EMEntity>).map( e =>  e._id); 
+                else
+                    simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
+            }
             else
                 simpleObject[nameSerialized] = this[accessor.name];
         });
@@ -134,6 +138,7 @@ class EMEntity extends Entity
                                 documentCreated => {
                                     this._document = documentCreated;
                                     let asynkTask = this.onSaved();
+                                    this.triggerAMQP(EntityEventLogType.created);
                                     if (asynkTask)
                                         asynkTask.then( ()=> resolve({ continue: true})).catch( () => resolve({ continue: true}));
                                     else
@@ -151,6 +156,7 @@ class EMEntity extends Entity
                                 documentUpdated => {
                                     this._document = documentUpdated;
                                     let asynkTask = this.onSaved();
+                                    this.triggerAMQP(EntityEventLogType.updated);
                                     if (asynkTask)
                                         asynkTask.then( ()=> resolve({ continue: true})).catch( () => resolve({ continue: true}));
                                     else
@@ -181,7 +187,11 @@ class EMEntity extends Entity
                     if (movFlow.continue)
                     {
                         this.session.deleteDocument(this.entityInfo.name, this._document).then( 
-                            ()=> { this.onDeleted(); resolve({continue:true}); },
+                            ()=> { 
+                                this.onDeleted(); 
+                                this.triggerAMQP(EntityEventLogType.deleted);
+                                resolve({continue:true}); 
+                            },
                             error => reject(error)
                         );
                     }
@@ -243,6 +253,13 @@ class EMEntity extends Entity
             let thisObject = this;
             thisObject[accessor.name] = thisObject[accessor.name];
         });
+    }
+
+    private async triggerAMQP( entityEventType : EntityEventLogType ) : Promise<void> 
+    {
+        let eventManager = this.session.serviceSession.amqpEventManager;
+        if (eventManager != null && eventManager.hasEntityLogger(this.entityInfo)) 
+            eventManager.triggerEntityLogger( this, entityEventType);    
     }
 
     //#endregion

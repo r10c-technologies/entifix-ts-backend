@@ -86,6 +86,9 @@ abstract class AMQPEvent
     get eventManager () 
     { return this._eventManager; }
 
+    get name() 
+    { return this.constructor.name; }
+
     //#endregion
 
 }

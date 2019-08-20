@@ -24,7 +24,7 @@ class TokenValidationRequestRPC extends AMQPEvent
 
             this.eventManager.createAnonymousChannel().then( ch => { 
 
-                ch.assertQueue('', {exclusive : true }, (err, assertedQueue) => { 
+                ch.assertQueue('', {exclusive : true, autoDelete: true}, (err, assertedQueue) => { 
                     var idRequest = this.generateRequestTokenId();
                     
                     let tokenRequest : TokenValidationRequest = {
