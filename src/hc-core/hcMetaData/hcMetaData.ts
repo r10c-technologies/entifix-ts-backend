@@ -268,7 +268,7 @@ class EntityInfo
         this._name = entityConstructor.name;
         this._definedMembers = new Array<MemberInfo>();    
         this._isAbstract = true;
-        this._display = display ? display : name;
+        this._display = display ? display : Function.name;
 
         if (options)
         {
