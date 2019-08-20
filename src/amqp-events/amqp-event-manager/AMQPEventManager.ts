@@ -8,6 +8,9 @@ import { AMQPSender } from '../amqp-sender/AMQPSender';
 import { AMQPEventArgs } from '../amqp-event-args/AMQPEventArgs';
 import { EMSession } from '../../express-mongoose/emSession/emSession';
 import { Options } from 'body-parser';
+import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
+import { AMQPEntityLogger, EntityEventLogType } from '../amqp-entity-logger/AMQPEntityLogger';
+import { EMEntity } from '../../express-mongoose/emEntity/emEntity';
 
 class AMQPEventManager
 {
@@ -72,6 +75,18 @@ class AMQPEventManager
         return instance;
     }
 
+    enableLogger( entityInfo : EntityInfo ) : AMQPEntityLogger 
+    {
+        if (AMQPEntityLogger.hasEntityLogger(entityInfo)) {
+            let entityLogger = AMQPEntityLogger.createAndBindEventInstances( this, entityInfo );
+            entityLogger.events.forEach( event => this._events.push({name: event.instance.name, instance: event.instance}) );
+        }
+        else {
+            this.serviceSession.throwInfo(`There is no defined AMQPEntityLogger for Entity: [${entityInfo.name}]`, true);
+            return null;
+        }
+    }
+    
     publish( eventName: string, data : any) : void;
     publish( eventName: string, data : any, options: { session? : EMSession, entityName?: string, actionName?: string, entityId?: string } ) : void;
     publish( eventName: string, data : any, options?: { session? : EMSession, entityName?: string, actionName?: string, entityId?: string } ) : void
@@ -204,6 +219,37 @@ class AMQPEventManager
             this.serviceSession.throwException(`There is no defined exchange with name '${exchangeName}'`);
 
         return e;
+    }
+
+
+
+    enableEntityLoggerFor( entityInfo : EntityInfo ) 
+    {
+        if (this._allowedLoggers == null)
+            this._allowedLoggers = new Array<EntityInfo>();
+
+        if (!this._allowedLoggers.find( lg => lg.name == entityInfo.name ))
+            this._allowedLoggers.push(entityInfo);        
+    }
+
+    private _allowedLoggers : Array<EntityInfo>;
+
+    hasEntityLogger( entityInfo : EntityInfo ) : boolean 
+    {
+        return this._allowedLoggers != null 
+                && this._allowedLoggers.length > 0
+                && this._allowedLoggers.find( lg => lg.name == entityInfo.name ) != null
+                && AMQPEntityLogger.hasEntityLogger(entityInfo);
+    }
+
+    triggerEntityLogger( entity : EMEntity, entityEventType : EntityEventLogType )
+    {
+        let events = AMQPEntityLogger.getTriggeredEvents(entity, entityEventType);        
+        if (events && events.length > 0)
+            events.forEach( e => { 
+                let actionName = 'entityLog.' + entityEventType.toString(); 
+                this.publish( e, entity, { session: entity.session, entityName: entity.entityInfo.name, entityId: entity._id.toString(), actionName: actionName } ); 
+            });
     }
 
     //#endregion

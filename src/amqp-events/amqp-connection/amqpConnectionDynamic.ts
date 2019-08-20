@@ -1,11 +1,6 @@
 import amqp = require('amqplib/callback_api');
 
-interface ExchangeDescription 
-{
-    name: string,
-    type: string,
-    durable : boolean
-}
+import { ExchangeDescription } from '../amqp-event-manager/AMQPEventManager';
 
 interface QueueBindDescription
 {
@@ -14,7 +9,6 @@ interface QueueBindDescription
     routingKey : string,
     exclusive : boolean
 }
-
 
 class AMQPConnectionDynamic
 {
@@ -53,7 +47,7 @@ class AMQPConnectionDynamic
 
                     exchangesDescription.forEach( exchDesc => 
                     {   
-                        channel.assertExchange( exchDesc.name, exchDesc.type, { durable: exchDesc.durable });                 
+                        channel.assertExchange( exchDesc.name, exchDesc.type, exchDesc.options );                 
                         exchangesCount++;
                         
                         let queuesByExchange =  queueBindsDescription != null ? queueBindsDescription.filter( queueDesc => queueDesc.exchangeName == exchDesc.name ) : [];   
@@ -113,4 +107,4 @@ class AMQPConnectionDynamic
     //#endregion
 }
 
-export { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription }
+export { AMQPConnectionDynamic, QueueBindDescription }

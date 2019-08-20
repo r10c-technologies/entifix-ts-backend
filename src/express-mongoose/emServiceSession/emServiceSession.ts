@@ -4,14 +4,14 @@ import amqp = require('amqplib/callback_api');
 import redis = require('redis');
 
 //CORE FRAMEWORK
-import { AMQPConnectionDynamic, ExchangeDescription, QueueBindDescription } from '../../amqp-events/amqp-connection/amqpConnectionDynamic';
+import { AMQPConnectionDynamic, QueueBindDescription } from '../../amqp-events/amqp-connection/amqpConnectionDynamic';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType, MethodInfo} from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import { AMQPEvent } from '../../amqp-events/amqp-event/AMQPEvent';
 import { AMQPDelegate } from '../../amqp-events/amqp-delegate/AMQPDelegate';
-import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
+import { AMQPEventManager, ExchangeDescription } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 import { MongoServiceConfig } from '../base-entities/entifix-application';
 
 class EMServiceSession
@@ -378,6 +378,9 @@ class EMServiceSession
 
     //#region Accessors
 
+    get amqpEventManager() 
+    { return this._amqpEventManager; }
+    
     get serviceName()
     { return this._serviceName; }
 

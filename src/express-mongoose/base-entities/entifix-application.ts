@@ -14,7 +14,7 @@ import { TokenValidationRequest, TokenValidationResponse, PrivateUserData } from
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EntifixApplicationModule, IEntifixApplicationModuleModel } from './entifix-application-module';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
-import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
+import { AMQPEventManager, ExchangeType } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 import { TokenValidationRequestRPC } from '../../amqp-events/amqp-base-events/TokenValidationRequestRPC';
 import { TokenValidationResponseRPC } from '../../amqp-events/amqp-base-events/TokenValidationResponseRPC';
 
@@ -265,7 +265,7 @@ abstract class EntifixApplication
         if ( this.useDefaultAMQPInteraction )
         {
             this._serviceSession.amqpExchangesDescription = [ 
-                { name: 'main_events', type: 'topic', durable: false }
+                { name: 'main_events', type: ExchangeType.topic, options:  { durable: false } }
             ];
             
             if (this.isMainService)
