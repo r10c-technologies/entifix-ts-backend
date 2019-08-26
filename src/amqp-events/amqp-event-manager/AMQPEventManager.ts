@@ -246,9 +246,9 @@ class AMQPEventManager
     {
         let events = AMQPEntityLogger.getTriggeredEvents(entity, entityEventType);        
         if (events && events.length > 0)
-            events.forEach( e => { 
+            events.forEach( eventName => { 
                 let actionName = 'entityLog.' + entityEventType.toString(); 
-                this.publish( e, entity, { session: entity.session, entityName: entity.entityInfo.name, entityId: entity._id.toString(), actionName: actionName } ); 
+                this.publish( eventName, entity, { session: entity.session, entityName: entity.entityInfo.name, entityId: entity._id.toString(), actionName: actionName } ); 
             });
     }
 

@@ -382,7 +382,7 @@ class EMSession extends HcSession
             if (mongoFilters instanceof Array)
             {
                 if (mongoFilters.length > 0)
-                    filters.$and = filters.$and = [ ddFilter, ...mongoFilters ];
+                    filters.$and = [ ddFilter, ...mongoFilters ];
                 else
                     filters = ddFilter;
             }

@@ -101,7 +101,11 @@ class AMQPEntityLogger
 
     static getTriggeredEvents( entity : EMEntity, eventType : EntityEventLogType ) : Array<string>
     {
-        return null;   
+        let entityLogger = getEntityLogger(entity.entityInfo);
+        if (entityLogger && entityLogger.events != null) 
+            return entityLogger.events.filter( e => e.logType == eventType ).map( e => e.instance.name );
+        else
+            return null;   
     }
 
 

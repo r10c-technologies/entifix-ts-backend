@@ -1,7 +1,9 @@
+import amqp = require('amqplib/callback_api');
 
 import { AMQPEvent } from '../amqp-event/AMQPEvent';
 import { AMQPEventManager, ExchangeDescription } from '../amqp-event-manager/AMQPEventManager';
 import { EntityEventLogType } from './AMQPEntityLogger';
+import { EMEntity } from '../../express-mongoose/emEntity/emEntity';
 
 class AMQPEventEntityLog extends AMQPEvent 
 {
@@ -37,6 +39,20 @@ class AMQPEventEntityLog extends AMQPEvent
         this._specificQueue = options.specificQueue;
         this._exchangeDescription = options.exchangeDescription;
     } 
+
+
+    protected onMessageConstruction( data : any ) : Promise<{ data : any, options? : amqp.Options.Publish}>
+    {
+        if (data instanceof EMEntity) 
+            return new Promise<{ data : any, options? : amqp.Options.Publish}>( (resolve,reject) => {
+                let entity = data as EMEntity;
+                resolve({ data: entity.serializeExposedAccessors() });
+            });
+        else
+            return null;
+    }
+
+
 
     //#endregion
 

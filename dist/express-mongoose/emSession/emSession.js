@@ -248,7 +248,7 @@ class EMSession extends hcSession_1.HcSession {
             let ddFilter = { deferredDeletion: { $in: [null, false] } };
             if (mongoFilters instanceof Array) {
                 if (mongoFilters.length > 0)
-                    filters.$and = filters.$and = [ddFilter, ...mongoFilters];
+                    filters.$and = [ddFilter, ...mongoFilters];
                 else
                     filters = ddFilter;
             }
