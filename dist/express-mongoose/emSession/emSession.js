@@ -333,29 +333,27 @@ class EMSession extends hcSession_1.HcSession {
                             .filter(f => (f.complexFilter == true) && (a.name == f.parentProperty));
                         if (eFilters.length > 0) {
                             entityFilters.push({ entity: a.type, filters: eFilters.map(mf => {
-                                    mf.complexFilter = false;
+                                    mf.complexFilter = null;
                                     return mf;
-                                }), property: a.persistentAlias ? a.persistentAlias : a.name });
+                                }), property: a.persistentAlias ? a.persistentAlias : a.name,
+                                filterType: eFilters[0].filterType });
                         }
                     });
                     let entityMongoFiltersPromises = entityFilters.map(ef => this.resolveToMongoFilters(ef.entity, ef.filters).then(filtersConversion => {
                         return {
                             entity: ef.entity,
                             filtersConversion,
-                            property: ef.property
+                            property: ef.property,
+                            filterType: ef.filterType
                         };
                     }));
-                    filters.map(mf => {
-                        mf.complexFilter = true;
-                        return mf;
-                    });
                     Promise.all(entityMongoFiltersPromises).then(complexEntitiesFilters => {
                         let asynkTasks = complexEntitiesFilters.map(emf => {
                             return new Promise((resolve, reject) => {
                                 this.getModel(emf.entity).find(emf.filtersConversion.filters).select('_id').exec((err, res) => {
                                     if (!err) {
                                         let tempRes = res.map(r => r.id);
-                                        resolve({ property: emf.property, values: tempRes });
+                                        resolve({ property: emf.property, values: tempRes, filterType: emf.filterType });
                                     }
                                     else
                                         reject(err);
@@ -363,8 +361,16 @@ class EMSession extends hcSession_1.HcSession {
                             });
                         });
                         Promise.all(asynkTasks).then(results => {
+                            let finalFilter = { $and: [], $or: [] };
                             let values = results.map((v) => {
-                                return { $and: [{ [v.property]: { $in: [v.values] } }] };
+                                finalFilter = { $and: [], $or: [] };
+                                if (v.filterType == FilterType.Fixed) {
+                                    finalFilter.$and.push({ [v.property]: { $in: [v.values] } });
+                                }
+                                else if (v.filterType == FilterType.Optional) {
+                                    finalFilter.$or.push({ [v.property]: { $in: [v.values] } });
+                                }
+                                return finalFilter;
                             });
                             resolve({ filters: values });
                         }).catch(e => this.createError(e, "Error on complex filters"));
@@ -412,8 +418,8 @@ class EMSession extends hcSession_1.HcSession {
             let mainAsyncTasks = new Array();
             if (filters.filter(f => (f.complexFilter == true)).length > 0)
                 mainAsyncTasks.push(complexFiltersAsync(filters.filter(f => (f.complexFilter == true))));
-            if (filters.filter(f => (f.complexFilter == false)).length > 0)
-                mainAsyncTasks.push(simpleFiltersAsync(filters.filter(f => (f.complexFilter == false))));
+            if (filters.filter(f => (f.complexFilter == false || f.complexFilter == null)).length > 0)
+                mainAsyncTasks.push(simpleFiltersAsync(filters.filter(f => (f.complexFilter == false || f.complexFilter == null))));
             Promise.all(mainAsyncTasks).then(results => {
                 let finalFilter;
                 let inconsistencies = new Array();
@@ -433,10 +439,28 @@ class EMSession extends hcSession_1.HcSession {
                             }
                             if (!finalFilter)
                                 finalFilter = { $and: [] };
-                            finalFilter.$and = finalFilter.$and.concat(cf.$and);
+                            if (cf.$or && cf.$or.length > 0) {
+                                if (finalFilter.$and.filter(e => e.$or).length > 0)
+                                    finalFilter.$and.filter(e => e.$or).forEach(e => e.$or = e.$or.concat(cf.$or));
+                                else
+                                    finalFilter.$and.push({ $or: cf.$or });
+                            }
+                            if (cf.$and && cf.$and.length > 0) {
+                                finalFilter.$and = finalFilter.$and.concat(cf.$and);
+                            }
                         });
                     }
                 });
+                if (finalFilter && finalFilter.$and.filter(e => e.$or).length > 1) {
+                    let orArrays = [];
+                    let orsToRemove = [];
+                    finalFilter.$and.filter(e => e.$or).forEach(e => { orArrays = orArrays.concat(e.$or); orsToRemove.push(e); });
+                    for (let o of orsToRemove) {
+                        let index = finalFilter.$and.indexOf(o);
+                        finalFilter.$and.splice(index, 1);
+                    }
+                    finalFilter.$and.push({ $or: orArrays });
+                }
                 if (finalFilter && finalFilter.$and)
                     finalFilter.$and.push({ deferredDeletion: { $in: [null, false] } });
                 else

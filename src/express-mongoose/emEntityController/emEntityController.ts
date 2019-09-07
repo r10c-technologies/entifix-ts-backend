@@ -893,7 +893,7 @@ class Filter extends QueryParam implements EMSessionFilter
     private _property : string;
     private _operator : string;
     private _value : string;
-    private _complexFilter: boolean;
+    private _complexFilter?: boolean;
     private _parentProperty: string;
     private _filterType: FilterType;
     //#endregion

@@ -120,5 +120,6 @@ interface FiltersConversion {
         property: string;
         message: string;
     }>;
+    filterType?: FilterType;
 }
 export { EMSession, EMSessionFilter, FilterType, SortType, EMSessionSort, ListOptions, FiltersConversion };
