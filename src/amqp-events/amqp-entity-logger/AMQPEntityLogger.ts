@@ -4,8 +4,7 @@ import { EMEntity } from '../../express-mongoose/emEntity/emEntity';
 import { AMQPEvent } from '../amqp-event/AMQPEvent';
 import { getEntityLogger } from './AMQPEntityLoggerMetadata';
 import { AMQPEventEntityLog } from './AMQPEventEntityLog';
-import { AMQPEventManager, ExchangeType } from '../amqp-event-manager/AMQPEventManager';
-import { ExchangeDescription } from '../amqp-event-manager/AMQPEventManager';
+import { AMQPEventManager, ExchangeType, ExchangeDescription } from '../amqp-event-manager/AMQPEventManager';
 
 
 class AMQPEntityLogger 
@@ -13,10 +12,9 @@ class AMQPEntityLogger
     //#region Properties
 
     private _entityInfo : EntityInfo;
-    private _eventInstances : Array<{ logType: EntityEventLogType, instance : AMQPEvent }>;
+    private _eventInstances : Array<AMQPEventEntityLog>;
     private _entityName : string;
-
-    private _routingName;
+    private _routingName : string;
 
     //#endregion
 
@@ -25,17 +23,17 @@ class AMQPEntityLogger
     //#region Methods
 
 
-    constructor( entityNayme : string, options? : { routingName?: string }) {
-
-        this._entityName = entityNayme;
+    constructor(options? : { routingName?: string }) {
 
         if (options)
             this._routingName = options.routingName;
+
     }
 
     protected createRoutingKey(logType : EntityEventLogType) : string {
         let rtName = this._routingName || this._entityInfo.name.toLowerCase();
-        return 'entity.' + rtName + '.' + logType;
+        let rtLogType = logType.toString().toLowerCase();
+        return 'entity_logger.' + rtName + '.' + rtLogType;
     }
 
     protected createExchangeDescription() : ExchangeDescription {
@@ -48,28 +46,39 @@ class AMQPEntityLogger
 
     protected createEventInstance(eventManager : AMQPEventManager, logType : EntityEventLogType) : AMQPEventEntityLog {
         let routingKey = this.createRoutingKey(logType); 
+        let eventName = this._entityInfo.name + 'Logger-' + logType;
         return new AMQPEventEntityLog(
             eventManager,
-            'logger-' + routingKey,
-            routingKey,
-            { exchangeDescription: this.createExchangeDescription() } 
+            eventName,
+            logType,
+            { exchangeDescription: this.createExchangeDescription(), routingKey } 
         );        
     }
 
     protected createEventInstances( eventManager : AMQPEventManager ) : void
     {
         this._entityInfo = eventManager.serviceSession.getInfo(this._entityName);
-        this._eventInstances = new  Array<{ logType: EntityEventLogType, instance : AMQPEvent }>();
+        this._eventInstances = new Array<AMQPEventEntityLog>();
 
-        this._eventInstances.push({ logType: EntityEventLogType.created, instance: this.createEventInstance(eventManager, EntityEventLogType.created) });
-        this._eventInstances.push({ logType: EntityEventLogType.updated, instance: this.createEventInstance(eventManager, EntityEventLogType.updated) });
-        this._eventInstances.push({ logType: EntityEventLogType.deleted, instance: this.createEventInstance(eventManager, EntityEventLogType.deleted) });
+        this._eventInstances.push(this.createEventInstance(eventManager, EntityEventLogType.created));
+        this._eventInstances.push(this.createEventInstance(eventManager, EntityEventLogType.updated));
+        this._eventInstances.push(this.createEventInstance(eventManager, EntityEventLogType.deleted));
     }
 
     //#endregion
 
 
     //#region Accessors
+
+    get entityName() 
+    { return this._entityName; }
+    set entityName(value) {
+        if (!this._entityName)
+            this._entityName = value;
+    }
+
+    get routingName()
+    { return this._routingName; }
 
     get entityInfo() 
     { return this._entityInfo; }
@@ -103,7 +112,7 @@ class AMQPEntityLogger
     {
         let entityLogger = getEntityLogger(entity.entityInfo);
         if (entityLogger && entityLogger.events != null) 
-            return entityLogger.events.filter( e => e.logType == eventType ).map( e => e.instance.name );
+            return entityLogger.events.filter( e => e.logType == eventType ).map( e => e.name );
         else
             return null;   
     }

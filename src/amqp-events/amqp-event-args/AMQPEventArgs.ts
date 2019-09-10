@@ -54,7 +54,7 @@ class AMQPEventArgs
     get data ()
     { return this._data; }
     
-    get originalMessage()
+    get originalMessage() 
     { return this._originalMessage; }
     
     get channel()

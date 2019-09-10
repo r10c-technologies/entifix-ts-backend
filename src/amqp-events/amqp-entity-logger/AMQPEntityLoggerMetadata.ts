@@ -4,18 +4,29 @@ import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 
 const AMQPEntityLoggerMetaKey = Symbol('AMQPEntityLoggerMetaKey');
 
-function AMQPLogger();
-function AMQPLogger( params : { entityLoggerType? : { new( entityName : string ) : AMQPEntityLogger } } );
-function AMQPLogger( params? : { entityLoggerType? : { new( entityName : string ) : AMQPEntityLogger } } )
+function AMQPLogger<TEntityLogger extends AMQPEntityLogger>();
+function AMQPLogger<TEntityLogger extends AMQPEntityLogger>( params : { logger? : { new( ) : TEntityLogger } | TEntityLogger } );
+function AMQPLogger<TEntityLogger extends AMQPEntityLogger>( params? : { logger? : { new( ) : TEntityLogger } | TEntityLogger } )
 {
     return function(target : Function) {
         params = params || {};
         let entityLogger : AMQPEntityLogger;
 
-        if (params.entityLoggerType)
-            entityLogger = new params.entityLoggerType(target.name);
-        else
-            entityLogger = new AMQPEntityLogger(target.name);
+        if(params.logger) {
+            if (params.logger instanceof AMQPEntityLogger) {
+                entityLogger = params.logger as AMQPEntityLogger;
+                entityLogger.entityName = target.name;
+            }
+            else {
+                let entityLoggerConstructor = params.logger as { new( ) : TEntityLogger };
+                entityLogger = new entityLoggerConstructor();
+                entityLogger.entityName = target.name;
+            }                
+        }
+        else {
+            entityLogger = new AMQPEntityLogger();
+            entityLogger.entityName = target.name;
+        }
 
         Reflect.defineMetadata( AMQPEntityLoggerMetaKey, entityLogger, target );
     }

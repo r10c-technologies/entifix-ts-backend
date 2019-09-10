@@ -9,6 +9,7 @@ class AMQPSender
     private _serviceName : string;
     private _entityName : string;
     private _actionName : string;
+    private _entityId: string;
     private _privateUserData : PrivateUserData;
 
     private _publishOptions : amqp.Options.Publish;
@@ -27,6 +28,7 @@ class AMQPSender
             this._entityName = messageContent.sender.entityName;
             this._serviceName = messageContent.sender.serviceName;
             this._privateUserData = messageContent.sender.privateUserData;
+            this._entityId = messageContent.sender.entityId;
         }
 
         if (options)
@@ -41,6 +43,7 @@ class AMQPSender
             serviceName: this._serviceName,
             entityName: this._entityName,
             actionName: this._actionName,
+            entityId: this._entityId,
             privateUserData: this._privateUserData
         };
     }
@@ -63,6 +66,9 @@ class AMQPSender
     
     get privateUserData()
     { return this._privateUserData; }
+
+    get entityId() 
+    { return this._entityId; }
 
     //#endregion
 
