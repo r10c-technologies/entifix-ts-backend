@@ -167,8 +167,11 @@ class EMEntityController {
                         let methodInfo = this.entityInfo.getDefinedMethods().find(dm => dm.name == validation.methodName);
                         if (methodInstace && methodInfo) {
                             let specialParameters = [session];
-                            //Execute action in entity
-                            let returnedFromAction = methodInstace.apply(entity, [...validation.parameters, specialParameters]);
+                            let allParameters = [];
+                            if (validation.parameters)
+                                allParameters = [...validation.parameters, specialParameters];
+                            //EXECUTE ACTION INSIDE ENTITY
+                            let returnedFromAction = methodInstace.apply(entity, allParameters);
                             if (methodInfo.eventName) {
                                 let checkAndPublishData = resultData => {
                                     if (resultData.continue != null) {
@@ -194,6 +197,27 @@ class EMEntityController {
                                     returnedFromAction.then(result => checkAndPublishData(result));
                                 else
                                     checkAndPublishData(returnedFromAction);
+                            }
+                            else {
+                                let processResult = (methodResult) => {
+                                    if (methodResult.continue != null) {
+                                        let result = methodResult;
+                                        if (result.continue)
+                                            this.responseWrapper.logicAccept(response, "Operación ejecutada", result.details);
+                                        else
+                                            this.responseWrapper.logicError(response, result.message, result.details);
+                                    }
+                                    else {
+                                        if (!returnedFromAction)
+                                            this.responseWrapper.logicAccept(response, "Operación ejecutada");
+                                        else
+                                            this.responseWrapper.logicError(response, "Operación no ejectuada", returnedFromAction);
+                                    }
+                                };
+                                if (returnedFromAction instanceof Promise)
+                                    returnedFromAction.then(result => processResult(result));
+                                else
+                                    processResult(returnedFromAction);
                             }
                         }
                         else
@@ -344,22 +368,24 @@ class EMEntityController {
         let expectingParams = methodInfo.parameters && methodInfo.parameters.length > 0;
         if (expectingParams && !simpleObject.parameters)
             return responseWithBadRequest(`The method ${operator} is expecting parameters`);
-        if (!(simpleObject.parameters instanceof Array))
-            return responseWithBadRequest(`The parameters field must be an Array of objects: { parameres: Array<{key,value}>}`);
-        if (simpleObject.parameters.filter(a => !a.key || !a.value).length > 0)
-            return responseWithBadRequest(`Each parameter has to define 'key' and 'value' properties: { parameters: Array<key,value>}`);
-        let emptyRequired;
-        let requiredParameters = methodInfo.parameters.filter(p => p.required);
-        for (let i = 0; i < requiredParameters.length; i++) {
-            let reqParam = requiredParameters[i];
-            let incomingParam = simpleObject.parameters.find(inParam => inParam.key == reqParam.name);
-            if (!incomingParam || !incomingParam.value) {
-                emptyRequired = incomingParam.key;
-                break;
+        if (methodInfo.parameters != null && methodInfo.parameters.length > 0) {
+            if (!(simpleObject.parameters instanceof Array))
+                return responseWithBadRequest(`The parameters field must be an Array of objects: { parameres: Array<{key,value}>}`);
+            if (simpleObject.parameters.filter(a => !a.key || !a.value).length > 0)
+                return responseWithBadRequest(`Each parameter has to define 'key' and 'value' properties: { parameters: Array<key,value>}`);
+            let emptyRequired;
+            let requiredParameters = methodInfo.parameters.filter(p => p.required);
+            for (let i = 0; i < requiredParameters.length; i++) {
+                let reqParam = requiredParameters[i];
+                let incomingParam = simpleObject.parameters.find(inParam => inParam.key == reqParam.name);
+                if (!incomingParam || !incomingParam.value) {
+                    emptyRequired = incomingParam.key;
+                    break;
+                }
             }
+            if (emptyRequired)
+                return responseWithBadRequest(`The parameter "${emptyRequired}" is required for method "${operator}"`);
         }
-        if (emptyRequired)
-            return responseWithBadRequest(`The parameter "${emptyRequired}" is required for method "${operator}"`);
         parameters = simpleObject.parameters;
         delete simpleObject.op;
         delete simpleObject.methodName;
