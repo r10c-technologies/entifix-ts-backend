@@ -28,7 +28,7 @@ class RemoteEntityLogger extends AMQPEntityLogger
 
     protected createRoutingKey(logType : EntityEventLogType) : string {
         let rtServiceName = this._remoteServiceName.replace('-','_').toLowerCase();
-        let rtRemoteEntityName = this._remoteServiceName.toLowerCase(); 
+        let rtRemoteEntityName = this._remoteEntityName.replace('-','_').toLowerCase(); 
         let rtLogType = logType.toString().toLowerCase();
 
         return 'remote_entity_logger.' + rtServiceName + '.' + rtRemoteEntityName + '.' + rtLogType;
