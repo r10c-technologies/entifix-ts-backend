@@ -75,6 +75,26 @@ class EMEntityMultiKey extends EMEntity implements IEntityMultiKey
         return isMultiKeyEntity;
     }
 
+    addKey( singleKey : IEntityKey ) : void 
+    {
+        if (this.keys == null)
+            this.keys = new Array<EntityKey>();
+        
+        if (this.keys.find( k => k.serviceName == singleKey.serviceName && k.entityName == singleKey.entityName && k.value == singleKey.value))
+            return;        
+
+        if (singleKey instanceof EntityKey) {
+            this.keys.push(singleKey);
+            return;
+        }
+
+        let instancedKey = new EntityKey(this.session);
+        instancedKey.serviceName = singleKey.serviceName;
+        instancedKey.entityName = singleKey.serviceName;
+        instancedKey.value = singleKey.value;
+        this.keys.push(instancedKey);
+    }
+
     //#endregion
 
     //#region Accessors

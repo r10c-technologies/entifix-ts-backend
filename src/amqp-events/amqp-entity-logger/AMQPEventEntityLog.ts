@@ -14,6 +14,7 @@ class AMQPEventEntityLog extends AMQPEvent
     private _specificQueue : string;
     private _name : string;
     private _chnnelNamel : string;
+    private _logType : EntityEventLogType;
 
     //#endregion
 
@@ -22,19 +23,22 @@ class AMQPEventEntityLog extends AMQPEvent
     constructor( 
         eventManager : AMQPEventManager, 
         name : string,
-        routingKey : string,
-        options : { specificQueue?: string, exchangeDescription? : ExchangeDescription, channelName? : string } ) 
+        logType: EntityEventLogType,
+        options : { specificQueue?: string, exchangeDescription? : ExchangeDescription, channelName? : string, routingKey? : string } ) 
     {
         super(eventManager);
 
         options = options || {};
 
         this._name = name;
-        this._routingKey = routingKey;
-        
+        this._logType = logType;
+
         if (!options.specificQueue && !options.exchangeDescription)
             eventManager.serviceSession.throwException("It is necessary to define an Exchage Description or Specific Queue for the event: " + name );
 
+        if (options.routingKey)
+            this._routingKey = options.routingKey;
+        
         this._chnnelNamel = options.channelName || 'entityLogEvents';
         this._specificQueue = options.specificQueue;
         this._exchangeDescription = options.exchangeDescription;
@@ -73,8 +77,8 @@ class AMQPEventEntityLog extends AMQPEvent
     get name() 
     { return this._name; }
     
-    get eventManager () 
-    { return this.eventManager; }
+    get logType()
+    { return this._logType; }
 
     //#endregion
 
