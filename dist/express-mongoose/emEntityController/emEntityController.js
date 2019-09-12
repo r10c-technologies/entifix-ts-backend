@@ -176,7 +176,8 @@ class EMEntityController {
                                 let checkAndPublishData = resultData => {
                                     if (resultData.continue != null) {
                                         if (resultData.continue == true) {
-                                            session.publishAMQPAction(methodInfo, id, resultData.data);
+                                            let eventData = resultData.data || entity;
+                                            session.publishAMQPAction(methodInfo, id, eventData);
                                             resolveRequest(resultData);
                                         }
                                         else
