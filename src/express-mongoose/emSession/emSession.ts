@@ -537,16 +537,18 @@ class EMSession extends HcSession
                                 });
                             });
                         });
+
+                        filters = filters.filter(f => f.complexFilter == false);
     
                         Promise.all(asynkTasks).then(results => {
                             let finalFilter = { $and : [] , $or : []}; 
                             let values = results.map((v) => {
                                 finalFilter = { $and : [] , $or : []}; 
-                                if(v.filterType == FilterType.Fixed)
+                                if(v.filterType == FilterType.Fixed && v.values && v.values.length > 0)
                                 {
                                     finalFilter.$and.push({[v.property]: {$in: [v.values]}});
                                 }
-                                else if(v.filterType == FilterType.Optional)
+                                else if(v.filterType == FilterType.Optional && v.values && v.values.length > 0)
                                 {
                                     finalFilter.$or.push({[v.property]: {$in: [v.values]}});
                                 }
@@ -597,89 +599,86 @@ class EMSession extends HcSession
 
                         if( opFilters.length > 0)
                         {
-                            if (opFilters.length > 1)
-                                mongoFilters.$and.push( { $or: opFilters });
-                            else
-                                mongoFilters.$and.push( opFilters[0] );
+                            mongoFilters.$and.push( { $or: opFilters });
                         } 
                     }                        
                     resolve({ filters: mongoFilters, inconsistencies });
                 });
             }; 
-            
-            let mainAsyncTasks = new Array<Promise<FiltersConversion>>();
 
-            if(filters.filter(f => (f.complexFilter == true)).length > 0)
-                mainAsyncTasks.push(complexFiltersAsync(filters.filter(f => (f.complexFilter == true))));
-
-            if(filters.filter(f => (f.complexFilter == false || f.complexFilter == null)).length > 0)
-                mainAsyncTasks.push(simpleFiltersAsync(filters.filter(f => (f.complexFilter == false || f.complexFilter == null))));
-            
-
-            Promise.all(mainAsyncTasks).then(results =>{
-                let finalFilter : any; 
-                let inconsistencies = new Array<{property:string, message:string}>();
-
-                results.forEach(r => {
-                    if(r.filters && r.filters.$and && r.filters.$and.length > 0)
-                    {
-                        if(r.inconsistencies)
-                        {
-                            inconsistencies = r.inconsistencies;
+            let filterConcatenation = (resultsArray) => {
+                let finalFilter;
+                let finalInconsistencies = new Array();
+                resultsArray.forEach(r => {
+                    if (r.filters && r.filters.$and && r.filters.$and.length > 0) {
+                        if (r.inconsistencies) {
+                            finalInconsistencies = r.inconsistencies;
                         }
-                        if(!finalFilter)
-                            finalFilter = {$and: []}; 
-
+                        if (!finalFilter)
+                            finalFilter = { $and: [] };
                         finalFilter.$and = finalFilter.$and.concat(r.filters.$and);
                     }
-                    if(r.filters instanceof Array && r.filters.length > 0)
-                    {
+                    if (r.filters instanceof Array && r.filters.length > 0) {
                         r.filters.forEach(cf => {
-                            if(cf.inconsistencies)
-                            {
-                                inconsistencies = cf.inconsistencies;
+                            if (cf.inconsistencies) {
+                                finalInconsistencies = cf.inconsistencies;
                             }
-                            if(!finalFilter)
-                                finalFilter = {$and: []};                            
-
-                            if (cf.$or && cf.$or.length > 0)
-                            {
-                                if(finalFilter.$and.filter(e => e.$or).length > 0)
+                            if (!finalFilter)
+                                finalFilter = { $and: [] };
+                            if (cf.$or && cf.$or.length > 0) {
+                                if (finalFilter.$and.filter(e => e.$or).length > 0)
                                     finalFilter.$and.filter(e => e.$or).forEach(e => e.$or = e.$or.concat(cf.$or));
                                 else
-                                    finalFilter.$and.push({$or:cf.$or});
+                                    finalFilter.$and.push({ $or: cf.$or });
                             }
-                            if (cf.$and && cf.$and.length > 0)
-                            {
+                            if (cf.$and && cf.$and.length > 0) {
                                 finalFilter.$and = finalFilter.$and.concat(cf.$and);
                             }
                         });
                     }
                 });
-                if(finalFilter && finalFilter.$and.filter(e => e.$or).length > 1)
-                {
+                if (finalFilter && finalFilter.$and.filter(e => e.$or).length > 1) {
                     let orArrays = [];
                     let orsToRemove = [];
-
-                    finalFilter.$and.filter(e => e.$or).forEach(e => {orArrays = orArrays.concat(e.$or); orsToRemove.push(e);});
-
-                    for(let o of orsToRemove)
-                    {
+                    finalFilter.$and.filter(e => e.$or).forEach(e => { orArrays = orArrays.concat(e.$or); orsToRemove.push(e); });
+                    for (let o of orsToRemove) {
                         let index = finalFilter.$and.indexOf(o);
-
-                        finalFilter.$and.splice(index,1);
+                        finalFilter.$and.splice(index, 1);
                     }
-                    finalFilter.$and.push({$or: orArrays});
+                    finalFilter.$and.push({ $or: orArrays });
                 }
-
-                if(finalFilter && finalFilter.$and)
-                    finalFilter.$and.push({ deferredDeletion: { $in: [null, false] }});
+                if (finalFilter && finalFilter.$and)
+                    finalFilter.$and.push({ deferredDeletion: { $in: [null, false] } });
                 else
-                    finalFilter = {deferredDeletion: { $in: [null, false] }};
+                    finalFilter = { deferredDeletion: { $in: [null, false] } };
+                resolve({ filters: finalFilter, inconsistencies: finalInconsistencies });
+            }; 
+            
+            let mainResults = new Array<FiltersConversion>();
 
-                resolve({filters: finalFilter, inconsistencies});
-
-            }).catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
+            if(filters.filter(f => (f.complexFilter == true)).length > 0)
+            {
+                complexFiltersAsync(filters.filter(f => (f.complexFilter == true)))
+                .then(complexResult => {
+                    mainResults.push(complexResult);
+                    simpleFiltersAsync(filters.filter(f => (f.complexFilter == false || f.complexFilter == null)))
+                    .then(simpleResult => {
+                        mainResults.push(simpleResult);
+                        filterConcatenation(mainResults);
+                    })
+                    .catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
+                })
+                .catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
+            }
+            else
+            {
+                simpleFiltersAsync(filters.filter(f => (f.complexFilter == false || f.complexFilter == null)))
+                .then(simpleResults => { 
+                    mainResults.push(simpleResults);
+                    filterConcatenation(mainResults);
+                })
+                .catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
+            }
         });
     }
 

@@ -360,14 +360,15 @@ class EMSession extends hcSession_1.HcSession {
                                 });
                             });
                         });
+                        filters = filters.filter(f => f.complexFilter == false);
                         Promise.all(asynkTasks).then(results => {
                             let finalFilter = { $and: [], $or: [] };
                             let values = results.map((v) => {
                                 finalFilter = { $and: [], $or: [] };
-                                if (v.filterType == FilterType.Fixed) {
+                                if (v.filterType == FilterType.Fixed && v.values && v.values.length > 0) {
                                     finalFilter.$and.push({ [v.property]: { $in: [v.values] } });
                                 }
-                                else if (v.filterType == FilterType.Optional) {
+                                else if (v.filterType == FilterType.Optional && v.values && v.values.length > 0) {
                                     finalFilter.$or.push({ [v.property]: { $in: [v.values] } });
                                 }
                                 return finalFilter;
@@ -406,27 +407,19 @@ class EMSession extends hcSession_1.HcSession {
                                 addInconsistency({ property: filter.property, message: 'Attempt to filter by a non persistent member' });
                         }
                         if (opFilters.length > 0) {
-                            if (opFilters.length > 1)
-                                mongoFilters.$and.push({ $or: opFilters });
-                            else
-                                mongoFilters.$and.push(opFilters[0]);
+                            mongoFilters.$and.push({ $or: opFilters });
                         }
                     }
                     resolve({ filters: mongoFilters, inconsistencies });
                 });
             };
-            let mainAsyncTasks = new Array();
-            if (filters.filter(f => (f.complexFilter == true)).length > 0)
-                mainAsyncTasks.push(complexFiltersAsync(filters.filter(f => (f.complexFilter == true))));
-            if (filters.filter(f => (f.complexFilter == false || f.complexFilter == null)).length > 0)
-                mainAsyncTasks.push(simpleFiltersAsync(filters.filter(f => (f.complexFilter == false || f.complexFilter == null))));
-            Promise.all(mainAsyncTasks).then(results => {
+            let filterConcatenation = (resultsArray) => {
                 let finalFilter;
-                let inconsistencies = new Array();
-                results.forEach(r => {
+                let finalInconsistencies = new Array();
+                resultsArray.forEach(r => {
                     if (r.filters && r.filters.$and && r.filters.$and.length > 0) {
                         if (r.inconsistencies) {
-                            inconsistencies = r.inconsistencies;
+                            finalInconsistencies = r.inconsistencies;
                         }
                         if (!finalFilter)
                             finalFilter = { $and: [] };
@@ -435,7 +428,7 @@ class EMSession extends hcSession_1.HcSession {
                     if (r.filters instanceof Array && r.filters.length > 0) {
                         r.filters.forEach(cf => {
                             if (cf.inconsistencies) {
-                                inconsistencies = cf.inconsistencies;
+                                finalInconsistencies = cf.inconsistencies;
                             }
                             if (!finalFilter)
                                 finalFilter = { $and: [] };
@@ -465,8 +458,30 @@ class EMSession extends hcSession_1.HcSession {
                     finalFilter.$and.push({ deferredDeletion: { $in: [null, false] } });
                 else
                     finalFilter = { deferredDeletion: { $in: [null, false] } };
-                resolve({ filters: finalFilter, inconsistencies });
-            }).catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
+                resolve({ filters: finalFilter, inconsistencies: finalInconsistencies });
+            };
+            let mainResults = new Array();
+            if (filters.filter(f => (f.complexFilter == true)).length > 0) {
+                complexFiltersAsync(filters.filter(f => (f.complexFilter == true)))
+                    .then(complexResult => {
+                    mainResults.push(complexResult);
+                    simpleFiltersAsync(filters.filter(f => (f.complexFilter == false || f.complexFilter == null)))
+                        .then(simpleResult => {
+                        mainResults.push(simpleResult);
+                        filterConcatenation(mainResults);
+                    })
+                        .catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
+                })
+                    .catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
+            }
+            else {
+                simpleFiltersAsync(filters.filter(f => (f.complexFilter == false || f.complexFilter == null)))
+                    .then(simpleResults => {
+                    mainResults.push(simpleResults);
+                    filterConcatenation(mainResults);
+                })
+                    .catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
+            }
         });
     }
     parseMongoFilter(sessionFilter, propertyType, persistentName) {
