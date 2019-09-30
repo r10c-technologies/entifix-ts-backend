@@ -275,14 +275,16 @@ class EMSession extends hcSession_1.HcSession {
     }
     findByKey(info, key) {
         return new Promise((resolve, reject) => {
-            let normalizedFilter = {
+            let matchFiler = {
                 keys: {
-                    serviceName: key.serviceName,
-                    entityName: key.entityName,
-                    value: key.value
+                    $elemMatch: {
+                        serviceName: key.serviceName,
+                        entityName: { '$regex': new RegExp(["^", key.entityName, "$"].join(""), "i") },
+                        value: key.value
+                    }
                 }
             };
-            this.listEntitiesByQuery(info, normalizedFilter).then(entities => {
+            this.listEntitiesByQuery(info, matchFiler).then(entities => {
                 if (entities.length > 0)
                     resolve(entities[0]);
                 else

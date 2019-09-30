@@ -17,6 +17,7 @@ import { EMServiceSession } from '../emServiceSession/emServiceSession';
 import { AMQPEventManager, ExchangeType } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 import { TokenValidationRequestRPC } from '../../amqp-events/amqp-base-events/TokenValidationRequestRPC';
 import { TokenValidationResponseRPC } from '../../amqp-events/amqp-base-events/TokenValidationResponseRPC';
+import { IEntityKeyModel, EntityKey } from '../emEntityMultiKey/emEntityMultiKey';
 
 interface EntifixAppConfig
 { 
@@ -240,6 +241,7 @@ abstract class EntifixApplication
     protected onServiceSessionCreated() : Promise<void>
     {
         return new Promise<void>( (resolve,reject)=>{
+            this.registerDefaultEntities();
             this.registerEntities();
 
             if (this.serviceConfiguration.devMode)
@@ -258,6 +260,10 @@ abstract class EntifixApplication
 
             resolve();
         });        
+    }
+
+    protected registerDefaultEntities() : void {
+        this.serviceSession.registerEntity<IEntityKeyModel, EntityKey>(EntityKey, EntityKey.getInfo());
     }
 
     protected configSessionAMQPConneciton () : void
@@ -474,54 +480,6 @@ abstract class EntifixApplication
 
     //#endregion
 }
-
-// class TokenValidator 
-// {
-//     promise : Promise<TokenValidationResponse>;
-
-//     constructor(
-//         public idRequest : string,
-//         public serviceName, 
-//         public channel : amqp.Channel, 
-//         public token : string, 
-//         public request : express.Request,
-//         public authQueueName : string,
-//         public assertedQueue : amqp.Replies.AssertQueue) 
-//     {
-//         this.promise =  new Promise<TokenValidationResponse> ( 
-//             (resolve, reject) => 
-//             {
-//                 let tokenRequest : TokenValidationRequest = {
-//                     token: this.token,
-//                     path: this.request.path
-//                 };
-
-//                 this.channel.sendToQueue(this.authQueueName, new Buffer(JSON.stringify( tokenRequest )), { correlationId : this.idRequest, replyTo: this.assertedQueue.queue });
-
-//                 let consumer = (idReq, resolvePromise) => {
-//                     function onConsume(message : amqp.Message) 
-//                     {
-//                         if (message.properties.correlationId == this.idRequest) 
-//                         {
-//                             let validation : TokenValidationResponse = JSON.parse(message.content.toString());
-//                             resolvePromise(validation);
-//                         }
-//                     }
-//                 }
-
-//                 let newConsumerInstance = new Consumer( this.idRequest, resolve );
-
-//                 this.channel.consume(
-//                     this.assertedQueue.queue,
-//                     newConsumerInstance.onConsume, 
-//                     {noAck: true}
-//                 );
-//             }
-//         );
-
-//     }
-
-// }
 
 function Consumer(idReq, resolvePromise) 
 {

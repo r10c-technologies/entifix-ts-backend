@@ -426,15 +426,17 @@ class EMSession extends HcSession
     findByKey<TEntity extends EMEntityMultiKey, TDocument extends EntityDocument>(info : EntityInfo, key : IEntityKey ) : Promise<TEntity>
     {
         return new Promise<TEntity>( (resolve,reject) => {
-            let normalizedFilter = {
+            let matchFiler = {
                 keys: {
-                    serviceName: key.serviceName,
-                    entityName: key.entityName,
-                    value: key.value
+                    $elemMatch: {
+                        serviceName: key.serviceName, 
+                        entityName: { '$regex': new RegExp(["^", key.entityName, "$"].join(""), "i") },
+                        value: key.value                        
+                    }
                 }
-            };
+            };            
 
-            this.listEntitiesByQuery<TEntity, TDocument>( info, normalizedFilter ).then( 
+            this.listEntitiesByQuery<TEntity, TDocument>( info, matchFiler ).then( 
                 entities => {
                     if (entities.length > 0)
                         resolve(entities[0]);

@@ -321,7 +321,7 @@ class EMEntity extends Entity
     { return this._document.isNew; }
 
     get key()
-    { return { service: this._session.serviceSession.serviceName, entityName: this.entityInfo.name, id: this._id.toString() }; }
+    { return { serviceName: this._session.serviceSession.serviceName, entityName: this.entityInfo.name, value: this._id.toString() }; }
 
     @DefinedAccessor({ exposition: ExpositionType.ReadOnly, schema : {  type: String, require: false } })
     get createdBy () : string

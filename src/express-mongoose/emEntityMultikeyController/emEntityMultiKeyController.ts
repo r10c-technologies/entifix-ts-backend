@@ -19,9 +19,8 @@ class EMEntityMutltiKeyController<TDocument extends EntityDocument, TEntityMK ex
 
     protected createRoutes() : void
     {
-        super.createRoutes();
-        
-        this._router.get( '/by-key/:service/:entity/:id', (request, response, next) => this.retrieveByKey( request, response, next ) );    
+        this._router.get('/' + this.resourceName + '/by-key/:service/:entity/:id', (request, response, next) => this.retrieveByKey( request, response, next ) );
+        super.createRoutes();    
     }
 
     retrieveByKey( request : express.Request, response : express.Response, next : express.NextFunction ) : void

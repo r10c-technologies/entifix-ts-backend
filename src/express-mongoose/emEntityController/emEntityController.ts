@@ -23,6 +23,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     protected _router : express.Router;
     
     protected _definedRouteMethods : Array<{pathName: string, httpMethod : string, method: (req, res, next) => void}>
+    
     //#endregion
 
 

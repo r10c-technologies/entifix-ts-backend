@@ -90,7 +90,7 @@ class EMEntityMultiKey extends EMEntity implements IEntityMultiKey
 
         let instancedKey = new EntityKey(this.session);
         instancedKey.serviceName = singleKey.serviceName;
-        instancedKey.entityName = singleKey.serviceName;
+        instancedKey.entityName = singleKey.entityName;
         instancedKey.value = singleKey.value;
         this.keys.push(instancedKey);
     }

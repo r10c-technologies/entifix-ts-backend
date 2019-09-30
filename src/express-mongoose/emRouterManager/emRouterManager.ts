@@ -9,7 +9,7 @@ import { EMEntityController } from '../emEntityController/emEntityController';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
-import { AccessorInfo, MemberBindingType } from '../../hc-core/hcMetaData/hcMetaData';
+import { AccessorInfo, MemberBindingType, EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
 import { resolve, reject } from 'bluebird';
 import { EMMemberActivator } from '../emMetadata/emMetadata';
@@ -21,6 +21,11 @@ class IExpositionDetail
     entityName : string;
     basePath: string;
     controller: any; // Issues with set a type for multiple generic controllers 
+}
+
+interface ExposeEntityOptions 
+{
+
 }
 
 class EMRouterManager {
@@ -51,29 +56,25 @@ class EMRouterManager {
     
     exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity> ( entityName : string) : void;
     exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity> ( entityName : string, options : { controller? : EMEntityController<TDocument, TEntity>, basePath? : string, resourceName? : string  } ) : void;
-    exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntity> ( entityName : string, options? : { controller? : EMEntityController<TDocument, TEntity>, basePath? : string, resourceName? : string  } ) : void
+    exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntityMultiKey> ( entityName : string, options : { controller? : EMEntityMutltiKeyController<TDocument, TEntity>, basePath? : string, resourceName? : string  } ) : void;
+    exposeEntity<TDocument extends EntityDocument, TEntity extends EMEntityMultiKey>( entityName : string, options? : { controller? : EMEntityController<TDocument, TEntity> | EMEntityMutltiKeyController<TDocument, TEntity>, basePath? : string, resourceName? : string  } ) : void
     {
         let basePath = this.getCompleteBasePath( options && options.basePath ? options.basePath : null );
         let resourceName = options && options.resourceName ? options.resourceName : null; 
 
         let entityController = options && options.controller ? options.controller : null;
-        if(!entityController)
-            entityController = new EMEntityController<TDocument, TEntity>( entityName, this, { resourceName } );
+        if(!entityController) {
+            let info = this.serviceSession.getInfo(entityName);
+            if (info.instanceOf(EMEntityMultiKey.getInfo()))
+                entityController = new EMEntityMutltiKeyController<TDocument, TEntity>( entityName, this, { resourceName } );
+            else
+                entityController = new EMEntityController<TDocument, TEntity>( entityName, this, { resourceName } );       
+        }
             
         this._routers.push( { entityName : entityName, controller : entityController, basePath } );
         this._expressAppInstance.use(basePath, entityController.router);
     }
-
-    exposeEntityMultiKey<TDocument extends EntityDocument, TEntityMK  extends EMEntityMultiKey >( entityName: string, options : { controller? : EMEntityController<TDocument, TEntityMK>, basePath? : string, resourceName? : string  }  ) : void 
-    { 
-        options = options || {};
-        let resourceName = options && options.resourceName ? options.resourceName : null; 
-        
-        if (!options.controller)
-            options.controller = new EMEntityMutltiKeyController<TDocument, TEntityMK>( entityName, this, { resourceName } );
-        
-        this.exposeEntity<TDocument, TEntityMK>(entityName, options);
-    }
+    
 
     atachController( controller : EMSimpleController );
     atachController( controller : EMSimpleController, options : { basePath? : string } );

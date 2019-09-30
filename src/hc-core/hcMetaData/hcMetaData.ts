@@ -369,6 +369,30 @@ class EntityInfo
         info._isAbstract = false;
     }
 
+    instanceOf( entityType : string );
+    instanceOf( entityType : EntityInfo );
+    instanceOf( entityType : string | EntityInfo ) : boolean
+    {
+        if (entityType != null) {
+            let entityNameToCompare : string;
+            if (entityType instanceof EntityInfo)
+                entityNameToCompare = entityType.name;
+            else
+                entityNameToCompare = entityType;
+
+            if (this.name == entityNameToCompare)
+                return true;
+            else if (this.base)
+                return this.base.instanceOf(entityNameToCompare);
+            else
+                return false;
+        }
+        else
+            return false;
+    }    
+
+
+
     //#endregion
 
     //#region Accessors

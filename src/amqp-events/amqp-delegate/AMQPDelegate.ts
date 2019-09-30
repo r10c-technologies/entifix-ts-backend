@@ -31,7 +31,15 @@ abstract class AMQPDelegate
             
             let eventArgs = new AMQPEventArgs(messageContent, { originalMessage: message, channel, serviceSession: this._eventManager.serviceSession });
 
-            this.execute( sender, eventArgs );
+            let executionTask = this.execute( sender, eventArgs );
+
+            if (executionTask instanceof Promise) {
+                executionTask.then( () => channel.ack(message) ).catch( () => channel.reject(message) );
+            }
+
+            /***
+             * Definition pending for error on delegates
+             */
         }        
     }
 
