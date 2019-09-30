@@ -36,15 +36,20 @@ class AMQPEventManager
         this._exchangesDescription = new Array<ExchangeDescription>();
     }
 
-    registerEvent<TEvent extends AMQPEvent>( type: { new( session: AMQPEventManager) : TEvent } ) : TEvent
+    registerEvent<TEvent extends AMQPEvent>( event: { new( session: AMQPEventManager) : TEvent } | TEvent ) : TEvent
     {
         this._serviceSession.checkAMQPConnection();
+        let instance : TEvent;
 
-        let instance = new type(this);
+        if(event instanceof AMQPEvent)
+            instance = event;
+        else
+            instance = new event(this);
+        
         if (instance.exchangeDescription)
             this.verifyExchageDescription(instance.exchangeDescription);
 
-        this._events.push({ name: type.name, instance });
+        this._events.push({ name: event.name, instance });
 
         return instance;
     }
@@ -73,18 +78,6 @@ class AMQPEventManager
         );
 
         return instance;
-    }
-
-    enableLogger( entityInfo : EntityInfo ) : AMQPEntityLogger 
-    {
-        if (AMQPEntityLogger.hasEntityLogger(entityInfo)) {
-            let entityLogger = AMQPEntityLogger.createAndBindEventInstances( this, entityInfo );
-            entityLogger.events.forEach( event => this._events.push({name: event.instance.name, instance: event.instance}) );
-        }
-        else {
-            this.serviceSession.throwInfo(`There is no defined AMQPEntityLogger for Entity: [${entityInfo.name}]`, true);
-            return null;
-        }
     }
     
     publish( eventName: string, data : any) : void;
@@ -221,25 +214,20 @@ class AMQPEventManager
         return e;
     }
 
-
-
-    enableEntityLoggerFor( entityInfo : EntityInfo ) 
-    {
-        if (this._allowedLoggers == null)
-            this._allowedLoggers = new Array<EntityInfo>();
-
-        if (!this._allowedLoggers.find( lg => lg.name == entityInfo.name ))
-            this._allowedLoggers.push(entityInfo);        
+    hasEntityLogger(entityInfo:EntityInfo) : boolean {
+        return AMQPEntityLogger.hasEntityLogger(entityInfo);
     }
 
-    private _allowedLoggers : Array<EntityInfo>;
-
-    hasEntityLogger( entityInfo : EntityInfo ) : boolean 
+    enableLogger( entityInfo : EntityInfo ) : AMQPEntityLogger 
     {
-        return this._allowedLoggers != null 
-                && this._allowedLoggers.length > 0
-                && this._allowedLoggers.find( lg => lg.name == entityInfo.name ) != null
-                && AMQPEntityLogger.hasEntityLogger(entityInfo);
+        if (AMQPEntityLogger.hasEntityLogger(entityInfo)) {
+            let entityLogger = AMQPEntityLogger.createAndBindEventInstances( this, entityInfo );
+            entityLogger.events.forEach( event => this.registerEvent(event) );
+        }
+        else {
+            this.serviceSession.throwInfo(`There is no defined AMQPEntityLogger for Entity: [${entityInfo.name}]`, true);
+            return null;
+        }
     }
 
     triggerEntityLogger( entity : EMEntity, entityEventType : EntityEventLogType )

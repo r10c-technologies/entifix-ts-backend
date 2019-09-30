@@ -255,11 +255,17 @@ class EMEntity extends Entity
         });
     }
 
-    private async triggerAMQP( entityEventType : EntityEventLogType ) : Promise<void> 
+    private triggerAMQP( entityEventType : EntityEventLogType ) : void
     {
-        let eventManager = this.session.serviceSession.amqpEventManager;
-        if (eventManager != null && eventManager.hasEntityLogger(this.entityInfo)) 
-            eventManager.triggerEntityLogger( this, entityEventType);    
+        new Promise<void>((resolve, reject) => {
+            let eventManager = this.session.serviceSession.amqpEventManager;
+            if (eventManager != null && eventManager.hasEntityLogger(this.entityInfo)) 
+                eventManager.triggerEntityLogger( this, entityEventType);
+        }).then( () => {
+            //*** Pending manage post actions */
+        }).catch( () => { 
+            //*** Pending manage retry dynamic */
+        });            
     }
 
     //#endregion

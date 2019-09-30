@@ -181,25 +181,26 @@ function DefinedMethod( params? : { eventName?: string, returnActionData? : bool
                 }
             }
                 
-            let limit = Math.max( ...methodInfo.parameters.map( dp => dp.index ) );
-
-            for ( let i = 0; i <= limit; i++ )
-            {
-                let defParam = methodInfo.parameters.find( dp => dp.index == i );
-                if (defParam)
+            if (methodInfo.parameters && methodInfo.parameters.length > 0) {
+                let limit = Math.max( ...methodInfo.parameters.map( dp => dp.index ) );
+                for ( let i = 0; i <= limit; i++ )
                 {
-                    let arg : {key,value};
-                    if (defParam.special == true)
-                        arg = specialParamArray.find( a => a.key == defParam.name );
+                    let defParam = methodInfo.parameters.find( dp => dp.index == i );
+                    if (defParam)
+                    {
+                        let arg : {key,value};
+                        if (defParam.special == true)
+                            arg = specialParamArray.find( a => a.key == defParam.name );
+                        else
+                            arg = userParamArray.find( a => a.key == defParam.name );
+                            
+                        params.push(arg ? arg.value : null);
+                    }
                     else
-                        arg = userParamArray.find( a => a.key == defParam.name );
-                        
-                    params.push(arg ? arg.value : null);
+                        params.push(null);
                 }
-                else
-                    params.push(null);
             }
-
+            
             return originalMethod.apply(this, params);
         }
     }

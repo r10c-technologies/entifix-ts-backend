@@ -290,9 +290,13 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                             if (methodInstace && methodInfo)
                             {
                                 let specialParameters = [ session ];
+                                let allParameters = [];
                                 
-                                //Execute action in entity
-                                let returnedFromAction = methodInstace.apply( entity, [ ...validation.parameters, specialParameters ] );
+                                if ( validation.parameters )
+                                    allParameters = [ ...validation.parameters, specialParameters ];
+
+                                //EXECUTE ACTION INSIDE ENTITY
+                                let returnedFromAction = methodInstace.apply( entity, allParameters );
                                 
                                 if (methodInfo.eventName)
                                 {
@@ -300,7 +304,8 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                                         if (resultData.continue != null) {
                                             if (resultData.continue == true)
                                             {
-                                                session.publishAMQPAction( methodInfo, id,resultData.data );
+                                                let eventData = resultData.data || entity;
+                                                session.publishAMQPAction( methodInfo, id, eventData );
                                                 resolveRequest(resultData);                                                
                                             }
                                             else
@@ -324,6 +329,29 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                                         returnedFromAction.then( result => checkAndPublishData(result) );
                                     else
                                         checkAndPublishData(returnedFromAction);
+                                }
+                                else 
+                                {
+                                    let processResult = (methodResult) => {
+                                        if (methodResult.continue != null) {
+                                            let result = methodResult as EntityMovementFlow;
+                                            if (result.continue)
+                                                this.responseWrapper.logicAccept(response, "Operación ejecutada", result.details );
+                                            else
+                                                this.responseWrapper.logicError(response, result.message, result.details );
+                                        }
+                                        else {
+                                            if (!returnedFromAction)
+                                                this.responseWrapper.logicAccept(response, "Operación ejecutada");
+                                            else
+                                                this.responseWrapper.logicError(response, "Operación no ejectuada", returnedFromAction );
+                                        }
+                                    };
+
+                                    if (returnedFromAction instanceof Promise)
+                                        returnedFromAction.then( result => processResult(result) );
+                                    else 
+                                        processResult(returnedFromAction);
                                 }
                             }
                             else
@@ -541,27 +569,30 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         if ( expectingParams && !simpleObject.parameters )
             return responseWithBadRequest( `The method ${operator} is expecting parameters` );
 
-        if ( !(simpleObject.parameters instanceof Array) )
-            return responseWithBadRequest( `The parameters field must be an Array of objects: { parameres: Array<{key,value}>}` );
+            
+        if (methodInfo.parameters != null && methodInfo.parameters.length > 0) {
+            if ( !(simpleObject.parameters instanceof Array) )
+                return responseWithBadRequest( `The parameters field must be an Array of objects: { parameres: Array<{key,value}>}` );
 
-        if ( simpleObject.parameters.filter( a => !a.key || !a.value ).length > 0)
-            return responseWithBadRequest( `Each parameter has to define 'key' and 'value' properties: { parameters: Array<key,value>}` );
+            if ( simpleObject.parameters.filter( a => !a.key || !a.value ).length > 0)
+                return responseWithBadRequest( `Each parameter has to define 'key' and 'value' properties: { parameters: Array<key,value>}` );
 
-        let emptyRequired: string;
-        let requiredParameters = methodInfo.parameters.filter( p => p.required );
-        for (let i = 0; i < requiredParameters.length; i++ )
-        {
-            let reqParam = requiredParameters[i];
-            let incomingParam = simpleObject.parameters.find( inParam => inParam.key == reqParam.name );
-            if (!incomingParam || !incomingParam.value)
+            let emptyRequired: string;
+            let requiredParameters = methodInfo.parameters.filter( p => p.required );
+            for (let i = 0; i < requiredParameters.length; i++ )
             {
-                emptyRequired = incomingParam.key;
-                break;
-            } 
-        }
+                let reqParam = requiredParameters[i];
+                let incomingParam = simpleObject.parameters.find( inParam => inParam.key == reqParam.name );
+                if (!incomingParam || !incomingParam.value)
+                {
+                    emptyRequired = incomingParam.key;
+                    break;
+                } 
+            }
 
-        if (emptyRequired)
-            return responseWithBadRequest( `The parameter "${emptyRequired}" is required for method "${operator}"` );
+            if (emptyRequired)
+                return responseWithBadRequest( `The parameter "${emptyRequired}" is required for method "${operator}"` );
+        }
 
         parameters = simpleObject.parameters;
         delete simpleObject.op;
