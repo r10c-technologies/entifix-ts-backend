@@ -400,10 +400,12 @@ class EMEntityController {
     //#region On complex request/response session methods
     getArrayPath(request) {
         let arrayPath = request.path.split('/');
-        let basePathCount = 2;
-        if (this._routerManager.basePath)
-            basePathCount++;
-        arrayPath.splice(0, basePathCount);
+        let baseLimit = false;
+        while (arrayPath.length > 0 && !baseLimit) {
+            if (arrayPath[0] == this._resourceName)
+                baseLimit = true;
+            arrayPath.splice(0, 1);
+        }
         return arrayPath;
     }
     getDefinedRouteMethods() {
