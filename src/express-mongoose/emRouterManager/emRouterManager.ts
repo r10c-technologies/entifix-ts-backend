@@ -12,7 +12,7 @@ import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
 import { AccessorInfo, MemberBindingType, EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
 import { resolve, reject } from 'bluebird';
-import { EMMemberActivator } from '../emMetadata/emMetadata';
+import { EMMemberActivator, EMMemberTreeActivator } from '../emMetadata/emMetadata';
 import { EMEntityMultiKey } from '../emEntityMultiKey/emEntityMultiKey';
 import { EMEntityMutltiKeyController } from '../emEntityMultikeyController/emEntityMultiKeyController';
 
@@ -104,7 +104,52 @@ class EMRouterManager {
         });
         
         newController.retrieveMethod = ( req, res, next ) =>{
-            res.send( Wrapper.wrapCollection(false, null, arrayToExpose).serializeSimpleObject() );
+            let filters = new Array<{key,value}>();
+            let devData = null;
+
+            let addDevData = i => {
+                if (!devData)
+                    devData = { queryInconsistencies: [] };
+                devData.queryInconsistencies.push( {
+                    details: i,
+                    message: 'Not allowed filters'
+                }); 
+            };
+
+            if (req.query) 
+                for ( let p in req.query ) 
+                    switch(p) {
+                        case 'fixed_filter':
+                            let queryValue = req.query[p];
+                            let extractFilter = ( v ) => { 
+                                let av = v.split('|');
+                                if (av.length == 3 && av[1] == 'eq')
+                                    return { key: av[0], value: av[2] };
+                                else 
+                                    addDevData(v);
+                            };
+
+                            if (queryValue instanceof Array) {
+                                // filters = queryValue.map( extractFilter );
+                                //Not Allowed multiple filters so far
+                                addDevData({ details: 'Not allowed multiple filters so far: [fixed_filter]' })
+                            }
+                            else
+                                filters.push( extractFilter(queryValue) );
+
+                            break;
+
+                        default:
+                            addDevData({ [p]: req.query[p] });
+                    }
+             
+            if (filters && filters.filter(f => f != null).length > 0) {
+                let filteredArray = arrayToExpose.filter( v =>  filters.filter( f => f != null && v[f.key] == f.value ).length == filters.filter(f => f!= null).length );
+                res.send( Wrapper.wrapCollection(false, null, filteredArray, { devData } ).serializeSimpleObject() ); 
+            }
+            else    
+                res.send( Wrapper.wrapCollection(false, null, arrayToExpose, { devData }).serializeSimpleObject() );
+        
         }
 
         newController.retrieveByIdMethod = ( req, res, next) => {
@@ -163,7 +208,12 @@ class EMRouterManager {
                
             else 
             {
-                let expositionType = (expositionAccessorInfo.activator as EMMemberActivator<EMEntity, EntityDocument>) .entityInfo.name;           
+                let expositionType : string;
+                if (expositionAccessorInfo.activator instanceof EMMemberActivator)
+                    expositionType = (expositionAccessorInfo.activator as EMMemberActivator<EMEntity, EntityDocument>) .entityInfo.name;           
+                if (expositionAccessorInfo.activator instanceof EMMemberTreeActivator)
+                    expositionType = expositionAccessorInfo.className;
+                
                 let expositionController = this.findController(expositionType);
 
                 let isArray = objectToExpose ? objectToExpose instanceof Array : null;
@@ -191,7 +241,13 @@ class EMRouterManager {
             case MemberBindingType.Reference:
             case MemberBindingType.Snapshot:
                 validateReqBody = () => {
-                    expositionController = this.findController( (expositionAccessorInfo.activator as EMMemberActivator<EMEntity, EntityDocument>).entityInfo.name);
+                    let expositionType : string;
+                    if (expositionAccessorInfo.activator instanceof EMMemberActivator)
+                        expositionType = (expositionAccessorInfo.activator as EMMemberActivator<EMEntity, EntityDocument>).entityInfo.name;           
+                    if (expositionAccessorInfo.activator instanceof EMMemberTreeActivator)
+                        expositionType = expositionAccessorInfo.className;
+
+                    expositionController = this.findController( expositionType );
                     return expositionController.createInstance( session.request, session.response, { alwaysNew: true } );
                 }
                 break;
@@ -272,7 +328,13 @@ class EMRouterManager {
             case MemberBindingType.Reference:
             case MemberBindingType.Snapshot:
                 validateReqBody = () => {
-                    expositionController = this.findController( (expositionAccessorInfo.activator as EMMemberActivator<EMEntity, EntityDocument>).entityInfo.name);
+                    let expositionType : string;
+                    if (expositionAccessorInfo.activator instanceof EMMemberActivator)
+                        expositionType = (expositionAccessorInfo.activator as EMMemberActivator<EMEntity, EntityDocument>) .entityInfo.name;           
+                    if (expositionAccessorInfo.activator instanceof EMMemberTreeActivator)
+                        expositionType = expositionAccessorInfo.className;
+                    
+                    expositionController = this.findController( expositionType );
                     return expositionController.createInstance( session.request, session.response, { alwaysNew: true } );
                 }
                 break;

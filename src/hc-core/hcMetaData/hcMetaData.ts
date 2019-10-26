@@ -63,13 +63,14 @@ function DefinedAccessor( params? : {   exposition? : ExpositionType,
         info.persistenceType = params.persistenceType || PersistenceType.Defined;
         info.activator = params.activator;
 
+        if (info.activator && !info.activator.resourcePath)
+            info.activator.resourcePath = info.name.toLowerCase();
+
         //Behavior for default schema and chunks
         if (params.activator && params.activator.defaultSchema)
             info.schema = params.activator.defaultSchema;
         if (params.schema)
             info.schema = params.schema;
-/*         if (params.activator && params.activator.bindingType == MemberBindingType.Chunks && info.schema)
-            info.schema.select = false; */
 
         //Alias management
         info.display = params.display || getDisplayByCleanedName(key);
@@ -463,6 +464,8 @@ abstract class MemberActivator
 
     get resourcePath() : string
     { return this._resourcePath; }
+    set resourcePath(value : string)
+    { this._resourcePath = value; }
 
     get extendRoute () : boolean
     { return this._extendRoute; }

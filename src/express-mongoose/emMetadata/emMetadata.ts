@@ -282,6 +282,209 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
 
 }
 
+
+class EMMemberTreeActivator extends MemberActivator 
+{
+    //#region Properties
+
+    //#endregion
+
+    //#region Methods
+
+    constructor( bindingType : MemberBindingType, extendRoute : boolean );
+    constructor( bindingType : MemberBindingType, extendRoute : boolean, options : { resourcePath? : string } );
+    constructor( bindingType : MemberBindingType, extendRoute : boolean, options? : { resourcePath? : string } )
+    {
+        super(bindingType, extendRoute, options != null && options.resourcePath != null ? options.resourcePath : null);  
+    }
+
+    activateMember( entity : Entity, session : EMSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
+    {
+        switch (this.bindingType) 
+        {
+            case MemberBindingType.Reference:
+                if (accessorInfo.type == 'Array')
+                    return this.loadArrayInstanceFromDB(entity as EMEntity, session, accessorInfo, options);
+                else
+                    return this.loadSingleInstanceFromDB(entity as EMEntity, session, accessorInfo, options);
+
+            case MemberBindingType.Snapshot:
+                if (accessorInfo.type == 'Array')
+                    return this.castArrayInstanceInEntity(entity as EMEntity, session, accessorInfo, options);
+                else
+                    return this.castSingleInstanceInEntity(entity as EMEntity, session, accessorInfo, options);
+        }        
+    }                                                                                                                                                                                                                                    
+
+    private loadSingleInstanceFromDB(baseEntity : EMEntity, session : EMSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
+    {
+        return new Promise<{ oldValue? : any, newValue : any }>( (resolve, reject) => {
+            let doc = baseEntity.getDocument();
+            let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
+            let id : string = doc[persistentMember];
+
+            let oldValue : any;
+            let newValue : any;
+            let promises = new Array<Promise<void>>();
+            
+            if (id)
+                promises.push( session.findEntity(baseEntity.entityInfo, id).then( 
+                    entity => { 
+                        baseEntity[accessorInfo.name] = entity; 
+                        newValue = entity; 
+                    }
+                ));           
+                            
+            if (options && options.oldValue)
+                promises.push( session.findEntity(baseEntity.entityInfo, options.oldValue).then( 
+                    entity => { 
+                        oldValue = entity;  
+                    } 
+                ));
+
+            Promise.all( promises ).then(
+                ()=>{ resolve({ oldValue, newValue }) },
+                error => reject(error)
+            ).catch( error => reject(error) );
+
+        });        
+    }
+
+    private loadArrayInstanceFromDB(baseEntity : EMEntity, session : EMSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
+    {
+        return new Promise<{ oldValue? : any, newValue : any }>( (resolve, reject) => {
+            let doc = baseEntity.getDocument();
+            let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
+                
+            let promises = new Array<Promise<void>>();
+            let oldValue : any;
+            let newValue : any;
+
+            let filters = { _id: { $in: doc[persistentMember] } };
+            if (filters._id.$in && filters._id.$in.length > 0 )
+                promises.push( session.listEntitiesByQuery(baseEntity.entityInfo, filters).then( 
+                    entities => { 
+                        baseEntity[accessorInfo.name] = entities; 
+                    } 
+                ));           
+                            
+            if (options && options.oldValue)
+                promises.push( session.listEntitiesByQuery(baseEntity.entityInfo, { _id: { $in: options.oldValue } }).then( 
+                    entities => { 
+                        baseEntity[accessorInfo.name] = entities; 
+                    } 
+                ));
+
+            Promise.all( promises ).then(
+                ()=>{ resolve({ oldValue, newValue }) },
+                error => reject(error)
+            ).catch( error => reject(error) );
+        });        
+    }
+
+    private castSingleInstanceInEntity(baseEntity : EMEntity, session : EMSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
+    {
+        return new Promise<{ oldValue? : any, newValue : any }>( (resolve, reject) => { 
+            let doc = baseEntity.getDocument();
+            let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
+            let docData = doc[persistentMember];
+
+            let promises = new Array<Promise<void>>();
+            let oldValue : any;
+            let newValue : any;
+
+            if (docData)
+            {
+                let model = session.getModel(baseEntity.entityInfo.name);
+                let document = new model(docData);
+
+                promises.push( session.activateEntityInstance(baseEntity.entityInfo, document).then( 
+                    entity => { 
+                        baseEntity[accessorInfo.name] = entity; 
+                        newValue = entity; 
+                    }
+                ));
+            }
+
+            if (options && options.oldValue)
+            {
+                let model = session.getModel(baseEntity.entityInfo.name);
+                let document = new model(options.oldValue);
+
+                promises.push( session.activateEntityInstance(baseEntity.entityInfo, document).then( 
+                    entity => { 
+                        oldValue = entity; 
+                    }
+                ));
+            }
+            
+            Promise.all( promises ).then(
+                ()=>{ resolve({ oldValue, newValue }) },
+                error => reject(error)
+            ).catch( error => reject(error) );
+        });
+    }
+
+    private castArrayInstanceInEntity(baseEntity : EMEntity, session : EMSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
+    {
+        return new Promise<{ oldValue? : any, newValue : any }>( (resolve, reject) => {
+            let doc = baseEntity.getDocument();
+            let persistentMember = accessorInfo.persistentAlias || accessorInfo.name;
+            let docsData = doc[persistentMember];
+            
+            let promises = new Array<Promise<void>>();
+            let oldValue : any;
+            let newValue : any;
+
+            if (docsData && docsData.length > 0)
+            {
+                let model = session.getModel(baseEntity.entityInfo.name);
+                newValue = new Array<EMEntity>();
+
+                for ( let i = 0; i < docsData.length ; i++)
+                {
+                    let asModel = new model(docsData[i]);
+                    promises.push( session.activateEntityInstance(baseEntity.entityInfo, asModel).then( entity => newValue.push(entity)) );
+                }
+            }
+
+            if (options && options.oldValue && options.oldValue.length > 0)
+            {
+                let model = session.getModel(baseEntity.entityInfo.name);
+                oldValue = new Array<EMEntity>();
+
+                for ( let i = 0; i < docsData.length ; i++)
+                {
+                    let asModel = new model(docsData[i]);
+                    promises.push( session.activateEntityInstance(baseEntity.entityInfo, asModel).then( entity => oldValue.push(entity) ) );
+                }
+            }
+
+            Promise.all( promises ).then(
+                ()=>{ 
+                    baseEntity[accessorInfo.name] = newValue;
+                    resolve({ oldValue, newValue }) 
+                }
+            ).catch( error => reject(error) );
+        });
+    }
+
+
+    //#endregion
+
+    //#region Accessors
+
+    get referenceType ( )
+    { return this.bindingType == MemberBindingType.Reference ? 'string' : null; }
+
+    get defaultSchema ()
+    { return null; }
+
+    //#endregion
+
+}
+
+
 interface IChunkMember
 {
     _id: string,
@@ -290,4 +493,4 @@ interface IChunkMember
     size: number
 }
 
-export { EMMemberActivator, GfsMemberActivator, IChunkMember }
+export { EMMemberActivator, GfsMemberActivator, IChunkMember, EMMemberTreeActivator }

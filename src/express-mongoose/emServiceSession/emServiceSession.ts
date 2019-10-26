@@ -321,9 +321,10 @@ class EMServiceSession
     
     createError(error : any, message : string)
     {
-        if (this._devMode)
-        {
-            let m = 'DevMode: Error in EMSession => ' + message;
+        if (this._devMode) {
+            let m = 'DevMode => Error in EMSession: ' + message + '.';
+            if (error)
+                m += ( ' => ' + error.toString() );
             console.warn(m);    
             return new EMSessionError(error, m);
         }

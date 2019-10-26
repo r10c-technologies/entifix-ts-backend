@@ -240,79 +240,83 @@ class EMSession extends HcSession
     activateEntityInstance<TEntity extends EMEntity, TModel extends EntityDocument>(info: EntityInfo, document : TModel ) : Promise<TEntity>;
     activateEntityInstance<TEntity extends EMEntity, TModel extends EntityDocument>(info: EntityInfo, document : TModel, options : { changes : Array<{ property: string, oldValue : any, newValue: any }> } ) : Promise<TEntity>;
     activateEntityInstance<TEntity extends EMEntity, TModel extends EntityDocument>(info: EntityInfo, document : TModel, options? : { changes : Array<{ property: string, oldValue : any, newValue: any }> } ) : Promise<TEntity>
-    {        
-        return new Promise<TEntity>( (resolve, reject) => {
+    {   
+        if (document) {
+            return new Promise<TEntity>( (resolve, reject) => {
 
-            let changes = options && options.changes ? options.changes : [];
-
-            let baseInstace = this._serviceSession.entitiesInfo.find(a => a.name == info.name).activateType(this, document);
-
-            // let entityAccessors = info.getAccessors().filter( a => a.activator != null && ( a.type == "Array" ? baseInstace[a.name] != null && baseInstace[a.name].length > 0 : baseInstace[a.name] != null ) );
-            let entityAccessors = info.getAccessors().filter( a => a.activator != null );
-            
-            let currentEA = entityAccessors.filter( ea => { 
-                let persistentName = ea.persistentAlias || ea.name;
+                let changes = options && options.changes ? options.changes : [];
+    
+                let baseInstace = this._serviceSession.entitiesInfo.find(a => a.name == info.name).activateType(this, document);
+    
+                // let entityAccessors = info.getAccessors().filter( a => a.activator != null && ( a.type == "Array" ? baseInstace[a.name] != null && baseInstace[a.name].length > 0 : baseInstace[a.name] != null ) );
+                let entityAccessors = info.getAccessors().filter( a => a.activator != null );
                 
-                if ( ea.type == 'Array' )
-                    return document[persistentName] != null && document[persistentName].length > 0; 
-                else
-                    return document[persistentName] != null; 
-            });
-            
-            let previousEA = entityAccessors.filter( ea => {
-                let persistetName = ea.persistentAlias || ea.name;
-
-                let c = changes.find( c => c.property == persistetName );
-                if (c) 
-                    return c.oldValue != null
-                else
-                    return false;
-            });
-
-            if ( previousEA.length > 0 || currentEA.length > 0)
-            {
-                // let promises : Array<Promise<void>> = [];
-                let promises : Array<Promise<any>> = [];
-                
-                entityAccessors.forEach( entityAccessor => {
-
-                    let oldValue : any;
-                    if (options && options.changes)
-                    {
-                        let c = options.changes.find( c => c.property == ( entityAccessor.persistentAlias || entityAccessor.name ) );
-                        if (c)
-                            oldValue = c.oldValue;                        
-                    }
-                        
-                    promises.push(entityAccessor.activator.activateMember( baseInstace, this, entityAccessor, { oldValue } ).then( change => {
-                        if (options && options.changes && options.changes.length >0 )
-                        {
-                            let nameToMatch = entityAccessor.persistentAlias || entityAccessor.name;
-                            let ch = options.changes.find( ch => ch.property == nameToMatch );
-                            if (ch)
-                            {
-                                ch.oldValue = change.oldValue;
-                                ch.newValue = change.newValue;
-                                ch.property = entityAccessor.name;
-                            }
-                        }   
-                     }));
-
-                    //  promises.push(entityAccessor.activator.activateMember( baseInstace, this, entityAccessor));
+                let currentEA = entityAccessors.filter( ea => { 
+                    let persistentName = ea.persistentAlias || ea.name;
+                    
+                    if ( ea.type == 'Array' )
+                        return document[persistentName] != null && document[persistentName].length > 0; 
+                    else
+                        return document[persistentName] != null; 
                 });
-
-                Promise.all(promises).then( 
-                    () => {
+                
+                let previousEA = entityAccessors.filter( ea => {
+                    let persistetName = ea.persistentAlias || ea.name;
+    
+                    let c = changes.find( c => c.property == persistetName );
+                    if (c) 
+                        return c.oldValue != null
+                    else
+                        return false;
+                });
+    
+                if ( previousEA.length > 0 || currentEA.length > 0)
+                {
+                    // let promises : Array<Promise<void>> = [];
+                    let promises : Array<Promise<any>> = [];
+                    
+                    entityAccessors.forEach( entityAccessor => {
+    
+                        let oldValue : any;
                         if (options && options.changes)
-                            baseInstace.instancedChanges = options.changes; 
-                        resolve(baseInstace);
-                    },
-                    error => reject(this.createError(error, 'Error in create instance of a member'))
-                );
-            }
-            else
-                resolve(baseInstace);
-        });
+                        {
+                            let c = options.changes.find( c => c.property == ( entityAccessor.persistentAlias || entityAccessor.name ) );
+                            if (c)
+                                oldValue = c.oldValue;                        
+                        }
+                            
+                        promises.push(entityAccessor.activator.activateMember( baseInstace, this, entityAccessor, { oldValue } ).then( change => {
+                            if (options && options.changes && options.changes.length >0 )
+                            {
+                                let nameToMatch = entityAccessor.persistentAlias || entityAccessor.name;
+                                let ch = options.changes.find( ch => ch.property == nameToMatch );
+                                if (ch)
+                                {
+                                    ch.oldValue = change.oldValue;
+                                    ch.newValue = change.newValue;
+                                    ch.property = entityAccessor.name;
+                                }
+                            }   
+                         }));
+    
+                        //  promises.push(entityAccessor.activator.activateMember( baseInstace, this, entityAccessor));
+                    });
+    
+                    Promise.all(promises).then( 
+                        () => {
+                            if (options && options.changes)
+                                baseInstace.instancedChanges = options.changes; 
+                            resolve(baseInstace);
+                        },
+                        error => reject(this.createError(error, 'Error in create instance of a member'))
+                    );
+                }
+                else
+                    resolve(baseInstace);
+            });
+        }     
+        else    
+            return Promise.resolve(null);
     }
 
     getMetadataToExpose(entityName : string) : Array<{ name : string, type : string, persistent : boolean}>
