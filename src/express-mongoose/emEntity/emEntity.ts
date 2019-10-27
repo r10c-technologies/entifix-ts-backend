@@ -70,12 +70,13 @@ class EMEntity extends Entity
         return simpleObject;
     }
 
-    static deserializeAccessors (info : EntityInfo, simpleObject : any) : { persistent? : any, nonPersistent? : any, readOnly? : any, nonValid? : any }
+    static deserializeAccessors (info : EntityInfo, simpleObject : any) : { persistent? : any, nonPersistent? : any, readOnly? : any, nonValid? : any, ownArrayController? : any }
     {
         let persistent : any;
         let nonPersistent : any;
         let readOnly : any;
-        
+        let ownArrayController : any;
+
         info.getAccessors().filter( accessor => accessor.exposition ).forEach( accessor => {
 
             let exposedName = accessor.serializeAlias || accessor.name;
@@ -86,8 +87,12 @@ class EMEntity extends Entity
                 let isPersistent = accessor.schema != null || accessor.persistenceType == PersistenceType.Auto;
                 if (isPersistent)
                 {
-                    if ((simpleObject as Object).hasOwnProperty(exposedName))
-                    {
+                    if (accessor.type == 'Array'){
+                        if (!ownArrayController)
+                            ownArrayController = {};
+                        ownArrayController[persistentName] = simpleObject[exposedName];
+                    }
+                    else if ((simpleObject as Object).hasOwnProperty(exposedName)) {
                         if (!persistent)
                             persistent = {};
                         persistent[persistentName] = simpleObject[exposedName];
@@ -118,7 +123,7 @@ class EMEntity extends Entity
 
         let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
         
-        return { persistent, nonPersistent, readOnly, nonValid };
+        return { persistent, nonPersistent, readOnly, nonValid, ownArrayController };
     }
 
     save() : Promise<EntityMovementFlow>

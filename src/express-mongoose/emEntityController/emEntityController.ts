@@ -478,11 +478,15 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             }
             
             if ( parsedRequest.readOnly )
-                 addDevData({ message: 'The request has read only accessors and these are going to be ignored', accessors : parsedRequest.readOnly });
+                addDevData({ message: 'The request has read only accessors and these are going to be ignored', accessors : parsedRequest.readOnly });
         
             if ( parsedRequest.nonPersistent )
-                 addDevData({ message: 'The request has non persistent accessors and these could be ignored', accessors : parsedRequest.nonPersistent });
+                addDevData({ message: 'The request has non persistent accessors and these could be ignored', accessors : parsedRequest.nonPersistent });
 
+            if ( parsedRequest.ownArrayController )
+                addDevData({ message: 'The request has array accessors that are managed by their own controller and these could be ignored', accessors : parsedRequest.ownArrayController });
+
+                
             this.createSession(request, response).then( 
                 session => { if (session) {
 
