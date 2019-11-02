@@ -161,13 +161,14 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
                 promises.push( session.listEntitiesByQuery(this.entityInfo, filters).then( 
                     entities => { 
                         baseEntity[accessorInfo.name] = entities; 
+                        newValue = entities;
                     } 
                 ));           
                             
             if (options && options.oldValue)
                 promises.push( session.listEntitiesByQuery(this.entityInfo, { _id: { $in: options.oldValue } }).then( 
                     entities => { 
-                        baseEntity[accessorInfo.name] = entities; 
+                        oldValue = entities;
                     } 
                 ));
 
@@ -364,14 +365,15 @@ class EMMemberTreeActivator extends MemberActivator
             if (filters._id.$in && filters._id.$in.length > 0 )
                 promises.push( session.listEntitiesByQuery(baseEntity.entityInfo, filters).then( 
                     entities => { 
-                        baseEntity[accessorInfo.name] = entities; 
+                        baseEntity[accessorInfo.name] = entities;
+                        newValue = entities; 
                     } 
                 ));           
                             
             if (options && options.oldValue)
                 promises.push( session.listEntitiesByQuery(baseEntity.entityInfo, { _id: { $in: options.oldValue } }).then( 
                     entities => { 
-                        baseEntity[accessorInfo.name] = entities; 
+                        oldValue = entities; 
                     } 
                 ));
 

@@ -57,7 +57,7 @@ class EMEntity extends Entity
         
         this.entityInfo.getAccessors().filter( accessor => accessor.exposition ).forEach( accessor => {
             let nameSerialized = accessor.serializeAlias || accessor.name;
-            if ( accessor.activator != null && this[accessor.name] != null ) {
+            if ( accessor.activator != null && this[accessor.name] != null && accessor.activator.includeDuringSerialization ) {
                 if (accessor.type == "Array") 
                     simpleObject[nameSerialized] = ( this[accessor.name] as Array<EMEntity>).map( e =>  e._id); 
                 else
@@ -87,14 +87,16 @@ class EMEntity extends Entity
                 let isPersistent = accessor.schema != null || accessor.persistenceType == PersistenceType.Auto;
                 if (isPersistent)
                 {
-                    if (accessor.type == 'Array'){
-                        if (!ownArrayController)
-                            ownArrayController = {};
-                        ownArrayController[persistentName] = simpleObject[exposedName];
+                    if (accessor.activator) {
+                        if (accessor.activator.considerDuringDeserialization) 
+                            persistent[persistentName] = simpleObject[exposedName];    
+                        else {
+                            if (!ownArrayController) ownArrayController = {};
+                            ownArrayController[persistentName] = simpleObject[exposedName];
+                        }                            
                     }
                     else if ((simpleObject as Object).hasOwnProperty(exposedName)) {
-                        if (!persistent)
-                            persistent = {};
+                        if (!persistent) persistent = {};
                         persistent[persistentName] = simpleObject[exposedName];
                     }
                 }
@@ -102,8 +104,7 @@ class EMEntity extends Entity
                 {
                     if ((simpleObject as Object).hasOwnProperty(exposedName))
                     {
-                        if (!nonPersistent)
-                            nonPersistent = {};
+                        if (!nonPersistent) nonPersistent = {};
                         nonPersistent[exposedName] = simpleObject[exposedName];
                     }
                 }
@@ -112,8 +113,7 @@ class EMEntity extends Entity
             {
                 if ((simpleObject as Object).hasOwnProperty(exposedName))
                 {
-                    if (!readOnly)
-                        readOnly = {};
+                    if (!readOnly) readOnly = {};
                     readOnly[exposedName] = simpleObject[exposedName];
                 }                
             }
