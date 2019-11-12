@@ -57,11 +57,13 @@ class EMEntity extends Entity
         
         this.entityInfo.getAccessors().filter( accessor => accessor.exposition ).forEach( accessor => {
             let nameSerialized = accessor.serializeAlias || accessor.name;
-            if ( accessor.activator != null && this[accessor.name] != null && accessor.activator.includeDuringSerialization ) {
-                if (accessor.type == "Array") 
-                    simpleObject[nameSerialized] = ( this[accessor.name] as Array<EMEntity>).map( e =>  e._id); 
-                else
-                    simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
+            if ( accessor.activator != null && this[accessor.name] != null) {
+                if (accessor.activator.includeDuringSerialization) {
+                    if (accessor.type == "Array") 
+                        simpleObject[nameSerialized] = ( this[accessor.name] as Array<EMEntity>).map( e =>  e._id); 
+                    else
+                        simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
+                }
             }
             else
                 simpleObject[nameSerialized] = this[accessor.name];
@@ -87,6 +89,9 @@ class EMEntity extends Entity
                 let isPersistent = accessor.schema != null || accessor.persistenceType == PersistenceType.Auto;
                 if (isPersistent)
                 {
+                    if (!persistent) 
+                        persistent = {};
+
                     if (accessor.activator) {
                         if (accessor.activator.considerDuringDeserialization) 
                             persistent[persistentName] = simpleObject[exposedName];    
@@ -95,10 +100,8 @@ class EMEntity extends Entity
                             ownArrayController[persistentName] = simpleObject[exposedName];
                         }                            
                     }
-                    else if ((simpleObject as Object).hasOwnProperty(exposedName)) {
-                        if (!persistent) persistent = {};
+                    else if ((simpleObject as Object).hasOwnProperty(exposedName)) 
                         persistent[persistentName] = simpleObject[exposedName];
-                    }
                 }
                 else
                 {

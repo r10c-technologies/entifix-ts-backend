@@ -29,7 +29,6 @@ class GfsMemberActivator extends MemberActivator
     {
         switch (this.bindingType) 
         {
-            //shir: case para chunk
             case MemberBindingType.Chunks:
                 return this.loadFileHeader(entity as EMEntity, session, accessorInfo, options);
                 
@@ -71,6 +70,20 @@ class GfsMemberActivator extends MemberActivator
     get defaultSchema ()
     { return this._defaultSchema }
 
+    /**
+     * Temporary fixed value as False
+     */
+    get considerDuringDeserialization() : boolean {
+        return false;
+    }
+
+     /**
+     * Temporary fixed value as False
+     */
+    get includeDuringSerialization() : boolean {
+        return true;
+    }
+
     //#endregion
 
 }
@@ -80,18 +93,32 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
     //#region Properties
 
     private _entityInfo : EntityInfo;
-    
+        
+    private _includeDuringSerialization : boolean;
+    private _consideDuringDeserialization : boolean;
+
     //#endregion
 
     //#region Methods
 
     constructor(entityInfo : EntityInfo, bindingType : MemberBindingType, extendRoute : boolean );
-    constructor(entityInfo : EntityInfo, bindingType : MemberBindingType, extendRoute : boolean, options : { resourcePath? : string } );
-    constructor(entityInfo : EntityInfo, bindingType : MemberBindingType, extendRoute : boolean, options? : { resourcePath? : string } )
+    constructor(entityInfo : EntityInfo, bindingType : MemberBindingType, extendRoute : boolean, options : { resourcePath? : string, includeDuringSerialization? : boolean, considerDuringDeserialization? : boolean } );
+    constructor(entityInfo : EntityInfo, bindingType : MemberBindingType, extendRoute : boolean, options? : { resourcePath? : string, includeDuringSerialization? : boolean, considerDuringDeserialization? : boolean } )
     {
         super(bindingType, extendRoute, options != null && options.resourcePath != null ? options.resourcePath : entityInfo.name.toLowerCase());
 
-        this._entityInfo = entityInfo;        
+        this._entityInfo = entityInfo;     
+        
+        
+        if (options && options.considerDuringDeserialization != null)
+            this._consideDuringDeserialization = options.considerDuringDeserialization;
+        else 
+            this._consideDuringDeserialization = bindingType == MemberBindingType.Reference ? true : false; 
+
+        if (options && options.includeDuringSerialization != null)
+            this._includeDuringSerialization = options.includeDuringSerialization;
+        else
+            this._includeDuringSerialization = true;
     }
 
     activateMember( entity : Entity, session : EMSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
@@ -279,6 +306,14 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
 
     get defaultSchema ()
     { return null; }
+
+    get includeDuringSerialization() : boolean
+    { return this._includeDuringSerialization; }
+    
+    get considerDuringDeserialization() : boolean
+    { return this._consideDuringDeserialization; }
+
+
     //#endregion
 
 }
@@ -288,15 +323,28 @@ class EMMemberTreeActivator extends MemberActivator
 {
     //#region Properties
 
+    private _consideDuringDeserialization : boolean;
+    private _includeDuringSerialization: boolean;
+
     //#endregion
 
     //#region Methods
 
     constructor( bindingType : MemberBindingType, extendRoute : boolean );
-    constructor( bindingType : MemberBindingType, extendRoute : boolean, options : { resourcePath? : string } );
-    constructor( bindingType : MemberBindingType, extendRoute : boolean, options? : { resourcePath? : string } )
+    constructor( bindingType : MemberBindingType, extendRoute : boolean, options : { resourcePath? : string, includeDuringSerialization? : boolean, considerDuringDeserialization? : boolean } );
+    constructor( bindingType : MemberBindingType, extendRoute : boolean, options? : { resourcePath? : string, includeDuringSerialization? : boolean, considerDuringDeserialization? : boolean } )
     {
         super(bindingType, extendRoute, options != null && options.resourcePath != null ? options.resourcePath : null);  
+
+        if (options && options.considerDuringDeserialization != null)
+            this._consideDuringDeserialization = options.considerDuringDeserialization;
+        else 
+            this._consideDuringDeserialization = bindingType == MemberBindingType.Reference ? true : false; 
+
+        if (options && options.includeDuringSerialization != null)
+            this._includeDuringSerialization = options.includeDuringSerialization;
+        else
+            this._includeDuringSerialization = true;
     }
 
     activateMember( entity : Entity, session : EMSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
@@ -481,6 +529,12 @@ class EMMemberTreeActivator extends MemberActivator
 
     get defaultSchema ()
     { return null; }
+
+    get includeDuringSerialization() : boolean
+    { return this._includeDuringSerialization; }
+    
+    get considerDuringDeserialization() : boolean
+    { return this._consideDuringDeserialization; }
 
     //#endregion
 

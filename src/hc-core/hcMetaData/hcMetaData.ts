@@ -441,30 +441,16 @@ abstract class MemberActivator
     private _bindingType : MemberBindingType;
     private _resourcePath : string;
     private _extendRoute : boolean;
-    private _includeDuringSerialization : boolean;
-    private _consideDuringDeserialization : boolean;
 
     //#endregion
 
     //#region Methods
     
-    constructor( bindingType : MemberBindingType, extendedRoute: boolean, resourcePath : string );
-    constructor( bindingType : MemberBindingType, extendedRoute: boolean, resourcePath : string, options? : { includeDuringSerialization? : boolean, considerDuringDeserialization? : boolean } );
-    constructor( bindingType : MemberBindingType, extendedRoute: boolean, resourcePath : string, options? : { includeDuringSerialization? : boolean, considerDuringDeserialization? : boolean } )
+    constructor( bindingType : MemberBindingType, extendedRoute: boolean, resourcePath : string )
     {
         this._bindingType = bindingType;
         this._extendRoute = extendedRoute;
         this._resourcePath = resourcePath;
-
-        if (options && options.considerDuringDeserialization != null)
-            this._consideDuringDeserialization = options.considerDuringDeserialization;
-        else 
-            this._consideDuringDeserialization = bindingType == MemberBindingType.Reference ? true : false; 
-
-        if (options && options.includeDuringSerialization != null)
-            this._includeDuringSerialization = options.includeDuringSerialization;
-        else
-            this._includeDuringSerialization = bindingType == MemberBindingType.Reference ? true : false;
     }
 
     abstract activateMember( entity : Entity, session : HcSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
@@ -486,12 +472,8 @@ abstract class MemberActivator
     
     abstract get referenceType () : string;
     abstract get defaultSchema () : any;
-
-    get includeDuringSerialization() 
-    { return this._includeDuringSerialization; }
-
-    get considerDuringDeserialization()
-    { return this._consideDuringDeserialization; }
+    abstract get includeDuringSerialization() : boolean;
+    abstract get considerDuringDeserialization() : boolean;
 
     //#endregion
 
