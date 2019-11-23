@@ -33,7 +33,7 @@ class EMEntityMutltiKeyController<TDocument extends EntityDocument, TEntityMK ex
             if ( serviceName && entityName && id )
             {                
                 let key =  { serviceName, entityName, value: id };
-                session.findByKey<TEntityMK, TDocument>( this.entityInfo, key).then( 
+                session.findEntityByKey<TEntityMK, TDocument>( this.entityInfo, key).then( 
                     entity => this.responseWrapper.entity(response, entity)
                 ).catch( err => this.responseWrapper.exception(response, err ) );
             }

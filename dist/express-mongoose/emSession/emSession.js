@@ -154,12 +154,32 @@ class EMSession extends hcSession_1.HcSession {
             });
         });
     }
+    instanceDocument(info, persistentData, options) {
+        let document;
+        let changes;
+        options = options || {};
+        if (persistentData) {
+            let model = this.getModel(info.name);
+            document = new model(persistentData);
+            if (options.existingDocument) {
+                for (let p in persistentData) {
+                    let oldValue = document[p];
+                    let newValue = persistentData[p];
+                    if (oldValue != newValue) {
+                        if (!changes)
+                            changes = [];
+                        changes.push({ property: p, oldValue, newValue });
+                    }
+                }
+            }
+        }
+        return { document, changes };
+    }
     activateEntityInstance(info, document, options) {
         if (document) {
             return new Promise((resolve, reject) => {
                 let changes = options && options.changes ? options.changes : [];
                 let baseInstace = this._serviceSession.entitiesInfo.find(a => a.name == info.name).activateType(this, document);
-                // let entityAccessors = info.getAccessors().filter( a => a.activator != null && ( a.type == "Array" ? baseInstace[a.name] != null && baseInstace[a.name].length > 0 : baseInstace[a.name] != null ) );
                 let entityAccessors = info.getAccessors().filter(a => a.activator != null);
                 let currentEA = entityAccessors.filter(ea => {
                     let persistentName = ea.persistentAlias || ea.name;
@@ -177,7 +197,6 @@ class EMSession extends hcSession_1.HcSession {
                         return false;
                 });
                 if (previousEA.length > 0 || currentEA.length > 0) {
-                    // let promises : Array<Promise<void>> = [];
                     let promises = [];
                     entityAccessors.forEach(entityAccessor => {
                         let oldValue;
@@ -197,7 +216,6 @@ class EMSession extends hcSession_1.HcSession {
                                 }
                             }
                         }));
-                        //  promises.push(entityAccessor.activator.activateMember( baseInstace, this, entityAccessor));
                     });
                     Promise.all(promises).then(() => {
                         if (options && options.changes)
@@ -277,7 +295,17 @@ class EMSession extends hcSession_1.HcSession {
             });
         });
     }
-    findByKey(info, key) {
+    findEntityByKey(info, key) {
+        return new Promise((resolve, reject) => {
+            this.findDocumentByKey(info, key).then(doc => {
+                if (doc)
+                    this.activateEntityInstance(info, doc).then(entity => resolve(entity)).catch(reject);
+                else
+                    resolve(null);
+            }).catch(reject);
+        });
+    }
+    findDocumentByKey(info, key) {
         return new Promise((resolve, reject) => {
             let matchFiler = {
                 keys: {
@@ -288,12 +316,12 @@ class EMSession extends hcSession_1.HcSession {
                     }
                 }
             };
-            this.listEntitiesByQuery(info, matchFiler).then(entities => {
-                if (entities.length > 0)
-                    resolve(entities[0]);
+            this.listDocumentsByQuery(info.name, matchFiler).then(docs => {
+                if (docs.length > 0)
+                    resolve(docs[0]);
                 else
                     resolve(null);
-            }).catch(err => reject(this.createError(err, 'Error on retrive Entity Multikey')));
+            }).catch(err => reject(this.createError(err, 'Error on retrive Document Multikey')));
         });
     }
     setFiltering(filtering) {

@@ -237,18 +237,44 @@ class EMSession extends HcSession
         });
     }
 
+    public instanceDocument<TDocument extends EntityDocument>(info : EntityInfo, persistentData : any) : { document: TDocument, changes : Array<{property:string, oldValue:any, newValue:any}> };
+    public instanceDocument<TDocument extends EntityDocument>(info : EntityInfo, persistentData : any, options: { existingDocument?: TDocument } ) : { document: TDocument, changes : Array<{property:string, oldValue:any, newValue:any}> };
+    public instanceDocument<TDocument extends EntityDocument>(info : EntityInfo, persistentData : any, options?: { existingDocument?: TDocument } ) : { document: TDocument, changes : Array<{property:string, oldValue:any, newValue:any}> }
+    {
+        let document : TDocument;
+        let changes : Array<{property:string, oldValue:any, newValue:any}>;
+        options = options || {};
+
+        if (persistentData) {
+            let model = this.getModel(info.name);
+            document = new model(persistentData) as TDocument;          
+            
+            if (options.existingDocument) {
+                for ( let p in persistentData) {
+                    let oldValue = document[p];
+                    let newValue = persistentData[p];
+                    
+                    if (oldValue != newValue) {
+                        if (!changes)
+                            changes = [];
+                        changes.push( { property: p, oldValue, newValue } );
+                    }                                
+                }
+            }
+        }
+        
+        return { document, changes };
+    }
+
+
     activateEntityInstance<TEntity extends EMEntity, TModel extends EntityDocument>(info: EntityInfo, document : TModel ) : Promise<TEntity>;
     activateEntityInstance<TEntity extends EMEntity, TModel extends EntityDocument>(info: EntityInfo, document : TModel, options : { changes : Array<{ property: string, oldValue : any, newValue: any }> } ) : Promise<TEntity>;
     activateEntityInstance<TEntity extends EMEntity, TModel extends EntityDocument>(info: EntityInfo, document : TModel, options? : { changes : Array<{ property: string, oldValue : any, newValue: any }> } ) : Promise<TEntity>
     {   
         if (document) {
             return new Promise<TEntity>( (resolve, reject) => {
-
                 let changes = options && options.changes ? options.changes : [];
-    
                 let baseInstace = this._serviceSession.entitiesInfo.find(a => a.name == info.name).activateType(this, document);
-    
-                // let entityAccessors = info.getAccessors().filter( a => a.activator != null && ( a.type == "Array" ? baseInstace[a.name] != null && baseInstace[a.name].length > 0 : baseInstace[a.name] != null ) );
                 let entityAccessors = info.getAccessors().filter( a => a.activator != null );
                 
                 let currentEA = entityAccessors.filter( ea => { 
@@ -272,12 +298,11 @@ class EMSession extends HcSession
     
                 if ( previousEA.length > 0 || currentEA.length > 0)
                 {
-                    // let promises : Array<Promise<void>> = [];
-                    let promises : Array<Promise<any>> = [];
-                    
-                    entityAccessors.forEach( entityAccessor => {
-    
+                    let promises : Array<Promise<void>> = [];
+
+                    entityAccessors.forEach( entityAccessor => {    
                         let oldValue : any;
+
                         if (options && options.changes)
                         {
                             let c = options.changes.find( c => c.property == ( entityAccessor.persistentAlias || entityAccessor.name ) );
@@ -298,8 +323,6 @@ class EMSession extends HcSession
                                 }
                             }   
                          }));
-    
-                        //  promises.push(entityAccessor.activator.activateMember( baseInstace, this, entityAccessor));
                     });
     
                     Promise.all(promises).then( 
@@ -427,9 +450,23 @@ class EMSession extends HcSession
         }); 
     }
 
-    findByKey<TEntity extends EMEntityMultiKey, TDocument extends EntityDocument>(info : EntityInfo, key : IEntityKey ) : Promise<TEntity>
+    findEntityByKey<TEntity extends EMEntityMultiKey, TDocument extends EntityDocument>(info : EntityInfo, key : IEntityKey ) : Promise<TEntity>
     {
         return new Promise<TEntity>( (resolve,reject) => {
+            this.findDocumentByKey<TDocument>(info, key).then(
+                doc => {
+                    if (doc) 
+                        this.activateEntityInstance<TEntity, TDocument>(info, doc).then( entity => resolve(entity)).catch(reject);
+                    else
+                        resolve(null);
+                }
+            ).catch(reject);
+        });
+    }
+
+    findDocumentByKey<TDocument extends EntityDocument>(info : EntityInfo, key : IEntityKey) : Promise<TDocument>
+    {
+        return new Promise<TDocument>( (resolve,reject) => {
             let matchFiler = {
                 keys: {
                     $elemMatch: {
@@ -439,16 +476,16 @@ class EMSession extends HcSession
                     }
                 }
             };            
-
-            this.listEntitiesByQuery<TEntity, TDocument>( info, matchFiler ).then( 
-                entities => {
-                    if (entities.length > 0)
-                        resolve(entities[0]);
+    
+            this.listDocumentsByQuery<TDocument>( info.name, matchFiler ).then( 
+                docs => {
+                    if (docs.length > 0)
+                        resolve(docs[0]);
                     else
                         resolve(null);
                 } 
-            ).catch( err => reject( this.createError( err, 'Error on retrive Entity Multikey')) );
-        })
+            ).catch( err => reject( this.createError( err, 'Error on retrive Document Multikey')) );
+        });
     }
 
     setFiltering( filtering : EMSessionFilter | Array<EMSessionFilter>)

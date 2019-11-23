@@ -486,47 +486,19 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             if ( parsedRequest.ownArrayController )
                 addDevData({ message: 'The request has array accessors that are managed by their own controller and these could be ignored', accessors : parsedRequest.ownArrayController });
 
-                
             this.createSession(request, response).then( 
                 session => { if (session) {
-
-                    if (parsedRequest.persistent._id && !alwaysNew)
-                    {
-                        session.findDocument<TDocument>(this._entityName, parsedRequest.persistent._id).then(
-                            document => {
-
-                                delete parsedRequest.persistent._id;
-
-                                let changes : Array<{property:string, oldValue:any, newValue:any}>;
-                                for ( let p in parsedRequest.persistent)
-                                {
-                                    let oldValue = document[p];
-                                    let newValue = parsedRequest.persistent[p];
-                                    
-                                    if (oldValue != newValue)
-                                    {
-                                        if (!changes)
-                                            changes = [];
-
-                                        changes.push( { property: p, oldValue, newValue } );
-                                    }                                
-                                }
-
-                                document.set(parsedRequest.persistent);
-                                resolve( { document, devData, changes, session } );
-                            },
-                            err => reject(err)
-                        );
+                    if (parsedRequest.persistent._id && !alwaysNew) {
+                        session.findDocument<TDocument>(this.entityName, parsedRequest.persistent._id).then( doc => {
+                            delete parsedRequest.persistent._id;
+                            let instanceResult = session.instanceDocument<TDocument>(this.entityInfo, parsedRequest.persistent, { existingDocument: doc });
+                            resolve({ document: instanceResult.document, devData, changes: instanceResult.changes });
+                        }).catch( reject );
                     }
-                    else
-                    {
-                        let model = session.getModel(this._entityName);
-                        let document : TDocument;
-
-                        document = new model(parsedRequest.persistent) as TDocument;                
-                        resolve({ document, devData, session });
+                    else {
+                        let instanceResult = session.instanceDocument<TDocument>(this.entityInfo, parsedRequest.persistent);          
+                        resolve({ document: instanceResult.document, devData, session });
                     }
-
                 }}
             );            
         }).then( 

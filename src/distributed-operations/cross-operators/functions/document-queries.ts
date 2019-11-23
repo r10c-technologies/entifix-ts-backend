@@ -6,7 +6,8 @@ import { EMEntity, EntityDocument } from '../../../express-mongoose/emEntity/emE
 import { SearchOperator } from '../schemas/CrossEnums';
 import { indentifySearchOperator } from './utilities';
 
-async function findEntityMultiKey<TEntity extends EMEntityMultiKey, TDocument extends EntityDocument>(session : EMSession, info : EntityInfo, undefinedOperator : any ) : Promise<TEntity> 
+
+async function findDocumentMultiKey<TDocument extends EntityDocument>(session : EMSession, info : EntityInfo, undefinedOperator : any ) : Promise<TDocument> 
 {
     let searchOperator = indentifySearchOperator(undefinedOperator);
 
@@ -16,18 +17,18 @@ async function findEntityMultiKey<TEntity extends EMEntityMultiKey, TDocument ex
         {
             case SearchOperator.byKey:
                 let key = searchOperator.value as EntityKey;
-                return session.findEntityByKey<TEntity, TDocument>(info, key);
+                return session.findDocumentByKey<TDocument>(info, key);
                 break;
 
             default:
-                return findEntity<TEntity, TDocument>(session, info, undefinedOperator);
+                return findDocument<TDocument>(session, info, undefinedOperator);
         }
     }
     else
         return null;
 }
 
-async function findEntity<TEntity extends EMEntity, TDocument extends EntityDocument>(session : EMSession, info : EntityInfo, undefinedOperator : any ) : Promise<TEntity> 
+async function findDocument<TDocument extends EntityDocument>(session : EMSession, info : EntityInfo, undefinedOperator : any ) : Promise<TDocument> 
 {
     let searchOperator = indentifySearchOperator(undefinedOperator);
 
@@ -37,7 +38,7 @@ async function findEntity<TEntity extends EMEntity, TDocument extends EntityDocu
         {
             case SearchOperator.byId:
                 let id = searchOperator.value as string;
-                return session.findEntity<TEntity, TDocument>(info, id);
+                return session.findDocument<TDocument>(info.name, id);
                 break;
 
             default:
@@ -49,7 +50,6 @@ async function findEntity<TEntity extends EMEntity, TDocument extends EntityDocu
 }
 
 export { 
-    findEntity, 
-    findEntityMultiKey 
+    findDocument, 
+    findDocumentMultiKey 
 }
-
