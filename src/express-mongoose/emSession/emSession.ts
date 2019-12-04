@@ -247,7 +247,10 @@ class EMSession extends HcSession
 
         if (persistentData) {
             let model = this.getModel(info.name);
-            document = new model(persistentData) as TDocument;          
+            if (options.existingDocument)
+                document = options.existingDocument;
+            else
+                document = new model(persistentData) as TDocument;          
             
             if (options.existingDocument) {
                 for ( let p in persistentData) {
@@ -261,6 +264,8 @@ class EMSession extends HcSession
                     }                                
                 }
             }
+            
+            document.set(persistentData);
         }
         
         return { document, changes };
