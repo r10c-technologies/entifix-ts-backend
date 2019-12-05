@@ -16,7 +16,7 @@ async function findDocumentMultiKey<TDocument extends EntityDocument>(session : 
         switch ( searchOperator.searchOperator ) 
         {
             case SearchOperator.byKey:
-                let key = searchOperator.value as EntityKey;
+                let key = searchOperator.identifier as EntityKey;
                 return session.findDocumentByKey<TDocument>(info, key);
                 break;
 
@@ -37,7 +37,7 @@ async function findDocument<TDocument extends EntityDocument>(session : EMSessio
         switch ( searchOperator.searchOperator ) 
         {
             case SearchOperator.byId:
-                let id = searchOperator.value as string;
+                let id = searchOperator.identifier as string;
                 return session.findDocument<TDocument>(info.name, id);
                 break;
 

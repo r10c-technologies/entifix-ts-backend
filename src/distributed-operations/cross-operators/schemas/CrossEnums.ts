@@ -1,20 +1,26 @@
 
-
 enum SearchOperator 
 {
     byKey = '$byKey',
     byId = '$byId'
 }
 
-enum CreateOperation 
+enum AssertOperation 
 {
-    newInstance = '$newInstance'
+    Assert = '$assert',
+    NewInstance = '$new',   
 }
 
-enum CrossOperationErrorType {
+enum CrossOperationErrorType 
+{
     inconsistentData = 'inconsistentData'
 } 
 
-export { SearchOperator, CreateOperation, CrossOperationErrorType }
+export 
+{ 
+    SearchOperator, 
+    AssertOperation, 
+    CrossOperationErrorType 
+}
 
 
