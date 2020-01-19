@@ -48,7 +48,7 @@ class EntityKey extends EMEntity implements IEntityKey
 
 interface IEntityMultiKey 
 {
-    keys: Array<IEntityKey>;
+    alternativeKeys: Array<IEntityKey>;
 }
 interface IEntityMultiKeyModel extends IEntityMultiKey, EntityDocument { }
 
@@ -56,6 +56,8 @@ interface IEntityMultiKeyModel extends IEntityMultiKey, EntityDocument { }
 class EMEntityMultiKey extends EMEntity implements IEntityMultiKey
 {
     //#region Properties
+
+    private _alternativeKeys : Array<EntityKey>;
 
     //#endregion
 
@@ -77,14 +79,14 @@ class EMEntityMultiKey extends EMEntity implements IEntityMultiKey
 
     addKey( singleKey : IEntityKey ) : void 
     {
-        if (this.keys == null)
-            this.keys = new Array<EntityKey>();
+        if (this.alternativeKeys == null)
+            this.alternativeKeys = new Array<EntityKey>();
         
-        if (this.keys.find( k => k.serviceName == singleKey.serviceName && k.entityName == singleKey.entityName && k.value == singleKey.value))
+        if (this.alternativeKeys.find( k => k.serviceName == singleKey.serviceName && k.entityName == singleKey.entityName && k.value == singleKey.value))
             return;        
 
         if (singleKey instanceof EntityKey) {
-            this.keys.push(singleKey);
+            this.alternativeKeys.push(singleKey);
             return;
         }
 
@@ -92,23 +94,21 @@ class EMEntityMultiKey extends EMEntity implements IEntityMultiKey
         instancedKey.serviceName = singleKey.serviceName;
         instancedKey.entityName = singleKey.entityName;
         instancedKey.value = singleKey.value;
-        this.keys.push(instancedKey);
+        this.alternativeKeys.push(instancedKey);
     }
 
     //#endregion
 
     //#region Accessors
 
-    private _keys : Array<EntityKey>;
-
     @DefinedAccessor( { 
         exposition: ExpositionType.Normal, 
         schema: { type : Array }, 
         activator: new EMMemberActivator<EntityKey, IEntityKeyModel>(EntityKey.getInfo(), MemberBindingType.Snapshot, true)     } )
-    get keys() : Array<EntityKey>
-    { return this._keys; }
-    set keys( value:Array<EntityKey> )
-    { this._keys = value; (this._document as IEntityMultiKeyModel).keys = value ? value.map( v => v.getDocument() as IEntityKeyModel ) : null; }
+    get alternativeKeys() : Array<EntityKey>
+    { return this._alternativeKeys; }
+    set alternativeKeys( value:Array<EntityKey> )
+    { this._alternativeKeys = value; (this._document as IEntityMultiKeyModel).alternativeKeys = value ? value.map( v => v.getDocument() as IEntityKeyModel ) : null; }
 
     //#endregion
 }

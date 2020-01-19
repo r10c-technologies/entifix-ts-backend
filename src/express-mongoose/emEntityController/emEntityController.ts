@@ -334,21 +334,29 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                                 else 
                                 {
                                     let processResult = (methodResult) => {
+                                        let sendResult = finalResultData => {
+                                            if (methodInfo.returnActionData) {
+                                                if (finalResultData instanceof EMEntity)
+                                                    this.responseWrapper.entity(response, finalResultData as TEntity );
+                                                else
+                                                    this.responseWrapper.logicAccept(response, "Operación ejecutada", finalResultData );
+                                            }
+                                            else
+                                                this.responseWrapper.logicAccept(response, 'Operation executed');
+                                        }
+
                                         if (methodResult.continue != null) {
                                             let result = methodResult as EntityMovementFlow;
-                                            if (result.continue)
-                                                this.responseWrapper.logicAccept(response, "Operación ejecutada", result.details );
+                                            if (result.continue) 
+                                                sendResult(result.details);
                                             else
                                                 this.responseWrapper.logicError(response, result.message, result.details );
                                         }
-                                        else {
-                                            if (!returnedFromAction)
-                                                this.responseWrapper.logicAccept(response, "Operación ejecutada");
-                                            else
-                                                this.responseWrapper.logicError(response, "Operación no ejectuada", returnedFromAction );
-                                        }
+                                        else 
+                                            sendResult(methodResult)   
                                     };
 
+                                    //Handle posible promise
                                     if (returnedFromAction instanceof Promise)
                                         returnedFromAction.then( result => processResult(result) );
                                     else 
@@ -522,8 +530,13 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     validateActionRequest( request : express.Request, response : express.Response ) : { isValidPayload: boolean, methodName?: string, parameters?: Array<{key:string, value: any}> }
     {
+        //Main variables
         let simpleObject = request.body;
         let parameters : Array<{key:string, value: any}>;
+
+        //Noramalizations
+        simpleObject.parameters = simpleObject.parameters || simpleObject.params;
+        simpleObject.op = simpleObject.op || simpleObject.operator;
 
         let responseWithBadRequest = (message, nonValid?) => {
             let details : any = { errorDescription: message };
@@ -544,7 +557,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
         let expectingParams =  methodInfo.parameters && methodInfo.parameters.length > 0;                
         if ( expectingParams && !simpleObject.parameters )
-            return responseWithBadRequest( `The method ${operator} is expecting parameters` );
+            return responseWithBadRequest( `The method [${operator}] is expecting parameters` );
 
             
         if (methodInfo.parameters != null && methodInfo.parameters.length > 0) {
@@ -572,11 +585,10 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         }
 
         parameters = simpleObject.parameters;
-        delete simpleObject.op;
-        delete simpleObject.methodName;
-        delete simpleObject.parameters;
+
+        let expectedProperties = ['op', 'methodName', 'params', 'parameters'];
+        expectedProperties.forEach( p => delete simpleObject[p] );
         let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
-        
         if ( nonValid )
             return responseWithBadRequest( `There is non valid data in the request`, nonValid );
 

@@ -473,9 +473,9 @@ class EMSession extends HcSession
     {
         return new Promise<TDocument>( (resolve,reject) => {
             let matchFiler = {
-                keys: {
+                alternativeKeys: {
                     $elemMatch: {
-                        serviceName: key.serviceName, 
+                        serviceName: { '$regex': new RegExp(["^", key.serviceName, "$"].join(""), "i") },
                         entityName: { '$regex': new RegExp(["^", key.entityName, "$"].join(""), "i") },
                         value: key.value                        
                     }
