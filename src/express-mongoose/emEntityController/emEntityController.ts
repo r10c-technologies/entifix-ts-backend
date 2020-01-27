@@ -65,7 +65,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     
         //Operator methods
         if (this.entityInfo.getDefinedMethods().length > 0)
-            this._router.patch('/'+ this._resourceName + '/:_id', ( request, response, next) => this.action( request, response ));    
+            this._router.patch('/'+ this._resourceName, ( request, response, next) => this.action( request, response ));    
     }
 
     //#endregion
@@ -271,20 +271,18 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         }).catch( error => this._responseWrapper.exception(session.response, error) );
     }
 
-    action ( request : express.Request, response : express.Response ) : void;
-    action ( request : express.Request, response : express.Response, options : { paramId?: string } ) : void;
-    action ( request : express.Request, response : express.Response, options? : { paramId?: string } ) : void
+    action ( request : express.Request, response : express.Response ) : void
+    // action ( request : express.Request, response : express.Response, options : { paramId?: string } ) : void;
+    // action ( request : express.Request, response : express.Response, options? : { paramId?: string } ) : void
     {
-        let paramId = options ? options.paramId : '_id';
-        let validation = this.validateActionRequest(request, response);
+        // let paramId = options ? options.paramId : '_id';
+        let catchException = e => this.responseWrapper.exception(response, e);
 
-        if (validation.isValidPayload)
-        {
-            this.createSession( request, response ).then( 
-                session => { if (session) {
-                    let id = request.params[paramId];
-                    session.findEntity<TEntity, TDocument>(this.entityInfo, id).then(
-                        entity => {
+        this.validateActionRequest(request, response).then( validation => { 
+            if (validation) {
+                this.createSession(request,response).then( session => {
+                    if (session) {
+                        session.activateEntityInstance<TEntity,TDocument>(this.entityInfo, validation.document).then( entity => {
                             let methodInstace = entity[validation.methodName];
                             let methodInfo = this.entityInfo.getDefinedMethods().find( dm => dm.name == validation.methodName );
                             
@@ -302,6 +300,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                                 if (methodInfo.eventName)
                                 {
                                     let checkAndPublishData = resultData => {
+                                        let id = entity._id ? entity._id.toString() : null;
                                         if (resultData.continue != null) {
                                             if (resultData.continue == true)
                                             {
@@ -365,11 +364,11 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                             }
                             else
                                 this._responseWrapper.handledError( response, 'NOT FOUND OPERATION FOR ENTITY', HttpStatus.NOT_FOUND );
-                        }
-                    ).catch( e => this._responseWrapper.exception( response, e ) );                
-                }}
-            );
-        }
+                        }).catch( catchException );
+                    }
+                }).catch( catchException );
+            }
+        }).catch( catchException ) ;
     }
 
     //#endregion
@@ -470,7 +469,6 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             //Defaults
             let alwaysNew = options && options.alwaysNew != null ? options.alwaysNew : false;
 
-
             if  ( (typeof request.body) != 'object' )
                 return resolve({ error: 'The data provided is not an object', errorData: request });
 
@@ -528,26 +526,30 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         ).catch( error => this._responseWrapper.exception( response, error ) );
     }    
 
-    validateActionRequest( request : express.Request, response : express.Response ) : { isValidPayload: boolean, methodName?: string, parameters?: Array<{key:string, value: any}> }
+    validateActionRequest( request : express.Request, response : express.Response ) : Promise<RequestActionValidation<TDocument> | void>
     {
         //Main variables
         let simpleObject = request.body;
         let parameters : Array<{key:string, value: any}>;
+        let operator : string;
 
         //Noramalizations
         simpleObject.parameters = simpleObject.parameters || simpleObject.params;
         simpleObject.op = simpleObject.op || simpleObject.operator;
 
-        let responseWithBadRequest = (message, nonValid?) => {
+        let responseWithBadRequest = (message, nonValid?) : Promise<void>  => {
             let details : any = { errorDescription: message };
             if (nonValid)
                 details.nonValid = nonValid;
             this._responseWrapper.handledError( response, 'Not valid payload', HttpStatus.BAD_REQUEST, details );
 
-            return { isValidPayload: false };
+            return Promise.resolve();
         };
 
-        let operator = simpleObject.op;
+        if (!simpleObject.id)
+            return responseWithBadRequest( 'The id is required in the payload. { id: <id> }' );
+
+        operator = simpleObject.op;
         if (!operator)
             return responseWithBadRequest( 'The operator is required in the payload. { op: <operatorValue> }' );
         
@@ -587,12 +589,19 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         parameters = simpleObject.parameters;
 
         let expectedProperties = ['op', 'methodName', 'params', 'parameters'];
-        expectedProperties.forEach( p => delete simpleObject[p] );
-        let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
-        if ( nonValid )
-            return responseWithBadRequest( `There is non valid data in the request`, nonValid );
+        expectedProperties.forEach( p => { 
+            delete simpleObject[p];
+            delete request.body[p]; 
+        });
 
-        return { isValidPayload: true, methodName: operator, parameters };
+        return this.validateDocumentRequest(request,response).then( validation => {
+            if (validation && !(validation as RequestValidation<TDocument>).error)  {
+                (validation as RequestActionValidation<TDocument>).methodName = operator;
+                (validation as RequestActionValidation<TDocument>).parameters = parameters
+            }
+
+            return validation;
+        });
     }
 
     //#endregion
@@ -998,6 +1007,12 @@ interface RequestValidation<TDocument>
     errorData? : any;
     devData? : any; 
     changes?: Array<{ property: string, oldValue : any, newValue : any }>
+}
+
+interface RequestActionValidation<TDocument> extends RequestValidation<TDocument>
+{ 
+    methodName?: string,
+    parameters?: Array<{key:string, value: any}>
 }
 
 
