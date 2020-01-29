@@ -56,6 +56,11 @@ class EMSession extends HcSession
         this._privateUserData = puData;
         this._serviceSession.verifySystemOwnerModels(this._privateUserData.systemOwnerSelected);
     }
+
+    validateCredentials(userName: string, password : string) : boolean
+    {
+        return this._privateUserData.userName == userName && this._privateUserData.password == password;
+    }
     
     getModel<T extends EntityDocument >(entityName : string) : mongoose.Model<T>
     {       

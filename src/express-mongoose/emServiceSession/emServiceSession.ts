@@ -363,7 +363,8 @@ class EMServiceSession
                 userName: 'DEVELOPER',
                 systemOwnerSelected: 'DEVELOPER',
                 idUser: null,
-                sessionKey: null 
+                sessionKey: null,
+                password: null 
             }
         }
         else
