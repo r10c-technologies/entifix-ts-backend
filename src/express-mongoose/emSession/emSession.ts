@@ -599,11 +599,11 @@ class EMSession extends HcSession
                                 finalFilter = { $and : [] , $or : []}; 
                                 if(v.filterType == FilterType.Fixed && v.values && v.values.length > 0)
                                 {
-                                    finalFilter.$and.push({[v.property]: {$in: [v.values]}});
+                                    finalFilter.$and.push({[v.property]: {$in: v.values}});
                                 }
                                 else if(v.filterType == FilterType.Optional && v.values && v.values.length > 0)
                                 {
-                                    finalFilter.$or.push({[v.property]: {$in: [v.values]}});
+                                    finalFilter.$or.push({[v.property]: {$in: v.values}});
                                 }
                                 return finalFilter
                             });
