@@ -34,7 +34,13 @@ abstract class AMQPDelegate
             let executionTask = this.execute( sender, eventArgs );
 
             if (executionTask instanceof Promise) {
-                executionTask.then( () => channel.ack(message) ).catch( () => channel.reject(message) );
+                executionTask.then( () =>  {
+                    channel.ack(message) 
+                    let a = 5;
+                }).catch( () => { 
+                    channel.reject(message) 
+                    let b = 6;
+                });
             }
 
             /***

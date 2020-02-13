@@ -167,7 +167,7 @@ abstract class EntifixApplication
 
                 if (this.serviceConfiguration.devMode)
                 {
-                    data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred without a Session context. The details were attached"};
+                    data = { serviceStatus: 'Developer mode is enabled.', helper: "The error did not occur without a Session context. The details were attached"};
                     if (error)
                         data.errorDetails = { 
                             type: typeof error,

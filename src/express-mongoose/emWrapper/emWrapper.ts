@@ -86,7 +86,7 @@ class EMResponseWrapper
                 let data : any;
                 if (this._serviceSession.isDevMode)
                 {
-                    data = { serviceStatus: 'Developer mode is enabled.', helper: "The error did not ocur on the Service's Session"};
+                    data = { serviceStatus: 'Developer mode is enabled.', helper: "The error did not occur on the Service's Session"};
                     if (error)
                     {
                         data.errorDetails = { sessionMessage: e.message };
@@ -111,7 +111,7 @@ class EMResponseWrapper
             let data : any;
             if (this._serviceSession.isDevMode)
             {
-                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error was not ocurred in a known context. The details were attached"};
+                data = { serviceStatus: 'Developer mode is enabled.', helper: "The error did not occur in a known context. The details were attached"};
                 if (error)
                     data.errorDetails = { 
                         type: typeof error,
