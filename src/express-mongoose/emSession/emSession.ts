@@ -508,6 +508,54 @@ class EMSession extends HcSession
         this._anchoredFiltering = null;
     }
 
+    setSharedCacheData(key : string, data : any) : Promise<void>;
+    setSharedCacheData(key : string, data : any, options : { expirationSeconds? : number }) : Promise<void>;
+    setSharedCacheData(key : string, data : any, options? : { expirationSeconds? : number }) : Promise<void> 
+    {
+        if (!key || !data)
+            return Promise.reject(this.createError(null, 'The parameters key and value are required to set shared cache data'));
+
+        if (!this.serviceSession || !this.serviceSession.authCacheClient)
+            return Promise.reject(this.createError(null, 'No cache client instanced'));
+
+        return new Promise<void>((resolve, reject) => {
+            let completeKey = 'cacheVar:' + this.privateUserData.sessionKey + '_' + key.trim();
+            let cacheClient = this.serviceSession.authCacheClient;
+            let expiration = options != null && options.expirationSeconds != null ? options.expirationSeconds : 10;
+
+            let stringWrappedData = JSON.stringify({ data });
+
+            cacheClient.setex(completeKey, expiration, stringWrappedData, err => {
+                if (!err) 
+                    resolve();
+                else
+                    reject(this.createError(err, 'Error on create shared cache data'));
+            });
+        });
+    }
+
+    getSharedCacheValue(key : string) : Promise<any> 
+    {
+        if (!key)
+            return Promise.reject(this.createError(null, 'The parameters key is required to get shared cache data'));
+
+        return new Promise<void>((resolve,reject) => {
+            let completeKey = 'cacheVar:' + this.privateUserData.sessionKey + '_' + key.trim();
+            
+            this.serviceSession.authCacheClient.get(completeKey, (err, result) => {
+                if (!err) {
+                    if (!result) 
+                        resolve( JSON.parse(result) );
+                    else
+                        resolve();
+                }
+                else
+                    reject(this.createError(err, 'Error on retrieve cache value'))
+            });
+        });
+    }
+
+
     private createError(error : any, message : string)
     {
         return this._serviceSession.createError(error, message);

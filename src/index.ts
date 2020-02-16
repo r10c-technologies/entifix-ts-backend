@@ -24,3 +24,4 @@ export * from './amqp-events/amqp-entity-logger/AMQPEntityLogger';
 export * from './amqp-events/amqp-entity-logger/AMQPEntityLoggerMetadata';
 export * from './amqp-events/amqp-entity-logger/AMQPEventEntityLog';
 export * from './express-mongoose/emEntityMultiKey/emEntityMultiKey';
+export * from './express-mongoose/emEntityMultikeyController/emEntityMultiKeyController';
