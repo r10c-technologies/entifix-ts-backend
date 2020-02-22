@@ -179,9 +179,8 @@ class EMEntity extends Entity
                     }
                     else
                         resolve(movFlow);
-                },
-                reject // Reject passed
-            );               
+                }
+            ).catch( reject );               
         });
     }
 

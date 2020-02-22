@@ -440,7 +440,6 @@ class EMServiceSession
     get reportsService() : { host : string, port : string, path : string, methodToRequest : string }
     { return this._reportsService; } 
 
-
     //#endregion
 }
 
