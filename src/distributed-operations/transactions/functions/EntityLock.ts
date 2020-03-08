@@ -1,4 +1,5 @@
 import { RedisClient } from "redis";
+import { EMEntity } from "../../../express-mongoose/emEntity/emEntity";
 import { EMEntityMultiKey, IEntityKey } from "../../../express-mongoose/emEntityMultiKey/emEntityMultiKey";
 
 
@@ -6,7 +7,7 @@ function lockEntityMultikey ( entity : EMEntityMultiKey ) : Promise<void>;
 function lockEntityMultikey ( entity : EMEntityMultiKey, options: { customOperationReference?: string } ) : Promise<void>;
 function lockEntityMultikey ( entity : EMEntityMultiKey, options?: { customOperationReference?: string } ) : Promise<void>
 {
-    if (entity) {
+    if (entity) 
          return new Promise<void>((resolve,reject) => {
             let session = entity.session;
             let cacheClient = session.serviceSession.authCacheClient;
@@ -27,15 +28,28 @@ function lockEntityMultikey ( entity : EMEntityMultiKey, options?: { customOpera
                 customOperationReference
             }))).then(() => resolve()).catch( e => { entityKeys.forEach( ek => removeBlocking(cacheClient, entityKeyToString(ek))); reject(e); });
          });
-    }
     else
         return Promise.resolve();
 }
 
+function checkBlockingEntity( entity : EMEntity) : Promise<BlockingInfo>
+{
+    if (entity) {
+        let session = entity.session;
+        let cacheClient = session.serviceSession.authCacheClient;
+        let entityKeyToString = ( ek : IEntityKey) => ek.serviceName + '-' + ek.entityName + '-' + ek.value;
+
+        return getBlockingInfo(cacheClient, entityKeyToString(entity.key));        
+    }
+    else
+        return Promise.resolve(null);
+}
+
+
 
 function unlockEntityMultikey( entity : EMEntityMultiKey ) : Promise<void>
 {
-    if (entity) {
+    if (entity) 
         return new Promise<void>((resolve, reject) => {
             let session = entity.session;
             let cacheClient = session.serviceSession.authCacheClient;
@@ -47,7 +61,6 @@ function unlockEntityMultikey( entity : EMEntityMultiKey ) : Promise<void>
 
             Promise.all(entityKeys.map(ek => removeBlocking(cacheClient, entityKeyToString(ek)))).then( () => resolve()).catch( reject );
         });
-    }
     else
         return Promise.resolve();
 }
@@ -157,6 +170,7 @@ interface BlockingInfo {
 export {  
     BlockingInfo,
     lockEntityMultikey,
-    unlockEntityMultikey 
+    unlockEntityMultikey,
+    checkBlockingEntity 
 }
 

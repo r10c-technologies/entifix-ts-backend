@@ -6,6 +6,8 @@ import { DefinedAccessor, DefinedEntity, PersistenceType, EntityInfo, Exposition
 import { EntityEventLogType } from '../../amqp-events/amqp-entity-logger/AMQPEntityLogger';
 import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 
+import { getEntityOperationMetadata, EMEntityOperationMetadata } from '../../extensibility/';
+
 interface IBaseEntity
 {
     created : Date,
@@ -134,54 +136,75 @@ class EMEntity extends Entity
         return new Promise<EntityMovementFlow>( (resolve, reject) => 
         {
             this.onSaving().then( 
-                movFlow => 
-                {
-                    if (movFlow.continue)
-                    {
-                        this.syncActibableAccessors();
-                        
-                        if (this._document.isNew)
-                        {
-                            this._session.createDocument(this.entityInfo.name, this._document).then(
-                                documentCreated => {
-                                    this._document = documentCreated;
-                                    let asynkTask = this.onSaved();
-                                    this.triggerAMQP(EntityEventLogType.created);
-                                    if (asynkTask)
-                                        asynkTask.then( ()=> resolve({ continue: true})).catch( () => resolve({ continue: true}));
-                                    else
-                                        resolve({ continue: true });
-                                },
-                                error  =>{
-                                    console.error(`Error on create a document inside an entity: ${this.entityInfo.name}`);
-                                    reject(error);
+                movFlow => {
+                    if (movFlow.continue) {
+                        verifyExtensionOperators().then( extensionMovFlow => {  
+                            if (extensionMovFlow.continue) {
+                                this.syncActibableAccessors();
+                                if (this._document.isNew)
+                                {
+                                    this._session.createDocument(this.entityInfo.name, this._document).then(
+                                        documentCreated => {
+                                            this._document = documentCreated;
+                                            let asynkTask = this.onSaved();
+                                            this.triggerAMQP(EntityEventLogType.created);
+                                            if (asynkTask)
+                                                asynkTask.then( ()=> resolve({ continue: true})).catch( () => resolve({ continue: true}));
+                                            else
+                                                resolve({ continue: true });
+                                        },
+                                        error  =>{
+                                            console.error(`Error on create a document inside an entity: ${this.entityInfo.name}`);
+                                            reject(error);
+                                        }
+                                    );
                                 }
-                            );
-                        }
-                        else
-                        {
-                            this._session.updateDocument(this.entityInfo.name, this._document).then(
-                                documentUpdated => {
-                                    this._document = documentUpdated;
-                                    let asynkTask = this.onSaved();
-                                    this.triggerAMQP(EntityEventLogType.updated);
-                                    if (asynkTask)
-                                        asynkTask.then( ()=> resolve({ continue: true})).catch( () => resolve({ continue: true}));
-                                    else
-                                        resolve({ continue: true });
-                                },
-                                error => {
-                                    console.error(`Error on update a document insde an entity: ${this.entityInfo.name}(${this._id.toString()})`);
-                                    reject(error);
+                                else
+                                {
+                                    this._session.updateDocument(this.entityInfo.name, this._document).then(
+                                        documentUpdated => {
+                                            this._document = documentUpdated;
+                                            let asynkTask = this.onSaved();
+                                            this.triggerAMQP(EntityEventLogType.updated);
+                                            if (asynkTask)
+                                                asynkTask.then( ()=> resolve({ continue: true})).catch( () => resolve({ continue: true}));
+                                            else
+                                                resolve({ continue: true });
+                                        },
+                                        error => {
+                                            console.error(`Error on update a document insde an entity: ${this.entityInfo.name}(${this._id.toString()})`);
+                                            reject(error);
+                                        }
+                                    );
                                 }
-                            );
-                        }
+                            }
+                            else
+                                resolve(extensionMovFlow);
+                        });
                     }
                     else
                         resolve(movFlow);
                 }
             ).catch( reject );               
         });
+    }
+
+    private verifyExtensionOperators() : Promise<EntityMovementFlow>
+    {
+        return new Promise((resolve,reject)=>
+            getEntityOperationMetadata(this).then( entityOperators => {
+                let validEntityOperations = entityOperators
+                if (entityOperators && entityOperators.length > 0) {
+                    if (entityOperators.length > 1) {
+
+                    }
+                    else
+                        resolve(entityOperators)
+                }
+                else
+                    resolve({continue: true});
+            }).catch( reject )
+        );
     }
 
     delete () : Promise<EntityMovementFlow>
