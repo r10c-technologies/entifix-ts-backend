@@ -140,7 +140,7 @@ class EMEntity extends Entity
                     {
                         this.syncActibableAccessors();
                         
-                        if (this._document.isNew)
+                        if (this._document.isNew && !this._document._id)
                         {
                             this._session.createDocument(this.entityInfo.name, this._document).then(
                                 documentCreated => {
