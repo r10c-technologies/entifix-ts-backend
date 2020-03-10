@@ -335,7 +335,8 @@ class EMRouterManager {
                         expositionType = expositionAccessorInfo.className;
                     
                     expositionController = this.findController( expositionType );
-                    return expositionController.createInstance( session.request, session.response, { alwaysNew: true } );
+                    let alwaysNew = expositionAccessorInfo.activator.bindingType == MemberBindingType.Snapshot;
+                    return expositionController.createInstance( session.request, session.response, { alwaysNew } );
                 }
                 break;
 

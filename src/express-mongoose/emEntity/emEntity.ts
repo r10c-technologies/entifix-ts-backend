@@ -140,7 +140,7 @@ class EMEntity extends Entity
                     {
                         this.syncActibableAccessors();
                         
-                        if (this._document.isNew && !this._document._id)
+                        if (this._document.isNew)
                         {
                             this._session.createDocument(this.entityInfo.name, this._document).then(
                                 documentCreated => {
@@ -303,7 +303,7 @@ class EMEntity extends Entity
 
     @DefinedAccessor({ exposition: ExpositionType.System, persistenceType: PersistenceType.Auto, serializeAlias: 'id', display: "Id" })
     get _id () : any
-    { return this._document._id; }
+    { return this._document ? this._document._id : null; }
 
     @DefinedAccessor({ exposition: ExpositionType.System, persistenceType: PersistenceType.Auto, serializeAlias: 'v', display: "Version" })
     get __v () : number
