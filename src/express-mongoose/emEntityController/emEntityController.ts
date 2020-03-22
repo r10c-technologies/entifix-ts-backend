@@ -506,7 +506,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                         session.findDocument<TDocument>(this.entityName, parsedRequest.persistent._id).then( doc => {
                             delete parsedRequest.persistent._id;
                             let instanceResult = session.instanceDocument<TDocument>(this.entityInfo, parsedRequest.persistent, { existingDocument: doc });
-                            resolve({ document: instanceResult.document, devData, changes: instanceResult.changes });
+                            resolve({ document: instanceResult.document, devData, changes: instanceResult.changes, session });
                         }).catch( reject );
                     }
                     else {

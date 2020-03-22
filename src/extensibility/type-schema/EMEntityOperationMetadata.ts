@@ -16,7 +16,6 @@ class EMEntityOperationMetadata
 
     constructor() { }
 
-
     addOperationType(operationType : EMEntityMetaOperationType | Array<EMEntityMetaOperationType>) : void 
     {
         if (operationType) {
@@ -30,12 +29,28 @@ class EMEntityOperationMetadata
         }
     }
 
-    applyForOperation(operationType : EMEntityMetaOperationType) : boolean
+    applyForOperation(operationType : EMEntityMetaOperationType | Array<EMEntityMetaOperationType>) : boolean
     {
         if (!this._operationTypes)
             return false;
+            
+        let check = opType => opType != null ? this._operationTypes.find( ot => ot == opType) != null : false;
+        
+        if (operationType instanceof Array) 
+            return operationType.map( ot => check(ot) ).reduce( (prev, curr) => prev && curr, true );
+        else
+            return check(operationType);
+    }
 
-        return this._operationTypes.find( ot => ot == operationType) != null;
+    perform( entity : EMEntity) 
+    {
+        if (!entity)
+            throw new Error('The entity for operation is null');
+
+        if (!this._operationMethod)
+            throw new Error('There is no method setted for the Entity Operation');
+
+         return this._operationMethod(entity);
     }
 
 
@@ -60,8 +75,6 @@ class EMEntityOperationMetadata
     { this._data = value; }
 
     //#endregion
-
-    
 }
 
 export {

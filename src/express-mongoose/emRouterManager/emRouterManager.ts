@@ -335,7 +335,8 @@ class EMRouterManager {
                         expositionType = expositionAccessorInfo.className;
                     
                     expositionController = this.findController( expositionType );
-                    return expositionController.createInstance( session.request, session.response, { alwaysNew: true } );
+                    let alwaysNew = expositionAccessorInfo.activator.bindingType == MemberBindingType.Snapshot;
+                    return expositionController.createInstance( session.request, session.response, { alwaysNew } );
                 }
                 break;
 
@@ -349,15 +350,20 @@ class EMRouterManager {
 
                 let objectToExpose : any = baseEntity[pathOverInstance[0]];
                 let pathTo = pathOverInstance[0];
+
+                for (let i = 1; i < pathOverInstance.length; i++) {
+                    objectToExpose = objectToExpose ? objectToExpose[pathOverInstance[i]] : null;
+                    pathTo = pathTo + '.' + pathOverInstance[i];
+                }
                 
-                let saveBaseEntity = (objectToSend) => {
-                    baseEntity.save().then( movFlow => {
-                        if (movFlow.continue)
-                        {
-                            if(objectToSend instanceof EMEntity)
-                                constructionController.responseWrapper.entity( session.response, objectToSend);
+                let performSave = (entityToSave: EMEntity, objectToSendInResponse? : any) => {
+                    entityToSave.save().then( movFlow => {
+                        objectToSendInResponse = objectToSendInResponse || entityToSave;
+                        if (movFlow.continue) {
+                            if(objectToSendInResponse instanceof EMEntity)
+                                constructionController.responseWrapper.entity( session.response, objectToSendInResponse);
                             else
-                                constructionController.responseWrapper.object( session.response, objectToSend);
+                                constructionController.responseWrapper.object( session.response, objectToSendInResponse);
                         }                       
                         else
                             constructionController.responseWrapper.logicError( session.response, movFlow.message);
@@ -365,24 +371,20 @@ class EMRouterManager {
                     error => constructionController.responseWrapper.exception( session.response, error ));  
                 };
 
-                for (let i = 1; i < pathOverInstance.length; i++)
-                {
-                    objectToExpose = objectToExpose ? objectToExpose[pathOverInstance[i]] : null;
-                    pathTo = pathTo + '.' + pathOverInstance[i];
-                }
+                if ( result instanceof EMEntity) {  
+                    if (expositionAccessorInfo.activator.bindingType == MemberBindingType.Snapshot) {
+                        if (expositionAccessorInfo.type == 'Array') {
+                            let index = (baseEntity[pathTo] as Array<EMEntity>).findIndex( e => e._id == result._id );
+                            (baseEntity[pathTo] as Array<EMEntity>).splice(index, 1);
+                            (baseEntity[pathTo] as Array<EMEntity>).push(result);
+                        }                    
+                        else
+                            baseEntity[pathTo] = result;
 
-                if ( result instanceof EMEntity)
-                {
-                    if (expositionAccessorInfo.type == 'Array')
-                    {
-                        let index = (baseEntity[pathTo] as Array<EMEntity>).findIndex( e => e._id == result._id );
-                        (baseEntity[pathTo] as Array<EMEntity>).splice(index, 1);
-                        (baseEntity[pathTo] as Array<EMEntity>).push(result);
-                    }                    
-                    else
-                        baseEntity[pathTo] = result;
-
-                    saveBaseEntity(result);
+                        performSave(baseEntity, result);
+                    }
+                    else if (expositionAccessorInfo.activator.bindingType == MemberBindingType.Reference)
+                        performSave(result);
                 }               
                 else
                 {            
@@ -396,7 +398,7 @@ class EMRouterManager {
                                                      pathTo,
                                                      'update',
                                                      result.data.fileKey) .then((f) => {
-                            saveBaseEntity(f);
+                            performSave(baseEntity);
                         }).catch(e => constructionController.responseWrapper.exception(session.response, e));
                     }
                     else

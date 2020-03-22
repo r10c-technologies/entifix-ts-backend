@@ -3,9 +3,9 @@ import { EMEntity } from "../../../express-mongoose/emEntity/emEntity";
 import { EMEntityMultiKey, IEntityKey } from "../../../express-mongoose/emEntityMultiKey/emEntityMultiKey";
 
 
-function lockEntityMultikey ( entity : EMEntityMultiKey ) : Promise<void>;
-function lockEntityMultikey ( entity : EMEntityMultiKey, options: { customOperationReference?: string } ) : Promise<void>;
-function lockEntityMultikey ( entity : EMEntityMultiKey, options?: { customOperationReference?: string } ) : Promise<void>
+function lockEntity ( entity : EMEntity ) : Promise<void>;
+function lockEntity ( entity : EMEntity, options: { customOperationReference?: string } ) : Promise<void>;
+function lockEntity ( entity : EMEntity, options?: { customOperationReference?: string } ) : Promise<void>
 {
     if (entity) 
          return new Promise<void>((resolve,reject) => {
@@ -16,7 +16,8 @@ function lockEntityMultikey ( entity : EMEntityMultiKey, options?: { customOpera
             let customOperationReference = options && options.customOperationReference ? options.customOperationReference : 'Lock by EntityMultiKey generic operation'; 
 
             let entityKeys : Array<IEntityKey> = [ entity.key ];
-            if (entity.alternativeKeys && entity.alternativeKeys.length > 0)
+
+            if (entity instanceof EMEntityMultiKey && entity.alternativeKeys && entity.alternativeKeys.length > 0)
                 entityKeys = entityKeys.concat( entity.alternativeKeys );
 
             Promise.all(entityKeys.map( ek => setBlocking(cacheClient, { 
@@ -39,7 +40,23 @@ function checkBlockingEntity( entity : EMEntity) : Promise<BlockingInfo>
         let cacheClient = session.serviceSession.authCacheClient;
         let entityKeyToString = ( ek : IEntityKey) => ek.serviceName + '-' + ek.entityName + '-' + ek.value;
 
-        return getBlockingInfo(cacheClient, entityKeyToString(entity.key));        
+        let mainKey = entityKeyToString(entity.key);
+        let keys = [ mainKey ];
+
+        if (entity instanceof EMEntityMultiKey && entity.alternativeKeys && entity.alternativeKeys.length > 0)
+            keys = keys.concat( entity.alternativeKeys.map(k => entityKeyToString(k)) );
+
+        return Promise.all( keys.map(k => getBlockingInfo(cacheClient, k)) ).then( results => {
+            if (results && results.length > 0) {
+                let blockingInfo = results.find( bi => bi.blockingKey == mainKey );
+                if (blockingInfo)
+                    return blockingInfo;
+                else
+                    return results[0];
+            }
+            else    
+                return null;
+        });        
     }
     else
         return Promise.resolve(null);
@@ -47,7 +64,7 @@ function checkBlockingEntity( entity : EMEntity) : Promise<BlockingInfo>
 
 
 
-function unlockEntityMultikey( entity : EMEntityMultiKey ) : Promise<void>
+function unlockEntity( entity : EMEntity ) : Promise<void>
 {
     if (entity) 
         return new Promise<void>((resolve, reject) => {
@@ -56,7 +73,7 @@ function unlockEntityMultikey( entity : EMEntityMultiKey ) : Promise<void>
             let entityKeyToString = ( ek : IEntityKey) => ek.serviceName + '-' + ek.entityName + '-' + ek.value;
             
             let entityKeys : Array<IEntityKey> = [ entity.key ];
-            if (entity.alternativeKeys && entity.alternativeKeys.length > 0)
+            if (entity instanceof EMEntityMultiKey &&  entity.alternativeKeys && entity.alternativeKeys.length > 0)
                 entityKeys = entityKeys.concat( entity.alternativeKeys );
 
             Promise.all(entityKeys.map(ek => removeBlocking(cacheClient, entityKeyToString(ek)))).then( () => resolve()).catch( reject );
@@ -147,9 +164,18 @@ function getBlockingInfo(cacheClient : RedisClient, blockingKey : string) : Prom
 function removeBlocking(cacheClient : RedisClient, blockingKey : string) : Promise<void>
 {
     return new Promise<void>( (resolve, reject) => {
-        cacheClient.del('entityLock:'+ blockingKey, error => {
-            if(!error)
-                resolve();
+        cacheClient.hgetall('entityLock:' + blockingKey, ( error, result ) => {
+            if (!error) {
+                if (result)
+                    cacheClient.del('entityLock:'+ blockingKey, error => {
+                        if(!error)
+                            resolve();
+                        else
+                            reject(error);
+                    });
+                else
+                    resolve();
+            }
             else
                 reject(error);
         });
@@ -169,8 +195,8 @@ interface BlockingInfo {
 
 export {  
     BlockingInfo,
-    lockEntityMultikey,
-    unlockEntityMultikey,
+    lockEntity,
+    unlockEntity,
     checkBlockingEntity 
 }
 

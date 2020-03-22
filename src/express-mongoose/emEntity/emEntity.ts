@@ -6,7 +6,7 @@ import { DefinedAccessor, DefinedEntity, PersistenceType, EntityInfo, Exposition
 import { EntityEventLogType } from '../../amqp-events/amqp-entity-logger/AMQPEntityLogger';
 import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 
-import { getEntityOperationMetadata, EMEntityOperationMetadata } from '../../extensibility/';
+import { getEntityOperationMetadata, EMEntityOperationMetadata, EMEntityMetaOperationType } from '../../extensibility/';
 
 interface IBaseEntity
 {
@@ -135,10 +135,9 @@ class EMEntity extends Entity
     {
         return new Promise<EntityMovementFlow>( (resolve, reject) => 
         {
-            this.onSaving().then( 
-                movFlow => {
+            this.onSaving().then( movFlow => {
                     if (movFlow.continue) {
-                        verifyExtensionOperators().then( extensionMovFlow => {  
+                        this.performExtensionOperators([EMEntityMetaOperationType.BeforeSave, EMEntityMetaOperationType.AfterDelete]).then( extensionMovFlow => {  
                             if (extensionMovFlow.continue) {
                                 this.syncActibableAccessors();
                                 if (this._document.isNew)
@@ -180,32 +179,47 @@ class EMEntity extends Entity
                             }
                             else
                                 resolve(extensionMovFlow);
-                        });
+                        }).catch( reject );
                     }
                     else
                         resolve(movFlow);
-                }
-            ).catch( reject );               
+            }).catch( reject );               
         });
     }
 
-    private verifyExtensionOperators() : Promise<EntityMovementFlow>
+    private performExtensionOperators(operationType : EMEntityMetaOperationType | Array<EMEntityMetaOperationType>) : Promise<EntityMovementFlow>
     {
-        return new Promise((resolve,reject)=>
-            getEntityOperationMetadata(this).then( entityOperators => {
-                let validEntityOperations = entityOperators
-                if (entityOperators && entityOperators.length > 0) {
-                    if (entityOperators.length > 1) {
+        return new Promise((resolve,reject)=> {
+            let entityOperators = getEntityOperationMetadata(this);
 
-                    }
-                    else
-                        resolve(entityOperators)
-                }
+            if (entityOperators && entityOperators.length > 0) 
+                entityOperators = entityOperators.filter( eo => eo.applyForOperation(operationType) );
+                
+            if (entityOperators && entityOperators.length > 0) {
+                // Exectuion of operations
+                let allResults = entityOperators.map( eo => eo.perform(this) );
+            
+                let syncResults = allResults.filter( eo => !(eo instanceof Promise)).map( eo => eo as EntityMovementFlow ) || [];
+                let asyncResults = allResults.filter( eo => eo instanceof Promise).map( eo => eo as Promise<EntityMovementFlow>);
+
+                if (asyncResults && asyncResults.length > 0)
+                    Promise.all(asyncResults).then( r => resolvePromise(syncResults.concat(r)) ).catch( reject );
                 else
-                    resolve({continue: true});
-            }).catch( reject )
-        );
+                    resolvePromise(syncResults);
+
+                var resolvePromise = (results : Array<EntityMovementFlow>) => {                                    
+                    let concatMessages = (prev : string, curr : string) =>  curr != null ? (prev || '') + ' - ' + curr : prev;
+                    let finalEMF = results.reduce( (prev, curr) => { return {continue: prev.continue && curr.continue, message: concatMessages(prev.message, curr.message)}; }, { continue: true } );
+                    resolve( finalEMF );
+                };
+            }
+            else
+                resolve({ continue: true })
+        });
     }
+
+
+
 
     delete () : Promise<EntityMovementFlow>
     {
@@ -326,7 +340,7 @@ class EMEntity extends Entity
 
     @DefinedAccessor({ exposition: ExpositionType.System, persistenceType: PersistenceType.Auto, serializeAlias: 'id', display: "Id" })
     get _id () : any
-    { return this._document._id; }
+    { return this._document ? this._document._id : null; }
 
     @DefinedAccessor({ exposition: ExpositionType.System, persistenceType: PersistenceType.Auto, serializeAlias: 'v', display: "Version" })
     get __v () : number
