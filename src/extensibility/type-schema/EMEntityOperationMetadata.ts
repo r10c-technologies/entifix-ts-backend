@@ -7,7 +7,7 @@ class EMEntityOperationMetadata
     //#region Properties
 
     private _operationTypes: Array<EMEntityMetaOperationType>;
-    private _operationMethod: (entity : EMEntity) => EntityMovementFlow | Promise<EntityMovementFlow>;
+    private _operationMethod: (entity : EMEntity) => void | Promise<void> | EntityMovementFlow | Promise<EntityMovementFlow>;
     private _data: any;
 
     //#endregion

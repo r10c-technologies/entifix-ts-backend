@@ -137,7 +137,7 @@ class EMEntity extends Entity
         {
             this.onSaving().then( movFlow => {
                     if (movFlow.continue) {
-                        this.performExtensionOperators([EMEntityMetaOperationType.BeforeSave, EMEntityMetaOperationType.AfterDelete]).then( extensionMovFlow => {  
+                        this.performExtensionOperators(EMEntityMetaOperationType.BeforeSave).then( extensionMovFlow => {  
                             if (extensionMovFlow.continue) {
                                 this.syncActibableAccessors();
                                 if (this._document.isNew)
@@ -145,36 +145,18 @@ class EMEntity extends Entity
                                     this._session.createDocument(this.entityInfo.name, this._document).then(
                                         documentCreated => {
                                             this._document = documentCreated;
-                                            let asynkTask = this.onSaved();
-                                            this.triggerAMQP(EntityEventLogType.created);
-                                            if (asynkTask)
-                                                asynkTask.then( ()=> resolve({ continue: true})).catch( () => resolve({ continue: true}));
-                                            else
-                                                resolve({ continue: true });
-                                        },
-                                        error  =>{
-                                            console.error(`Error on create a document inside an entity: ${this.entityInfo.name}`);
-                                            reject(error);
+                                            this.afterSaveEntity(true).then( result => resolve(result) ).catch(reject);
                                         }
-                                    );
+                                    ).catch(reject);
                                 }
                                 else
                                 {
                                     this._session.updateDocument(this.entityInfo.name, this._document).then(
                                         documentUpdated => {
                                             this._document = documentUpdated;
-                                            let asynkTask = this.onSaved();
-                                            this.triggerAMQP(EntityEventLogType.updated);
-                                            if (asynkTask)
-                                                asynkTask.then( ()=> resolve({ continue: true})).catch( () => resolve({ continue: true}));
-                                            else
-                                                resolve({ continue: true });
-                                        },
-                                        error => {
-                                            console.error(`Error on update a document insde an entity: ${this.entityInfo.name}(${this._id.toString()})`);
-                                            reject(error);
+                                            this.afterSaveEntity(false).then( result => resolve(result) ).catch(reject);
                                         }
-                                    );
+                                    ).catch(reject);
                                 }
                             }
                             else
@@ -187,6 +169,33 @@ class EMEntity extends Entity
         });
     }
 
+    private afterSaveEntity( newEntity : boolean ) : Promise<EntityMovementFlow> 
+    {
+        return new Promise<EntityMovementFlow>((resolve,reject)=>{
+
+            let amqpTriggerType : EntityEventLogType;
+
+            if (newEntity)
+                amqpTriggerType = EntityEventLogType.created;
+            else
+                amqpTriggerType = EntityEventLogType.updated;
+
+            // The extension operaion in the future must include the AMQP Triggers 
+            this.performExtensionOperators(EMEntityMetaOperationType.AfterSave).then( opResult => {    
+                if (opResult.continue) {
+                    this.triggerAMQP(amqpTriggerType);
+                    let asynkTask = this.onSaved();
+                    if (asynkTask)
+                        asynkTask.then( ()=> resolve(opResult)).catch( () => resolve(opResult)); // OnSaved actions cannot stop transaction
+                    else
+                        resolve(opResult);
+                }
+                else
+                    resolve(opResult)
+            }).catch(reject);
+        });
+    }
+    
     private performExtensionOperators(operationType : EMEntityMetaOperationType | Array<EMEntityMetaOperationType>) : Promise<EntityMovementFlow>
     {
         return new Promise((resolve,reject)=> {
@@ -199,18 +208,34 @@ class EMEntity extends Entity
                 // Exectuion of operations
                 let allResults = entityOperators.map( eo => eo.perform(this) );
             
-                let syncResults = allResults.filter( eo => !(eo instanceof Promise)).map( eo => eo as EntityMovementFlow ) || [];
-                let asyncResults = allResults.filter( eo => eo instanceof Promise).map( eo => eo as Promise<EntityMovementFlow>);
+                let syncResults  = allResults.filter( eo => !(eo instanceof Promise)) as Array<void | EntityMovementFlow>;
 
+                if (syncResults && syncResults.length > 0)
+                    syncResults = syncResults.map(eo => {
+                        if ((eo as EntityMovementFlow).continue != null)
+                            return eo as EntityMovementFlow;
+                        else
+                            return null;
+                    });
+                else
+                    syncResults = [];
+
+                let asyncResults = allResults.filter( eo => eo instanceof Promise) as Array<Promise<void | EntityMovementFlow>>;
                 if (asyncResults && asyncResults.length > 0)
                     Promise.all(asyncResults).then( r => resolvePromise(syncResults.concat(r)) ).catch( reject );
                 else
                     resolvePromise(syncResults);
 
-                var resolvePromise = (results : Array<EntityMovementFlow>) => {                                    
-                    let concatMessages = (prev : string, curr : string) =>  curr != null ? (prev || '') + ' - ' + curr : prev;
-                    let finalEMF = results.reduce( (prev, curr) => { return {continue: prev.continue && curr.continue, message: concatMessages(prev.message, curr.message)}; }, { continue: true } );
-                    resolve( finalEMF );
+                var resolvePromise = (results : Array<void | EntityMovementFlow>) => 
+                {    
+                    let affectResults = results.filter( r => r != null) as Array<EntityMovementFlow>;
+                    if (affectResults && affectResults.length > 0 ){
+                        let concatMessages = (prev : string, curr : string) =>  curr != null ? (prev || '') + ' - ' + curr : prev;
+                        let finalEMF = affectResults.reduce( (prev, curr) => { return {continue: prev.continue && curr.continue, message: concatMessages(prev.message, curr.message)}; }, { continue: true } );
+                        resolve( finalEMF );
+                    }
+                    else
+                        resolve({continue: true});
                 };
             }
             else

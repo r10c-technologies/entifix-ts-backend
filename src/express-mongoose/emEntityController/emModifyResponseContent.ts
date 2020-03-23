@@ -41,6 +41,11 @@ class EMModifyResponseContent
                 headers: { "Content-Type": "application/json" }
             };
 
+            let headersToCopy  = ['authorization'];
+            for (let header of headersToCopy)
+                if ((<express.Request>request).get && (<express.Request>request).get(header))
+                    options.headers[header] = (<express.Request>request).get(header);
+
             let chunkParts = [];
 
             let requestToReportsService = http.request(

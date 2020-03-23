@@ -15,6 +15,7 @@ import { resolve, reject } from 'bluebird';
 import { EMMemberActivator, EMMemberTreeActivator } from '../emMetadata/emMetadata';
 import { EMEntityMultiKey } from '../emEntityMultiKey/emEntityMultiKey';
 import { EMEntityMutltiKeyController } from '../emEntityMultikeyController/emEntityMultiKeyController';
+import { createEnumController, ExposeEnumerationOptions } from './enumeration-exposition';
 
 class IExpositionDetail
 {
@@ -87,78 +88,13 @@ class EMRouterManager {
     }
 
     exposeEnumeration( name: string, enumerator : any ) : void;
-    exposeEnumeration( name: string, enumerator : any, options : { basePath? : string, resourceName? : string } ) : void;
-    exposeEnumeration( name: string, enumerator : any, options?  : { basePath? : string, resourceName? : string } ) : void
+    exposeEnumeration( name: string, enumerator : any, options : ExposeEnumerationOptions ) : void;
+    exposeEnumeration( name: string, enumerator : any, options?  : ExposeEnumerationOptions ) : void
     {
         let basePath = this.getCompleteBasePath( options && options.basePath ? options.basePath : null );
-        let resourceName = options && options.resourceName ? options.resourceName : name.toLowerCase();
-        let newController = new EMSimpleController(this, resourceName);
 
-        let keys = Object.keys( enumerator );
-
-        let arrayToExpose = new Array < { id:any, value:any }>();
+        let newController = createEnumController(name, enumerator, options);
         
-        keys.forEach( k => { 
-            if (arrayToExpose.find(pair => pair.value == k) == null)
-                arrayToExpose.push({ id: k, value: enumerator[k]});
-        });
-        
-        newController.retrieveMethod = ( req, res, next ) =>{
-            let filters = new Array<{key,value}>();
-            let devData = null;
-
-            let addDevData = i => {
-                if (!devData)
-                    devData = { queryInconsistencies: [] };
-                devData.queryInconsistencies.push( {
-                    details: i,
-                    message: 'Not allowed filters'
-                }); 
-            };
-
-            if (req.query) 
-                for ( let p in req.query ) 
-                    switch(p) {
-                        case 'fixed_filter':
-                            let queryValue = req.query[p];
-                            let extractFilter = ( v ) => { 
-                                let av = v.split('|');
-                                if (av.length == 3 && av[1] == 'eq')
-                                    return { key: av[0], value: av[2] };
-                                else 
-                                    addDevData(v);
-                            };
-
-                            if (queryValue instanceof Array) {
-                                // filters = queryValue.map( extractFilter );
-                                //Not Allowed multiple filters so far
-                                addDevData({ details: 'Not allowed multiple filters so far: [fixed_filter]' })
-                            }
-                            else
-                                filters.push( extractFilter(queryValue) );
-
-                            break;
-
-                        default:
-                            addDevData({ [p]: req.query[p] });
-                    }
-             
-            if (filters && filters.filter(f => f != null).length > 0) {
-                let filteredArray = arrayToExpose.filter( v =>  filters.filter( f => f != null && v[f.key] == f.value ).length == filters.filter(f => f!= null).length );
-                res.send( Wrapper.wrapCollection(false, null, filteredArray, { devData } ).serializeSimpleObject() ); 
-            }
-            else    
-                res.send( Wrapper.wrapCollection(false, null, arrayToExpose, { devData }).serializeSimpleObject() );
-        
-        }
-
-        newController.retrieveByIdMethod = ( req, res, next) => {
-            let id = req.params._id;
-            let objectToExpose = arrayToExpose.find( v => v.id == id );
-            res.send( Wrapper.wrapObject( false, null , objectToExpose).serializeSimpleObject() );
-        }
-
-        newController.createRoutes();
         this._expressAppInstance.use(basePath, newController.router);
         this._routers.push( { entityName : name, controller: newController, basePath }) ;
     }

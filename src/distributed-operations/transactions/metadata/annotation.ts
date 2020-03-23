@@ -127,10 +127,10 @@ function _lockEntityWithConditions(entity : EMEntity, incluceCreate : boolean, i
         return Promise.reject('The entity to lock is null');
 }
 
-async function _unlockEntity(entity : EMEntity) : Promise<EntityMovementFlow>
+async function _unlockEntity(entity : EMEntity) : Promise<void>
 {
     if (entity)
-        return unlockEntity(entity).then( () => { return {continue:true}; } );
+        return new Promise<void>((resolve, reject) => unlockEntity(entity).then(()=>resolve()).catch(e => resolve())); // Exceptions during unlock entity are not fatal
     else
         return Promise.reject('The entity to unlock is null');
 }
