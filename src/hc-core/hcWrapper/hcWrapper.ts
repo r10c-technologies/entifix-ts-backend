@@ -181,6 +181,9 @@ class WrappedCollection<T> extends WrappedResponse
         simpleObject.info.count = this.count;
         simpleObject.info.take = this.take;
 
+        if (simpleObject.data && Object.keys(simpleObject.data).length === 0 && simpleObject.data.constructor === Object)
+            simpleObject.data = null;
+
         return simpleObject
     }
 
