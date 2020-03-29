@@ -1,4 +1,5 @@
 //CORE DEPENDENCIES
+import { EventEmitter } from 'events';
 import mongoose = require('mongoose');
 import amqp = require('amqplib/callback_api');
 import redis = require('redis');
@@ -47,8 +48,16 @@ class EMServiceSession
         schema: any, 
         models: Array<{ systemOwner: string, model: any}>, 
         activateType: (s : EMSession, d : EntityDocument) => any, 
-        modelActivator : any
+        modelActivator : any // Use any type to enable create entity instances without the generic type
     }>;
+
+    private _unconstrainedModels : Array<{
+        name: string,
+        modelActivator : any,
+        schema: mongoose.Schema,
+        models: Array<{ systemOwner: string, model: any}>
+    }>;
+
 
     //Utilities
     private _userDevDataNotification = false;
@@ -59,9 +68,7 @@ class EMServiceSession
     
     //#region Methods
 
-    constructor (serviceName: string, mongoService : string | MongoServiceConfig);
-    constructor (serviceName: string, mongoService : string | MongoServiceConfig, options: { amqpService? : string, cacheService? : { host: string, port: number }, reportsService? : { host: string, port: string, path: string, methodToRequest: string } });
-    constructor (serviceName: string, mongoService : string | MongoServiceConfig, options?: { amqpService? : string, cacheService? : { host: string, port: number }, reportsService? : { host: string, port: string, path: string, methodToRequest: string } })
+    private constructor (serviceName: string, mongoService : string | MongoServiceConfig, options?: { amqpService? : string, cacheService? : { host: string, port: number }, reportsService? : { host: string, port: string, path: string, methodToRequest: string } })
     {
         this._serviceName = serviceName;
         this._entitiesInfo = [];
@@ -137,7 +144,9 @@ class EMServiceSession
         }));
         
 
-        return Promise.all(asyncConn).then( ()=> { } ).catch( error => this.throwException(error) );
+        return Promise.all(asyncConn).then( ()=> { 
+            EMServiceSession.emit('serviceSessionConnected');
+        } ).catch( error => this.throwException(error) );
     }
     
     private atachToBroker () : Promise<void>
@@ -223,10 +232,7 @@ class EMServiceSession
         
         if (this.entitiesInfo.filter( e => e.name == entityName ).length == 0)
         {
-            var schema : mongoose.Schema;
-            var model : mongoose.Model<TDocument>;
-            
-            schema = new mongoose.Schema(structureSchema);
+            var schema = new mongoose.Schema(structureSchema);
             
             this._entitiesInfo.push( { 
                 name: entityName,
@@ -243,7 +249,7 @@ class EMServiceSession
             console.warn('Attempt to duplicate entity already registered: ' + entityName );
     }
 
-    createDeveloperModels()
+    createDeveloperModels() : void
     {
         this._entitiesInfo.forEach( ei => {
             let devData = this.getDeveloperUserData({skipNotification: true});
@@ -253,7 +259,7 @@ class EMServiceSession
         });
     }
     
-    verifySystemOwnerModels( systemOwner : string )
+    verifySystemOwnerModels( systemOwner : string ) : void
     {        
         this._entitiesInfo.filter( ei => ei.models.find( m => m.systemOwner == systemOwner ) == null && ei.info.fixedSystemOwner == null ).forEach(
             ei => {
@@ -263,6 +269,40 @@ class EMServiceSession
             }
         );
     }
+
+    addUnconstrainedModelDefinition<TModel extends mongoose.Document>( name : string, schema : mongoose.Schema )
+    {
+        if (!this._unconstrainedModels)
+            this._unconstrainedModels = [];
+        
+        if (!this._unconstrainedModels.find( um => um.name == name)) {
+            let modelActivator = new ModelActivator<TModel>();
+            this._unconstrainedModels.push({ name, modelActivator, models: null, schema });
+        }
+    }
+
+    getUnconstrainedModel<TModel extends mongoose.Document>( systemOwner : string, name : string ) : mongoose.Model<TModel>
+    {
+        if (!this._unconstrainedModels)
+            this.throwException('There are no unconstrained model definitions');
+
+        let definition = this._unconstrainedModels.find( um => um.name == name );
+        if (!definition)
+            this.throwException('There are no unconstrained model definition for : [' + name + ']' );
+        
+        if (!definition.models)
+            definition.models = [];
+
+        let modelForSystemOwner = definition.models.find( e => e.systemOwner == systemOwner );
+        if (!modelForSystemOwner) {
+            let completeModelName = systemOwner + '_' + name;
+            modelForSystemOwner = { systemOwner, model: definition.modelActivator.activate( this._mongooseConnection, completeModelName, definition.schema ) };
+            definition.models.push(modelForSystemOwner);
+        }
+
+        return modelForSystemOwner.model;
+    }
+    
 
     enableDevMode () : void
     {
@@ -440,6 +480,37 @@ class EMServiceSession
     get reportsService() : { host : string, port : string, path : string, methodToRequest : string }
     { return this._reportsService; } 
 
+    //#endregion
+
+    //#region  Static
+
+    private static _instance : EMServiceSession;
+    private static _eventEmitter : EventEmitter = new EventEmitter();
+
+
+    public static get instance() {
+        return this._instance;
+    }
+
+    static initialize(serviceName: string, mongoService : string | MongoServiceConfig);
+    static initialize(serviceName: string, mongoService : string | MongoServiceConfig, options: { amqpService? : string, cacheService? : { host: string, port: number }, reportsService? : { host: string, port: string, path: string, methodToRequest: string } });
+    static initialize(serviceName: string, mongoService : string | MongoServiceConfig, options?: { amqpService? : string, cacheService? : { host: string, port: number }, reportsService? : { host: string, port: string, path: string, methodToRequest: string } }) 
+    {
+        if (!this._instance) 
+            this._instance = new EMServiceSession(serviceName, mongoService, options);
+        else
+            this._instance.throwException('Service session already created');
+    }
+
+    static get on() 
+    { return this._eventEmitter.on; }
+
+    private static get emit()
+    {
+        return this._eventEmitter.emit;
+    }
+
+    
     //#endregion
 }
 

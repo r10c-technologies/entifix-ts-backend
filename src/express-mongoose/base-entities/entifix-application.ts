@@ -48,12 +48,9 @@ abstract class EntifixApplication
     //#region Properties
 
     private _expressApp : express.Application;
-    private _serviceSession : EMServiceSession;
     private _routerManager : EMRouterManager;
     private _eventManager: AMQPEventManager;
 
-    private _authChannel : amqp.Channel;
-    private _assertAuthQueue : amqp.Replies.AssertQueue;
     _eventEmitter : EventEmitter;
 
     //#endregion
@@ -99,8 +96,9 @@ abstract class EntifixApplication
 
     private createServiceSession( ) : Promise<void>
     {
-        return new Promise<void>((resolve,reject)=>{
-            this._serviceSession = new EMServiceSession(
+        return new Promise<void>((resolve,reject)=>
+       {
+            EMServiceSession.initialize(
                 this.serviceConfiguration.serviceName, 
                 this.serviceConfiguration.mongoService, 
                 { amqpService:  this.serviceConfiguration.amqpService, cacheService: this.serviceConfiguration.authCacheService, reportsService: this.serviceConfiguration.reportsService }
@@ -108,9 +106,9 @@ abstract class EntifixApplication
 
             this.configSessionAMQPConneciton();
             if (this.serviceConfiguration.devMode)
-                this._serviceSession.enableDevMode();
+                this.serviceSession.enableDevMode();
 
-            this._serviceSession.connect().then( ()=> { 
+            this.serviceSession.connect().then( ()=> { 
                 let asyncTask = this.onServiceSessionCreated();
                 if (asyncTask)
                     asyncTask.then( ()=> resolve() ).catch( e => reject(e) );
@@ -185,7 +183,7 @@ abstract class EntifixApplication
             let protectRoutes = this.serviceConfiguration.protectRoutes != null ? this.serviceConfiguration.protectRoutes.enable : true;
             let devMode = this.serviceConfiguration.devMode != null ? this.serviceConfiguration.devMode : false; 
             if (!protectRoutes && devMode)
-                this._serviceSession.throwInfo('Routes unprotected');
+                this.serviceSession.throwInfo('Routes unprotected');
             else
                 this.protectRoutes();
 
@@ -245,9 +243,9 @@ abstract class EntifixApplication
             this.registerEntities();
 
             if (this.serviceConfiguration.devMode)
-                this._serviceSession.createDeveloperModels();
+                this.serviceSession.createDeveloperModels();
             
-            this._routerManager = new EMRouterManager( this._serviceSession, this._expressApp, { basePath: this.serviceConfiguration.basePath } ); 
+            this._routerManager = new EMRouterManager( this.serviceSession, this._expressApp, { basePath: this.serviceConfiguration.basePath } ); 
             this.exposeEntities();
 
 
@@ -270,12 +268,12 @@ abstract class EntifixApplication
     {
         if ( this.useDefaultAMQPInteraction )
         {
-            this._serviceSession.amqpExchangesDescription = [ 
+            this.serviceSession.amqpExchangesDescription = [ 
                 { name: 'main_events', type: ExchangeType.topic, options:  { durable: false } }
             ];
             
             if (this.isMainService)
-                this._serviceSession.amqpQueueBindsDescription = [ { name: 'modules_to_atach', exchangeName: 'main_events', routingKey: 'auth.module_atach', exclusive: true  } ];
+                this.serviceSession.amqpQueueBindsDescription = [ { name: 'modules_to_atach', exchangeName: 'main_events', routingKey: 'auth.module_atach', exclusive: true  } ];
         }
     }
 
@@ -314,7 +312,7 @@ abstract class EntifixApplication
             resources: this._routerManager.getExpositionDetails()
         };
 
-        this._serviceSession.mainChannel.publish(exchangeName, routingKey, new Buffer(JSON.stringify(message)));
+        this.serviceSession.mainChannel.publish(exchangeName, routingKey, new Buffer(JSON.stringify(message)));
     }
 
     protected createRPCAuthorizationDynamic( ) : void
@@ -446,7 +444,7 @@ abstract class EntifixApplication
     { return this._eventManager }
 
     protected get serviceSession ()
-    { return this._serviceSession; }
+    { return EMServiceSession.instance; }
     
     get useDefaultAMQPInteraction()
     {

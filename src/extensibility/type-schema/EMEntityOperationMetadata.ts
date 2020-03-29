@@ -7,7 +7,7 @@ class EMEntityOperationMetadata
     //#region Properties
 
     private _operationTypes: Array<EMEntityMetaOperationType>;
-    private _operationMethod: (entity : EMEntity) => void | Promise<void> | EntityMovementFlow | Promise<EntityMovementFlow>;
+    private _operationMethod: (entity : EMEntity, additionalData? : any) => void | Promise<void> | EntityMovementFlow | Promise<EntityMovementFlow>;
     private _data: any;
 
     //#endregion
@@ -42,7 +42,7 @@ class EMEntityOperationMetadata
             return check(operationType);
     }
 
-    perform( entity : EMEntity) 
+    perform( entity : EMEntity, additionalData : any) 
     {
         if (!entity)
             throw new Error('The entity for operation is null');
@@ -50,7 +50,7 @@ class EMEntityOperationMetadata
         if (!this._operationMethod)
             throw new Error('There is no method setted for the Entity Operation');
 
-         return this._operationMethod(entity);
+         return this._operationMethod(entity, additionalData);
     }
 
 

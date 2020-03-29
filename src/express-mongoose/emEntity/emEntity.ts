@@ -134,30 +134,31 @@ class EMEntity extends Entity
     save() : Promise<EntityMovementFlow>
     {
         return new Promise<EntityMovementFlow>( (resolve, reject) => 
-        {
             this.onSaving().then( movFlow => {
                     if (movFlow.continue) {
                         this.performExtensionOperators(EMEntityMetaOperationType.BeforeSave).then( extensionMovFlow => {  
                             if (extensionMovFlow.continue) {
+
                                 this.syncActibableAccessors();
+                                
                                 if (this._document.isNew)
-                                {
                                     this._session.createDocument(this.entityInfo.name, this._document).then(
                                         documentCreated => {
                                             this._document = documentCreated;
                                             this.afterSaveEntity(true).then( result => resolve(result) ).catch(reject);
                                         }
-                                    ).catch(reject);
-                                }
+                                    ).catch( exception => 
+                                        this.performExtensionOperators(EMEntityMetaOperationType.OnSaveException, { exception } ).then( reject ).catch( reject )
+                                    );
                                 else
-                                {
                                     this._session.updateDocument(this.entityInfo.name, this._document).then(
                                         documentUpdated => {
                                             this._document = documentUpdated;
                                             this.afterSaveEntity(false).then( result => resolve(result) ).catch(reject);
                                         }
-                                    ).catch(reject);
-                                }
+                                    ).catch( exception => 
+                                        this.performExtensionOperators(EMEntityMetaOperationType.OnSaveException, { exception } ).then( reject ).catch( reject )
+                                    );
                             }
                             else
                                 resolve(extensionMovFlow);
@@ -165,8 +166,8 @@ class EMEntity extends Entity
                     }
                     else
                         resolve(movFlow);
-            }).catch( reject );               
-        });
+            }).catch( reject )               
+        );
     }
 
     private afterSaveEntity( newEntity : boolean ) : Promise<EntityMovementFlow> 
@@ -196,7 +197,7 @@ class EMEntity extends Entity
         });
     }
     
-    private performExtensionOperators(operationType : EMEntityMetaOperationType | Array<EMEntityMetaOperationType>) : Promise<EntityMovementFlow>
+    private performExtensionOperators(operationType : EMEntityMetaOperationType | Array<EMEntityMetaOperationType>, additionalData? : any ) : Promise<EntityMovementFlow>
     {
         return new Promise((resolve,reject)=> {
             let entityOperators = getEntityOperationMetadata(this);
@@ -206,7 +207,7 @@ class EMEntity extends Entity
                 
             if (entityOperators && entityOperators.length > 0) {
                 // Exectuion of operations
-                let allResults = entityOperators.map( eo => eo.perform(this) );
+                let allResults = entityOperators.map( eo => eo.perform(this, additionalData) );
             
                 let syncResults  = allResults.filter( eo => !(eo instanceof Promise)) as Array<void | EntityMovementFlow>;
 
@@ -274,18 +275,12 @@ class EMEntity extends Entity
 
     protected onSaving() : Promise<EntityMovementFlow>
     {
-        return new Promise<EntityMovementFlow>( 
-            (resolve, reject )=> {
-                resolve( { continue : true } );               
-        });
+        return Promise.resolve({continue: true});
     }
 
     protected onDeleting() : Promise<EntityMovementFlow>
     {
-        return new Promise<EntityMovementFlow>( 
-            (resolve, reject )=> {
-                resolve( { continue : true });               
-        });
+        return Promise.resolve({continue: true});
     }
 
     protected onSaved() : void | Promise<void>

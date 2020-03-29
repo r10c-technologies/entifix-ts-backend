@@ -5,7 +5,7 @@ import { EMEntityOperationMetadata } from '../type-schema/EMEntityOperationMetad
 
 function addEntityMetadataOperation( entityObject : any, entityOperationMetadata : EMEntityOperationMetadata ) : void
 {
-    let metadataObject = Reflect.getMetadata(EMEntityOperationMetaKey, entityOperationMetadata);
+    let metadataObject = Reflect.getMetadata(EMEntityOperationMetaKey, entityObject);
 
     if (!metadataObject)
         metadataObject = new Array<EMEntityOperationMetadata>();

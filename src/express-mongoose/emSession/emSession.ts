@@ -70,6 +70,10 @@ class EMSession extends HcSession
         return this._serviceSession.getModel(entityName, systemOwner);
     }
 
+    getUnconstrainedModel<TUnconstrainedModel extends mongoose.Document>(modelName: string) {
+        return this.serviceSession.getUnconstrainedModel<TUnconstrainedModel>(this.systemOwner, modelName);
+    }
+
     getInfo(entityName : string ) : EntityInfo
     {
         return this._serviceSession.getInfo(entityName);

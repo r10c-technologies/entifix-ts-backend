@@ -4,6 +4,8 @@ enum EMEntityMetaOperationType {
     AfterSave = 'AfterSave',
     BeforeDelete = 'BeforeDelete',
     AfterDelete = 'AfterDelete',
+    OnSaveException = 'OnSaveException',
+    OnDeleteException = 'OnDeleteException',
     OnLoad = 'OnLoad'
 }
 
