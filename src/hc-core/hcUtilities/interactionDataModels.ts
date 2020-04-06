@@ -22,7 +22,9 @@ interface PrivateUserData
     systemOwnerSelected: string,
     isMaster?: boolean,
     systemOwnerDetail? : Array<{ key: string, idSystemOwner: string }>,
-    password: string
+    password: string,
+    token: string,
+    refreshToken: string
 }
 
 interface PublicUserData

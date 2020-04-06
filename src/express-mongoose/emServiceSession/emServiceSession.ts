@@ -404,7 +404,9 @@ class EMServiceSession
                 systemOwnerSelected: 'DEVELOPER',
                 idUser: null,
                 sessionKey: null,
-                password: null 
+                password: null,
+                token: null,
+                refreshToken: null 
             }
         }
         else

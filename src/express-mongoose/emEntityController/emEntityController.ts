@@ -272,10 +272,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     }
 
     action ( request : express.Request, response : express.Response ) : void
-    // action ( request : express.Request, response : express.Response, options : { paramId?: string } ) : void;
-    // action ( request : express.Request, response : express.Response, options? : { paramId?: string } ) : void
     {
-        // let paramId = options ? options.paramId : '_id';
         let catchException = e => this.responseWrapper.exception(response, e);
 
         this.validateActionRequest(request, response).then( validation => { 
@@ -303,71 +300,44 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                                 }
                                 catch(e) { this._responseWrapper.exception(response, e); }
 
-                                if (succesfulExecution) {
-                                    if (methodInfo.eventName)
-                                    {
-                                        let checkAndPublishData = resultData => {
-                                            let id = entity._id ? entity._id.toString() : null;
-                                            if (resultData.continue != null) {
-                                                if (resultData.continue == true)
-                                                {
-                                                    let eventData = resultData.data || entity;
-                                                    session.publishAMQPAction( methodInfo, id, eventData );
-                                                    resolveRequest(resultData);                                                
-                                                }
-                                                else
-                                                    this.responseWrapper.logicError(response, resultData.message );
+                                if (succesfulExecution) 
+                                {
+                                    let processResult = methodResult => {
+                                        let resolveResult = finalResultData => 
+                                        {
+                                            if (methodInfo.eventName) {
+                                                let messageData : any = { entity };
+                                                if (methodInfo.returnActionData)
+                                                    messageData.actionResult = finalResultData;
+                                                session.publishAMQPAction( methodInfo, entity._id.toString(), messageData );
                                             }
-                                            else
-                                            {
-                                                session.publishAMQPAction( methodInfo, id, resultData);
-                                                resolveRequest(resultData);
-                                            }
-                                        };
 
-                                        let resolveRequest = data => {
-                                            if (methodInfo.returnActionData)
-                                                this.responseWrapper.logicAccept( response, "Operación ejecutada", data );
+                                            if (methodInfo.returnActionData) {
+                                                if (finalResultData instanceof EMEntity)
+                                                    this.responseWrapper.entity(response, finalResultData as TEntity );
+                                                else
+                                                    this.responseWrapper.logicAccept(response, methodResult.message || 'Operation executed', finalResultData );
+                                            }
                                             else
-                                                this.responseWrapper.logicAccept( response, "Operación ejecutada" );
+                                                this.responseWrapper.logicAccept(response, methodResult.message || 'Operation executed');
                                         }
 
-                                        if (returnedFromAction instanceof Promise)
-                                            returnedFromAction.then( result => checkAndPublishData(result) );
-                                        else
-                                            checkAndPublishData(returnedFromAction);
-                                    }
-                                    else 
-                                    {
-                                        let processResult = (methodResult) => {
-                                            let sendResult = finalResultData => {
-                                                if (methodInfo.returnActionData) {
-                                                    if (finalResultData instanceof EMEntity)
-                                                        this.responseWrapper.entity(response, finalResultData as TEntity );
-                                                    else
-                                                        this.responseWrapper.logicAccept(response, "Operación ejecutada", finalResultData );
-                                                }
-                                                else
-                                                    this.responseWrapper.logicAccept(response, 'Operation executed');
-                                            }
-
-                                            if (methodResult.continue != null) {
-                                                let result = methodResult as EntityMovementFlow;
-                                                if (result.continue) 
-                                                    sendResult(result.details);
-                                                else
-                                                    this.responseWrapper.logicError(response, result.message, result.details );
-                                            }
-                                            else 
-                                                sendResult(methodResult)   
-                                        };
-
-                                        //Handle posible promise
-                                        if (returnedFromAction instanceof Promise)
-                                            returnedFromAction.then( result => processResult(result) );
+                                        if (methodResult.continue != null) {
+                                            let result = methodResult as EntityMovementFlow;
+                                            if (result.continue) 
+                                                resolveResult(result.details);
+                                            else
+                                                this.responseWrapper.logicError(response, result.message, result.details );
+                                        }
                                         else 
-                                            processResult(returnedFromAction);
-                                    }
+                                            resolveResult(methodResult)   
+                                    };
+
+                                    //Handle posible promise
+                                    if (returnedFromAction instanceof Promise)
+                                        returnedFromAction.then( result => processResult(result) );
+                                    else 
+                                        processResult(returnedFromAction);
                                 }
                             }
                             else
