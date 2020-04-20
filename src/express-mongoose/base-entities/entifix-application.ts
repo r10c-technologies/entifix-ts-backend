@@ -451,19 +451,28 @@ abstract class EntifixApplication
         return (this.serviceConfiguration.amqpService != null) && ( this.serviceConfiguration.amqpDefaultInteraction != false);
     }
 
+    get sessionSecret()
+    { 
+        if (this.serviceConfiguration && this.serviceConfiguration.session && this.serviceConfiguration.session.tokenSecret )
+            return this.serviceConfiguration.session.tokenSecret;
+        else
+            this.serviceSession.throwException("No token secret defined");
+    }
+
+    get sessionExpirationLimit()
+    { 
+        if (this.serviceConfiguration && this.serviceConfiguration.session && this.serviceConfiguration.session.expireLimit )
+            return this.serviceConfiguration.session.expireLimit;
+        else
+            this.serviceSession.throwException("No expiration limit defined"); 
+    }
+
     get sessionRefreshPeriod()
     {
-        return this.serviceConfiguration.session && this.serviceConfiguration.session.refreshPeriod ? this.serviceConfiguration.session.refreshPeriod : (60 * 5);
-    }
-
-    get sessionExpireLimit()
-    {
-        return this.serviceConfiguration.session && this.serviceConfiguration.session.expireLimit ? this.serviceConfiguration.session.expireLimit : (60 * 30);
-    }
-
-    get sessionTokenSecret()
-    {
-        return this.serviceConfiguration.session && this.serviceConfiguration.session.tokenSecret ? this.serviceConfiguration.session.tokenSecret : 'entifix-rocks';
+        if (this.serviceConfiguration && this.serviceConfiguration.session && this.serviceConfiguration.session.refreshPeriod ) 
+            return this.serviceConfiguration.session.refreshPeriod;
+        else
+            this.serviceSession.throwException("No refresh period defined"); 
     }
 
     get on()

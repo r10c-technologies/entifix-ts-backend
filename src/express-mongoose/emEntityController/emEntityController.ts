@@ -439,13 +439,14 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     }
 
     validateDocumentRequest ( request : express.Request, response : express.Response ) : Promise<RequestValidation<TDocument> | void>;
-    validateDocumentRequest ( request : express.Request, response : express.Response, options : { alwaysNew?: boolean } ) : Promise<RequestValidation<TDocument> | void>;
-    validateDocumentRequest ( request : express.Request, response : express.Response, options? : { alwaysNew?: boolean } ) : Promise<RequestValidation<TDocument> | void>
+    validateDocumentRequest ( request : express.Request, response : express.Response, options : { alwaysNew?: boolean, requireExisting? : boolean } ) : Promise<RequestValidation<TDocument> | void>;
+    validateDocumentRequest ( request : express.Request, response : express.Response, options? : { alwaysNew?: boolean, requireExisting? : boolean } ) : Promise<RequestValidation<TDocument> | void>
     {
         return new Promise<RequestValidation<TDocument>>( (resolve, reject) => {
 
             //Defaults
             let alwaysNew = options && options.alwaysNew != null ? options.alwaysNew : false;
+            let requireExisting = options && options.requireExisting != null ? options.requireExisting : false;
 
             if  ( (typeof request.body) != 'object' )
                 return resolve({ error: 'The data provided is not an object', errorData: request });
@@ -474,9 +475,14 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                 session => { if (session) {
                     if (parsedRequest.persistent._id && !alwaysNew) {
                         session.findDocument<TDocument>(this.entityName, parsedRequest.persistent._id).then( doc => {
-                            delete parsedRequest.persistent._id;
-                            let instanceResult = session.instanceDocument<TDocument>(this.entityInfo, parsedRequest.persistent, { existingDocument: doc });
-                            resolve({ document: instanceResult.document, devData, changes: instanceResult.changes, session });
+                            if (requireExisting && !doc) { 
+                                resolve({error: 'The ID does not exist for the resource', errorData: { id: parsedRequest.persistent._id } });
+                            }
+                            else {
+                                delete parsedRequest.persistent._id;
+                                let instanceResult = session.instanceDocument<TDocument>(this.entityInfo, parsedRequest.persistent, { existingDocument: doc });
+                                resolve({ document: instanceResult.document, devData, changes: instanceResult.changes, session });
+                            }
                         }).catch( reject );
                     }
                     else {
@@ -490,7 +496,8 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                 if (validation.error)
                 {
                     let details : any = { 
-                        validationError : validation.error,
+                        type: 'Entifix Handled Error',
+                        cause : validation.error,
                         validationDetails: validation.errorData
                     };
                 
@@ -516,7 +523,11 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         simpleObject.op = simpleObject.op || simpleObject.operator;
 
         let responseWithBadRequest = (message, nonValid?) : Promise<void>  => {
-            let details : any = { errorDescription: message };
+            let details : any = { 
+                cause: message, 
+                type: 'Entifix Handled Error'
+            };
+
             if (nonValid)
                 details.nonValid = nonValid;
             this._responseWrapper.handledError( response, 'Not valid payload', HttpStatus.BAD_REQUEST, details );
@@ -572,7 +583,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             delete request.body[p]; 
         });
 
-        return this.validateDocumentRequest(request,response).then( validation => {
+        return this.validateDocumentRequest(request,response, {requireExisting: true}).then( validation => {
             if (validation && !(validation as RequestValidation<TDocument>).error)  {
                 (validation as RequestActionValidation<TDocument>).methodName = operator;
                 (validation as RequestActionValidation<TDocument>).parameters = parameters

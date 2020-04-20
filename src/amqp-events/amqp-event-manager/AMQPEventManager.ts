@@ -80,42 +80,43 @@ class AMQPEventManager
         return instance;
     }
     
-    publish( eventName: string, data : any) : void;
-    publish( eventName: string, data : any, options: { session? : EMSession, entityName?: string, actionName?: string, entityId?: string } ) : void;
-    publish( eventName: string, data : any, options?: { session? : EMSession, entityName?: string, actionName?: string, entityId?: string } ) : void
+    publish( eventName: string, data : any) : Promise<void>;
+    publish( eventName: string, data : any, options: { session? : EMSession, entityName?: string, actionName?: string, entityId?: string } ) : Promise<void>;
+    publish( eventName: string, data : any, options?: { session? : EMSession, entityName?: string, actionName?: string, entityId?: string } ) : Promise<void>
     {
-        this._serviceSession.checkAMQPConnection();
+        return new Promise<void>((resolve,reject) => {
+            this._serviceSession.checkAMQPConnection();
 
-        let pub = this._events.find( p => p.name == eventName);
-
-        if (!pub)
-            this._serviceSession.throwException(`No registered event for: ${eventName}`);
-
-        pub.instance.constructMessage( data, options ).then( amqpMessage => {
-            let message = {
-                sender: amqpMessage.sender.serialize(),
-                eventArgs: amqpMessage.eventArgs.serialize()
-            };
+            let pub = this._events.find( p => p.name == eventName);
+            if (!pub)
+                reject(`No registered event for: ${eventName}`);
     
-            let publishOptions : amqp.Options.Publish;
-            if (amqpMessage.sender.publishOptions)
-            {
-                publishOptions = amqpMessage.sender.publishOptions;
-
-                if (!publishOptions.contentType)
-                    publishOptions.contentType = 'application/json'; 
-            }
-            else
-                publishOptions = { contentType: 'application/json' };
-            
-            this.assertEventChannel(pub.instance).then( c => {
-                let content = new Buffer(JSON.stringify(message));
-    
-                if (!pub.instance.specificQueue)
-                    c.publish( pub.instance.exchangeDescription.name, pub.instance.routingKey, content, publishOptions );
+            pub.instance.constructMessage( data, options ).then( amqpMessage => {
+                let message = {
+                    sender: amqpMessage.sender.serialize(),
+                    eventArgs: amqpMessage.eventArgs.serialize()
+                };
+        
+                let publishOptions : amqp.Options.Publish;
+                if (amqpMessage.sender.publishOptions) {
+                    publishOptions = amqpMessage.sender.publishOptions;
+                    if (!publishOptions.contentType)
+                        publishOptions.contentType = 'application/json'; 
+                }
                 else
-                    c.sendToQueue( pub.instance.specificQueue, content, publishOptions );
-            });
+                    publishOptions = { contentType: 'application/json' };
+                
+                this.assertEventChannel(pub.instance).then( c => {
+                    let content = new Buffer(JSON.stringify(message));
+
+                    if (!pub.instance.specificQueue)
+                        c.publish( pub.instance.exchangeDescription.name, pub.instance.routingKey, content, publishOptions );
+                    else
+                        c.sendToQueue( pub.instance.specificQueue, content, publishOptions );
+                    
+                    resolve();
+                }).catch(reject);
+            }).catch(reject);
         });
     }
 

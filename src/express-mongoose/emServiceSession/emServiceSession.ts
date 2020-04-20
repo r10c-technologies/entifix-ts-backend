@@ -167,20 +167,24 @@ class EMServiceSession
         return this._amqpEventManager;
     }
 
-    publishAMQPMessage( session : EMSession, eventName: string, data : any ) : void
+    publishAMQPMessage( session : EMSession, eventName: string, data : any ) : Promise<void>
     {
-        if (this._amqpEventManager)
-            this._amqpEventManager.publish(eventName, data, { session });
-        else
-            this.throwException('No AMQP Event manager binded');
+        return new Promise<void>( (resolve, reject) => {
+            if (this._amqpEventManager)
+                this._amqpEventManager.publish(eventName, data, { session }).then(resolve).catch(reject);
+            else
+                reject('No AMQP Event manager binded');
+        });
     }
     
-    publishAMQPAction( session : EMSession, methodInfo : MethodInfo, entityId: string, data : any ) : void
+    publishAMQPAction( session : EMSession, methodInfo : MethodInfo, entityId: string, data : any ) : Promise<void>
     {
-        if (this._amqpEventManager)
-            this._amqpEventManager.publish(methodInfo.eventName, data, { session, entityName: methodInfo.className, actionName: methodInfo.name, entityId });
-        else
-            this.throwException('No AMQP Event manager binded');
+        return new Promise<void>((resolve,reject)=>{
+            if (this._amqpEventManager)
+                this._amqpEventManager.publish(methodInfo.eventName, data, { session, entityName: methodInfo.className, actionName: methodInfo.name, entityId }).then(resolve).catch(reject);
+            else
+                reject('No AMQP Event manager binded');
+        });
     }
 
     getInfo(entityName : string) : EntityInfo
@@ -528,8 +532,6 @@ class ModelActivator<T extends mongoose.Document>
 
 
 
-
-
 class EMSessionError
 {
     //#region Properties
@@ -538,6 +540,9 @@ class EMSessionError
     private _error : any;
     private _message: string;
     private _isHandled : boolean;
+    private _helper : string;
+    private _includeDetails : boolean;
+    private _cause : string;
 
     //#endregion
 
@@ -549,14 +554,22 @@ class EMSessionError
         this._message = message;
 
         this._code = 500;
+        this._includeDetails = true;
     }    
 
-    setAsHandledError( code : number, message : string) : void
+    setAsHandled( code : number, options? : { helper? : string, includeDetails? : boolean, cause? : string }  ) : void
     {
-        this._code = code;
-        this._message = message;
-
         this._isHandled = true;
+        this._code = code;
+
+        if (options) {
+            this._helper = options.helper; 
+            this._cause = options.cause;   
+
+            if (options.includeDetails != null)
+                this._includeDetails = options.includeDetails;
+        }
+        
     }
 
     //#endregion
@@ -574,11 +587,23 @@ class EMSessionError
     
     get isHandled()
     { return this._isHandled; }
+
+    get helper()
+    { return this._helper; }
+
+    get cause()
+    { return this._cause; }
+
+    get includeDetails()
+    { return this._includeDetails; }
     
     //#endregion
 }
 
-export { EMServiceSession, EMSessionError }
+export { 
+    EMServiceSession, 
+    EMSessionError
+}
 
 
 

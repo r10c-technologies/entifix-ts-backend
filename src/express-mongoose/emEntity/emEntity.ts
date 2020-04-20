@@ -131,42 +131,51 @@ class EMEntity extends Entity
         return { persistent, nonPersistent, readOnly, nonValid, ownArrayController };
     }
 
-    save() : Promise<EntityMovementFlow>
+    save(): Promise<EntityMovementFlow> 
     {
-        return new Promise<EntityMovementFlow>( (resolve, reject) => 
-            this.onSaving().then( movFlow => {
-                    if (movFlow.continue) {
-                        this.performExtensionOperators(EMEntityMetaOperationType.BeforeSave).then( extensionMovFlow => {  
-                            if (extensionMovFlow.continue) {
-
-                                this.syncActibableAccessors();
-                                
-                                if (this._document.isNew)
-                                    this._session.createDocument(this.entityInfo.name, this._document).then(
-                                        documentCreated => {
-                                            this._document = documentCreated;
-                                            this.afterSaveEntity(true).then( result => resolve(result) ).catch(reject);
-                                        }
-                                    ).catch( exception => 
-                                        this.performExtensionOperators(EMEntityMetaOperationType.OnSaveException, { exception } ).then( reject ).catch( reject )
-                                    );
+        return new Promise<EntityMovementFlow>((resolve, reject) =>
+            this.onSaving()
+                .then(movFlow => {
+                    if (movFlow.continue)
+                        this.performExtensionOperators(EMEntityMetaOperationType.BeforeSave)
+                            .then(extensionMovFlow => {
+                                if (extensionMovFlow.continue) {
+                                    this.syncActibableAccessors(this);
+                                    if (this._document.isNew)
+                                        this._session
+                                            .createDocument(this.entityInfo.name, this._document)
+                                            .then(documentCreated => {
+                                                this._document = documentCreated;
+                                                this.afterSaveEntity(true).then(result => resolve(result)).catch(reject);
+                                            })
+                                            .catch(exception =>
+                                                this.performExtensionOperators(EMEntityMetaOperationType.OnSaveException, { exception })
+                                                    .then(() => reject(exception))
+                                                    .catch(() => reject(exception))
+                                            );
+                                    else
+                                        this._session
+                                            .updateDocument(this.entityInfo.name, this._document)
+                                            .then(documentUpdated => {
+                                                this._document = documentUpdated;
+                                                this.afterSaveEntity(false)
+                                                    .then(result => resolve(result))
+                                                    .catch(reject);
+                                            })
+                                            .catch(exception =>
+                                                this.performExtensionOperators(EMEntityMetaOperationType.OnSaveException, { exception })
+                                                    .then(() => reject(exception))
+                                                    .catch(() => reject(exception))
+                                            );
+                                }
                                 else
-                                    this._session.updateDocument(this.entityInfo.name, this._document).then(
-                                        documentUpdated => {
-                                            this._document = documentUpdated;
-                                            this.afterSaveEntity(false).then( result => resolve(result) ).catch(reject);
-                                        }
-                                    ).catch( exception => 
-                                        this.performExtensionOperators(EMEntityMetaOperationType.OnSaveException, { exception } ).then( reject ).catch( reject )
-                                    );
-                            }
-                            else
-                                resolve(extensionMovFlow);
-                        }).catch( reject );
-                    }
+                                    resolve(extensionMovFlow);
+                            })
+                            .catch(reject);
                     else
                         resolve(movFlow);
-            }).catch( reject )               
+                })
+                .catch(reject)
         );
     }
 
@@ -311,14 +320,6 @@ class EMEntity extends Entity
             return false;
     }
 
-    private syncActibableAccessors() : void
-    {
-        this.entityInfo.getAccessors().filter( a => a.activator != null && (a.type == 'Array' || a.activator.bindingType == MemberBindingType.Snapshot) ).forEach( accessor => {
-            let thisObject = this;
-            thisObject[accessor.name] = thisObject[accessor.name];
-        });
-    }
-
     private triggerAMQP( entityEventType : EntityEventLogType ) : void
     {
         new Promise<void>((resolve, reject) => {
@@ -331,6 +332,29 @@ class EMEntity extends Entity
             //*** Pending manage retry dynamic */
         });            
     }
+    
+    private syncActibableAccessors( entity : EMEntity ) : void
+    {
+        for (let accesor of entity.entityInfo.getAccessors()) {
+            if (accesor.activator && entity[accesor.name]) {
+                let value = entity[accesor.name];
+
+                if (value instanceof Array) 
+                    value.forEach( value => {
+                        if (value instanceof EMEntity)
+                            this.syncActibableAccessors(value);
+                    });
+                else if (value instanceof EMEntity) 
+                    this.syncActibableAccessors(value);
+                
+                // set the members again to update the document inside
+                entity[accesor.name] = entity[accesor.name]; 
+            }
+        }
+    }
+
+    
+
 
     //#endregion
 

@@ -71,13 +71,19 @@ class EMResponseWrapper
             {
                 response.statusCode = e.code;
                 
-                let errorData : any = e.error || {};
+                let errorData : any = {
+                    type: 'Entifix Handled Error'
+                };
 
-                if (!errorData.serviceStatus)
+                if (e.cause)
+                    errorData.cause = e.cause;
+
+                if (this._serviceSession.isDevMode) {
                     errorData.serviceStatus = 'Developer mode is enabled.';
-                
-                if (!errorData.helper)
-                    errorData.helper = "The error did not occur on the Service's Session";
+                    errorData.helper = e.helper;
+                    if (e.includeDetails)
+                        errorData.details = e.error;
+                }
                 
                 response.send( Wrapper.wrapError( e.message.toUpperCase() , errorData).serializeSimpleObject() );
             }

@@ -8,7 +8,7 @@ import 'moment';
 import { HcSession } from '../../hc-core/hcSession/hcSession';
 import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType, MethodInfo, MemberActivator} from '../../hc-core/hcMetaData/hcMetaData';
 import { EMEntity, EntityDocument } from '../emEntity/emEntity';
-import { EMServiceSession } from '../emServiceSession/emServiceSession'; 
+import { EMServiceSession, EMSessionError } from '../emServiceSession/emServiceSession'; 
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import { EMEntityMultiKey, EntityKey, IEntityKey, IEntityKeyModel } from '../emEntityMultiKey/emEntityMultiKey';
 import moment = require('moment');
@@ -83,11 +83,10 @@ class EMSession extends HcSession
     {   
         return new Promise<T>((resolve, reject)=>{
             this.manageDocumentCreation(document);
-            document.save().then(
-                value => resolve(value), 
-                error => reject( this.createError(error, 'Error in create document' ))
-            );
-
+            document
+                .save()
+                .then(value => resolve(value))
+                .catch( exception => reject(this.handleMongoError(exception, 'Exception on document creation')));
         });
     }
 
@@ -97,20 +96,20 @@ class EMSession extends HcSession
             let model = this.getModel<T>(entityName);
             this.manageDocumentUpdate(document);
 
-            document.update( document, (error, result) => {
-                if (!error)
-                {
-                    model.findById(document._id,(err, doc) =>{
-                        if (err)
-                            reject( this.createError(err, 'The document was updated but it could not be reloaded') );
-                        else
-                            resolve(doc);   
-                    });
+            document
+                .update( document, (error, result) => {
+                    if (!error) {
+                        model.findById(document._id,(err, doc) =>{
+                            if (err)
+                                reject( this.createError(err, 'Document updated. It could not be reloaded') );
+                            else
+                                resolve(doc);   
+                        });
+                    }
+                    else 
+                        reject( this.handleMongoError(error, 'Error on document update') );
                 }
-                else
-                    reject( this.createError(error, 'Error in update document') );
-            });
-
+            );
         });
     }
 
@@ -565,6 +564,22 @@ class EMSession extends HcSession
         return this._serviceSession.createError(error, message);
     }
 
+    private handleMongoError(exception : any, message : string) : EMSessionError
+    {
+        let error : EMSessionError;
+        if (exception && exception.name == 'ValidationError') {
+            error = new EMSessionError(exception, message);
+            error.setAsHandled(400, {
+                cause: 'Data validations uncompleted', 
+                helper: 'Mongo ValidationError - ' + exception.message, 
+                includeDetails: false 
+            })
+            return error;
+        }
+        else
+            return this.createError(exception, message);
+    }
+
     private manageDocumentCreation<TDocument extends EntityDocument>(document : TDocument) : void
     {
         document.created = new Date();
@@ -1007,14 +1022,14 @@ class EMSession extends HcSession
             return { error: true };
     }
 
-    publishAMQPMessage(eventName : string, data : any) : void
+    publishAMQPMessage(eventName : string, data : any) : Promise<void>
     {
-        this._serviceSession.publishAMQPMessage(this, eventName, data);
+        return this._serviceSession.publishAMQPMessage(this, eventName, data);
     }
 
-    publishAMQPAction( methodInfo : MethodInfo, entityId: string, data: any ) : void
+    publishAMQPAction( methodInfo : MethodInfo, entityId: string, data: any ) : Promise<void> 
     {
-        this._serviceSession.publishAMQPAction( this, methodInfo, entityId, data );
+        return this._serviceSession.publishAMQPAction( this, methodInfo, entityId, data );
     }
 
     throwException (message : string) : void
