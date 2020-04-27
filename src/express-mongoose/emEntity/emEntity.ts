@@ -57,18 +57,33 @@ class EMEntity extends Entity
     {
         var simpleObject : any = {};
         
-        this.entityInfo.getAccessors().filter( accessor => accessor.exposition ).forEach( accessor => {
-            let nameSerialized = accessor.serializeAlias || accessor.name;
-            if ( accessor.activator != null && this[accessor.name] != null) {
-                if (accessor.activator.includeDuringSerialization) {
-                    if (accessor.type == "Array") 
-                        simpleObject[nameSerialized] = ( this[accessor.name] as Array<EMEntity>).map( e =>  e._id); 
-                    else
-                        simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
+        this.entityInfo
+            .getAccessors()
+            .filter( accessor => accessor.exposition )
+            .forEach( accessor => {
+                let nameSerialized = accessor.serializeAlias || accessor.name;
+                if ( accessor.activator != null && this[accessor.name] != null) {
+                    if (accessor.activator.includeDuringSerialization) {
+                        switch(accessor.activator.includeDuringSerialization) {
+                            case 'completeEntity':
+                                if (accessor.type == "Array") 
+                                    simpleObject[nameSerialized] = ( this[accessor.name] as Array<EMEntity>).map( e =>  e.serializeExposedAccessors()); 
+                                else
+                                    simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity ).serializeExposedAccessors();
+                                break;
+                            /**
+                             * Add more cases
+                             */
+                            default:
+                                if (accessor.type == "Array") 
+                                    simpleObject[nameSerialized] = ( this[accessor.name] as Array<EMEntity>).map( e =>  e._id); 
+                                else
+                                    simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
+                        }
+                    }
                 }
-            }
-            else
-                simpleObject[nameSerialized] = this[accessor.name];
+                else
+                    simpleObject[nameSerialized] = this[accessor.name];
         });
 
         return simpleObject;

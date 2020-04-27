@@ -94,16 +94,16 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
 
     private _entityInfo : EntityInfo;
         
-    private _includeDuringSerialization : boolean;
-    private _consideDuringDeserialization : boolean;
+    private _includeDuringSerialization : boolean | string;
+    private _consideDuringDeserialization : boolean | string;
 
     //#endregion
 
     //#region Methods
 
     constructor(entityInfo : EntityInfo, bindingType : MemberBindingType, extendRoute : boolean );
-    constructor(entityInfo : EntityInfo, bindingType : MemberBindingType, extendRoute : boolean, options : { resourcePath? : string, includeDuringSerialization? : boolean, considerDuringDeserialization? : boolean } );
-    constructor(entityInfo : EntityInfo, bindingType : MemberBindingType, extendRoute : boolean, options? : { resourcePath? : string, includeDuringSerialization? : boolean, considerDuringDeserialization? : boolean } )
+    constructor(entityInfo : EntityInfo, bindingType : MemberBindingType, extendRoute : boolean, options : { resourcePath? : string, includeDuringSerialization? : boolean | string, considerDuringDeserialization? : boolean | string } );
+    constructor(entityInfo : EntityInfo, bindingType : MemberBindingType, extendRoute : boolean, options? : { resourcePath? : string, includeDuringSerialization? : boolean  | string, considerDuringDeserialization? : boolean | string } )
     {
         super(bindingType, extendRoute, options != null && options.resourcePath != null ? options.resourcePath : entityInfo.name.toLowerCase());
 
@@ -307,10 +307,10 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
     get defaultSchema ()
     { return null; }
 
-    get includeDuringSerialization() : boolean
+    get includeDuringSerialization() : boolean | string
     { return this._includeDuringSerialization; }
     
-    get considerDuringDeserialization() : boolean
+    get considerDuringDeserialization() : boolean | string 
     { return this._consideDuringDeserialization; }
 
 

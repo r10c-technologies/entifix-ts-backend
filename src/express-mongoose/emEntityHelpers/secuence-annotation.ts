@@ -6,8 +6,7 @@ import {
     addEntityMetadataOperation 
 } from "../../extensibility"
 
-import { CounterModel, counterSchema, assertCounterModelDefinition, CounterOperation } from './counter';
-import { EMServiceSession } from "../emServiceSession/emServiceSession";
+import { CounterModel, assertCounterModelDefinition, CounterOperation } from './counter';
 
 
 function Secuence();

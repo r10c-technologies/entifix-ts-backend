@@ -247,7 +247,7 @@ abstract class EntifixApplication
             
             this._routerManager = new EMRouterManager( this.serviceSession, this._expressApp, { basePath: this.serviceConfiguration.basePath } ); 
             this.exposeEntities();
-
+            EMServiceSession.emit("routerManagerStarted", this.routerManager);
 
             if ( this.serviceConfiguration.amqpService && this.useDefaultAMQPInteraction )
             {
@@ -486,6 +486,7 @@ abstract class EntifixApplication
     }
 
     //#endregion
+
 }
 
 function Consumer(idReq, resolvePromise) 

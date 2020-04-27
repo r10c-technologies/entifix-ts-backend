@@ -511,7 +511,7 @@ class EMServiceSession
     static get on() 
     { return this._eventEmitter.on; }
 
-    private static get emit()
+    static get emit()
     {
         return this._eventEmitter.emit;
     }

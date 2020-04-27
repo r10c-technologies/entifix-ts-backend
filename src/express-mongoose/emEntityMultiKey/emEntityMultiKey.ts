@@ -104,7 +104,8 @@ class EMEntityMultiKey extends EMEntity implements IEntityMultiKey
     @DefinedAccessor( { 
         exposition: ExpositionType.Normal, 
         schema: { type : Array }, 
-        activator: new EMMemberActivator<EntityKey, IEntityKeyModel>(EntityKey.getInfo(), MemberBindingType.Snapshot, true)     } )
+        activator: new EMMemberActivator<EntityKey, IEntityKeyModel>(EntityKey.getInfo(), MemberBindingType.Snapshot, true, { includeDuringSerialization: 'completeEntity'})     
+    })
     get alternativeKeys() : Array<EntityKey>
     { return this._alternativeKeys; }
     set alternativeKeys( value:Array<EntityKey> )

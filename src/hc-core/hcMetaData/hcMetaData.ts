@@ -472,8 +472,8 @@ abstract class MemberActivator
     
     abstract get referenceType () : string;
     abstract get defaultSchema () : any;
-    abstract get includeDuringSerialization() : boolean;
-    abstract get considerDuringDeserialization() : boolean;
+    abstract get includeDuringSerialization() : boolean | string;
+    abstract get considerDuringDeserialization() : boolean | string;
 
     //#endregion
 
