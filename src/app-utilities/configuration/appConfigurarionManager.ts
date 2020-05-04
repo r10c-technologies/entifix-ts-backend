@@ -69,7 +69,7 @@ class AppConfigurationManager
                                 .setDescription(appConfigMetadata.options.description)
                                 .setGroup(appConfigMetadata.options.group)
                                 .setUserManagement(appConfigMetadata.options.userManagement)
-                                .setDisplay(appConfigMetadata.options.display)
+                                .setDisplayName(appConfigMetadata.options.displayName)
                                 .setValue(value)
                                 .save()
                                 .then( result => {

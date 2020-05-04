@@ -4,7 +4,7 @@ import { AppConfigurationMetadataSet } from './app-configuration-metadata';
 import { IAppConfigurationModel, AppConfiguration } from "./appConfiguration";
 import { EMEntityController } from '../../express-mongoose/emEntityController/emEntityController';
 import { EMRouterManager } from '../../express-mongoose/emRouterManager/emRouterManager';
-import { BAD_REQUEST } from 'http-status-codes';
+import { BAD_REQUEST, NOT_FOUND, NO_CONTENT } from 'http-status-codes';
 
 
 
@@ -24,10 +24,57 @@ class AppConfigurationController extends EMEntityController<IAppConfigurationMod
 
     createRoutes() 
     {
+        this.router.get('/' + this.resourceName + '/user-management/:id', (request, response, next) => this.userManagementRetriveOne(request, response, next) );
         this.router.get('/' + this.resourceName + '/user-management', (request, response, next)=> this.userManagementRetrieve(request, response,next) );
         this.router.post('/' + this.resourceName + '/user-management', (request, response, next) => this.userManagementCreateOrUpdate(request,response,next) );
         
         super.createRoutes();
+    }
+
+    userManagementRetriveOne( request : Request, response : Response, next : NextFunction ) : void
+    {
+        this.createSession(request, response)
+            .then( session => { if (session) {
+                let id = request.params.id;
+                let configList = AppConfigurationMetadataSet.getUserAdminConfiguraions();
+                if (configList != null && configList.length > 0) {
+                    let matchConfig = configList.find( c => c.name == id);
+                    if (matchConfig) {
+                        let filter : any = { name: matchConfig.name };
+                        if (matchConfig.options.group)
+                            filter.group = matchConfig.options.group;
+
+                        session
+                            .listEntitiesByQuery<AppConfiguration, IAppConfigurationModel>(AppConfiguration.getInfo(), filter)
+                            .then( results => {
+                                    if (results && results.length > 0)
+                                        this.responseWrapper.entity(response, results[0]); 
+                                    else
+                                        this.responseWrapper.entity(response, 
+                                                new AppConfiguration(session)
+                                                        .setName(matchConfig.name)
+                                                        .setGroup(matchConfig.options.group)
+                                                        .setDescription(matchConfig.options.description)
+                                                        .setUserManagement(matchConfig.options.userManagement)
+                                                        .setDisplayName(matchConfig.options.displayName)
+                                                        .setValue(matchConfig.options.defaultValue)
+                                            );
+                                })
+                            .catch( e => this.responseWrapper.exception(response, e));
+                    } 
+                    else 
+                        session.findEntity<AppConfiguration, IAppConfigurationModel>(AppConfiguration.getInfo(), id)
+                                .then( appConfig => {
+                                        if (appConfig && appConfig.userManagement) 
+                                            this.responseWrapper.entity(response, appConfig);
+                                        else
+                                            this.responseWrapper.handledError(response, 'No app configuration for user management', NO_CONTENT);
+                                    })
+                                .catch(e => this.responseWrapper.exception(response, e));                 
+                }
+                else
+                    this.responseWrapper.object(response, null);
+            }});
     }
 
     userManagementRetrieve( request : Request, response : Response, next : NextFunction ) : void
@@ -54,6 +101,7 @@ class AppConfigurationController extends EMEntityController<IAppConfigurationMod
                                                                 .setGroup(config.options.group)
                                                                 .setDescription(config.options.description)
                                                                 .setUserManagement(config.options.userManagement)
+                                                                .setDisplayName(config.options.displayName)
                                                                 .setValue(config.options.defaultValue)
                                             });
                             }))
@@ -95,7 +143,7 @@ class AppConfigurationController extends EMEntityController<IAppConfigurationMod
                                             .setGroup(configDef.options.group)
                                             .setDescription(configDef.options.description)
                                             .setUserManagement(configDef.options.userManagement)
-                                            .setDisplay(configDef.options.display)
+                                            .setDisplayName(configDef.options.displayName)
                                             .setValue(request.body.value); // Pending deeper validations for value
 
                             config

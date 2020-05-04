@@ -70,7 +70,7 @@ interface DefinedAppConfigurationOptions
     group?: string
     defaultValue?: any;
     userManagement?: boolean;
-    display?: string
+    displayName?: string
 }
 
 interface AppConfigurationMetadata

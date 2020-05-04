@@ -13,7 +13,7 @@ interface IAppConfiguration extends IBaseEntity
     description : string;
     group: string;
     userManagement: boolean;
-    display : string;
+    displayName : string;
 }
 
 
@@ -73,10 +73,10 @@ class AppConfiguration extends EMEntity implements IAppConfiguration
     { (this._document as IAppConfigurationModel).userManagement = value; }
 
     @DefinedAccessor({ exposition: ExpositionType.Normal, schema: { type: String} })
-    get display(): string 
-    { return (this._document as IAppConfigurationModel).display; }
-    set display(value: string)
-    { (this._document as IAppConfigurationModel).display = value; }
+    get displayName(): string 
+    { return (this._document as IAppConfigurationModel).displayName; }
+    set displayName(value: string)
+    { (this._document as IAppConfigurationModel).displayName = value; }
 
 
     setName(name : string) {
@@ -99,8 +99,8 @@ class AppConfiguration extends EMEntity implements IAppConfiguration
         return this;
     }
 
-    setDisplay(display : string) {
-        this.display = display;
+    setDisplayName(displayName : string) {
+        this.displayName = displayName;
         return this;
     }
 
