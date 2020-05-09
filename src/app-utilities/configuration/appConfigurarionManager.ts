@@ -22,6 +22,11 @@ class AppConfigurationManager
         let appConfigMetadata = getAppConfigurationMetadata(configType);
 
         if (appConfigMetadata){
+            //First: check for environment values if necessary
+            if (appConfigMetadata.options.envValue && process.env[appConfigMetadata.options.envValue])
+                return Promise.resolve(process.env[appConfigMetadata.options.envValue] as any);
+            
+            //Second: check for database of default value
             let filter : any = { name: appConfigMetadata.name };
             if (appConfigMetadata.options && appConfigMetadata.options.group)
                 filter.group = appConfigMetadata.options.group;
