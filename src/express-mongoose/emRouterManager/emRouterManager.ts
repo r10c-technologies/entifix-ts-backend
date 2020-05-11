@@ -310,9 +310,11 @@ class EMRouterManager {
                 if ( result instanceof EMEntity) {  
                     if (expositionAccessorInfo.activator.bindingType == MemberBindingType.Snapshot) {
                         if (expositionAccessorInfo.type == 'Array') {
-                            let index = (baseEntity[pathTo] as Array<EMEntity>).findIndex( e => e._id == result._id );
-                            (baseEntity[pathTo] as Array<EMEntity>).splice(index, 1);
-                            (baseEntity[pathTo] as Array<EMEntity>).push(result);
+                            let index = (baseEntity[pathTo] as Array<EMEntity>).findIndex( e => e._id.toString() == result._id.toString() );
+                            if (index >= 0) 
+                                (baseEntity[pathTo] as Array<EMEntity>)[index] = result;
+                            else
+                                constructionController.responseWrapper.handledError(session.response, `Index not found for item with id [${result._id.toString()}]`, HttpStatus.BAD_REQUEST);
                         }                    
                         else
                             baseEntity[pathTo] = result;

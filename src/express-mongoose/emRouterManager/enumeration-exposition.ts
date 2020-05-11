@@ -52,7 +52,7 @@ function createEnumController( name: string, enumerator : any, options? : Expose
                         let queryValue = req.query[p];
                         let extractFilter = ( v ) => { 
                             let av = v.split('|');
-                            if (av.length == 3 && av[1] == 'eq')
+                            if (av.length == 3 && (av[1] == 'eq' || av[1] == '='))
                                 return { key: av[0], value: av[2] };
                             else 
                                 addDevData(v);
