@@ -4,34 +4,36 @@ import { Entity } from '../hcEntity/hcEntity';
 import { HcSession } from '../hcSession/hcSession';
 
 function DefinedEntity( );
-function DefinedEntity( params : { packageName? : string, abstract? : boolean, fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType> } )
-function DefinedEntity( params? : { packageName : string, abstract? : boolean, fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType> } )
+function DefinedEntity( params : { packageName? : string, abstract? : boolean, fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType>, inheritedMapping?: boolean } )
+function DefinedEntity( params? : { packageName : string, abstract? : boolean, fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType>, inheritedMapping?: boolean } )
 {    
     return function(target : Function)
     {
-        //var entityInfo = checkMetadata(target);
-        //target.prototype.entityInfo.name = params.name;
-
         let tempPackageName = params != null && params.packageName != null ? params.packageName : 'app';
         let tempIsAbstract = params != null && params.abstract != null ? params.abstract : false; 
-        
-        //let info = defineMetaData( target, CreationType.class );
-        
+           
         if (!target.prototype.entityInfo)
             target.prototype.entityInfo = new EntityInfo(target);
         
-        let info = target.prototype.entityInfo;
+        let info : EntityInfo = target.prototype.entityInfo;
 
         if (info.name != target.name)
         {
             let options = {
                 fixedSystemOwner: params ? params.fixedSystemOwner : null,
-                allowRequestedType: params ? params.allowRequestedType : true
+                allowRequestedType: params ? params.allowRequestedType : true,
+                inheritedMapping: params ? params.inheritedMapping : false
             };
 
             let newInfo = new EntityInfo(target, options);
             newInfo.implementBaseInfo(info, tempIsAbstract );
-            newInfo.packageName = tempPackageName;
+            
+            if (params && params.packageName)
+                newInfo.packageName = params.packageName;
+            else if (options.inheritedMapping)
+                newInfo.packageName = info.packageName;
+            else
+                newInfo.packageName = tempPackageName;
             
             target.prototype.entityInfo = newInfo;
         }
@@ -257,25 +259,30 @@ class EntityInfo
     private _isAbstract : boolean;
     private _fixedSystemOwner : string;
     private _allowRequestedType : boolean | RequestedType | Array<RequestedType>;
+    private _inheritedMapping : boolean;
 
     //#endregion
 
     //#region Methods
     constructor( entityConstructor : Function );
-    constructor( entityConstructor : Function, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType> }, display : string );
-    constructor( entityConstructor : Function, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType> }, display? : string );
-    constructor( entityConstructor : Function, options?: { fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType> }, display?: string )
+    constructor( entityConstructor : Function, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType>, inheritedMapping? : boolean }, display : string );
+    constructor( entityConstructor : Function, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType>, inheritedMapping? : boolean }, display? : string );
+    constructor( entityConstructor : Function, options?: { fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType>, inheritedMapping? : boolean }, display?: string )
     {   
         this._entityConstructor = entityConstructor;
         this._name = entityConstructor.name;
         this._definedMembers = new Array<MemberInfo>();    
         this._isAbstract = true;
         this._display = display ? display : Function.name;
+        this._inheritedMapping = false;
 
         if (options)
         {
             this._fixedSystemOwner = options.fixedSystemOwner;
             this._allowRequestedType = options.allowRequestedType;
+
+            if (options.inheritedMapping != null)
+                this._inheritedMapping = options.inheritedMapping;
         }
     }
 
@@ -430,6 +437,9 @@ class EntityInfo
 
     get allowRequestedType()
     { return this._allowRequestedType; }
+
+    get inheritedMapping()
+    { return this._inheritedMapping; }
 
     //#endregion
 }

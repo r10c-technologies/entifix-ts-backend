@@ -26,6 +26,8 @@ class EMServiceSession
     private _brokerConnection : amqp.Connection;
     private _brokerChannels : Array<{ name:string, instance:amqp.Channel}>;
     private _authCacheClient : redis.RedisClient;
+    private _isBrokerConnected : boolean;
+    private _isCacheConnected : boolean;
         
     //Configuraion properties
     private _mongoServiceConfig : string | MongoServiceConfig;
@@ -48,7 +50,7 @@ class EMServiceSession
         schema: any, 
         models: Array<{ systemOwner: string, model: any}>, 
         activateType: (s : EMSession, d : EntityDocument) => any, 
-        modelActivator : any // Use any type to enable create entity instances without the generic type
+        modelActivator : ModelActivator
     }>;
 
     private _unconstrainedModels : Array<{
@@ -125,7 +127,13 @@ class EMServiceSession
 
         asyncConn.push( new Promise<void>((resolve,reject)=>{
             if (this._urlAmqpConnection)
-                this.atachToBroker().then( () => resolve()).catch( error => reject(error));
+                this.atachToBroker()
+                    .then( () => { 
+                            this._isBrokerConnected = true;
+                            this._brokerConnection.on('close', () => this._isBrokerConnected = false );
+                            resolve(); 
+                        })
+                    .catch( error => reject(error));
             else
                 resolve();
         }) );
@@ -134,7 +142,12 @@ class EMServiceSession
             if (this._cacheService && this._cacheService.host && this._cacheService.port )
             {
                 this._authCacheClient = redis.createClient({ host: this._cacheService.host, port : this._cacheService.port });
-                this._authCacheClient.on( "error ", err => this.throwException(err));
+                this._isCacheConnected = this._authCacheClient != null;
+
+                if (this._isCacheConnected) {
+                    this._authCacheClient.on( 'end', err => this._isCacheConnected = false );
+                    this._authCacheClient.on( 'error', err => this._isCacheConnected = false );
+                }
 
                 //Pending to validate async result
                 resolve();
@@ -211,8 +224,7 @@ class EMServiceSession
             let modelRegister = infoRegister.models.find( m => m.systemOwner == systemOwner );
             if (!modelRegister)
             {
-                let modelName = systemOwner + '_' + infoRegister.name; 
-                model = infoRegister.modelActivator.activate( this._mongooseConnection, modelName, infoRegister.schema );
+                model = this.createEntityModel<TDocument>(systemOwner, infoRegister.info, infoRegister.modelActivator, infoRegister.schema)
                 infoRegister.models.push({ systemOwner: systemOwner, model });
             }
             else
@@ -246,7 +258,7 @@ class EMServiceSession
                 activateType: (s : EMSession, d : EntityDocument) => {
                     return new type(s, d);
                 },
-                modelActivator: new ModelActivator<TDocument>()
+                modelActivator: new ModelActivator()
             });
         }
         else
@@ -257,8 +269,7 @@ class EMServiceSession
     {
         this._entitiesInfo.forEach( ei => {
             let devData = this.getDeveloperUserData({skipNotification: true});
-            let modelName = devData.systemOwnerSelected  + '_' + ei.name;
-            let model = ei.modelActivator.activate( this._mongooseConnection, modelName, ei.schema );
+            let model = this.createEntityModel(devData.systemOwnerSelected, ei.info, ei.modelActivator, ei.schema);
             ei.models.push({ systemOwner: devData.systemOwnerSelected, model });
         });
     }
@@ -267,11 +278,34 @@ class EMServiceSession
     {        
         this._entitiesInfo.filter( ei => ei.models.find( m => m.systemOwner == systemOwner ) == null && ei.info.fixedSystemOwner == null ).forEach(
             ei => {
-                let modelName = systemOwner + '_'+ ei.name;
-                let model = ei.modelActivator.activate( this._mongooseConnection, modelName, ei.schema );
+                let model = this.createEntityModel(systemOwner, ei.info, ei.modelActivator, ei.schema );
                 ei.models.push({ systemOwner, model }); 
             }
         );
+    }
+
+    private createEntityModel<T extends EntityDocument>(systemOwner : string, entityInfo : EntityInfo, modelActivator : ModelActivator, schema: any) 
+    {
+        let modelName : string;
+        let discriminator : string;
+
+        if (entityInfo.inheritedMapping) {
+            discriminator = `${this.serviceName}.${entityInfo.packageName}.${entityInfo.name}`; 
+
+            let base =  entityInfo.base;
+            while (base && !modelName) {
+                if (!base.inheritedMapping)
+                    modelName = base.name;
+                base = base.base;
+            }
+        }
+        else
+            modelName = entityInfo.name;
+
+        if (!modelName)
+            this.throwException(`It was not possible to map the class [${entityInfo.name}] to a persistent model`);
+
+        return modelActivator.activate<T>(this._mongooseConnection, systemOwner, modelName, schema, { discriminator } );
     }
 
     addUnconstrainedModelDefinition<TModel extends mongoose.Document>( name : string, schema : mongoose.Schema )
@@ -280,7 +314,7 @@ class EMServiceSession
             this._unconstrainedModels = [];
         
         if (!this._unconstrainedModels.find( um => um.name == name)) {
-            let modelActivator = new ModelActivator<TModel>();
+            let modelActivator = new ModelActivator();
             this._unconstrainedModels.push({ name, modelActivator, models: null, schema });
         }
     }
@@ -486,6 +520,16 @@ class EMServiceSession
     get reportsService() : { host : string, port : string, path : string, methodToRequest : string }
     { return this._reportsService; } 
 
+
+    get isBrokerConnected() : boolean
+    { return this._isBrokerConnected; }
+
+    get isCacheConnected() : boolean
+    { return this._isCacheConnected; }
+
+    get isDbConnected() : boolean 
+    { return this._mongooseConnection.readyState == 1; }
+
     //#endregion
 
     //#region  Static
@@ -520,16 +564,20 @@ class EMServiceSession
     //#endregion
 }
 
-class ModelActivator<T extends mongoose.Document>
+class ModelActivator
 {
     constructor() { }
 
-    activate( mongooseConnection : mongoose.Connection, name : string, schema : mongoose.Schema ) : mongoose.Model<T>
+    activate<T extends EntityDocument>( mongooseConnection : mongoose.Connection, systemOwner: string, name : string, schema : mongoose.Schema, options? : { discriminator? : string } ) : mongoose.Model<T>
     {
-        return mongooseConnection.model<T>(name, schema);
+        let completeModelName = systemOwner + '_' + name;
+        if (options && options.discriminator)
+            return mongooseConnection.model(completeModelName).discriminator<T>(systemOwner + '.' + options.discriminator, schema);
+        else
+            return mongooseConnection.model<T>(completeModelName, schema);
     }
 }
-
+ 
 
 
 class EMSessionError

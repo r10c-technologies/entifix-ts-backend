@@ -85,7 +85,6 @@ abstract class EntifixApplication
     protected abstract get serviceConfiguration () :  EntifixAppConfig;
     protected abstract registerEntities() : void;
     protected abstract exposeEntities() : void;
-    protected abstract validateToken(token : string, request?: express.Request) : Promise<TokenValidationResponse>;
     protected registerEventsAndDelegates() : void { };
     
     private createExpressApp ( port: number) : void
@@ -96,8 +95,13 @@ abstract class EntifixApplication
 
     private createServiceSession( ) : Promise<void>
     {
-        return new Promise<void>((resolve,reject)=>
-       {
+        return new Promise<void>((resolve,reject)=> {
+
+            let rejectPromise = e => {
+                let a = 2;
+                reject(e);
+            };
+
             EMServiceSession.initialize(
                 this.serviceConfiguration.serviceName, 
                 this.serviceConfiguration.mongoService, 
@@ -108,13 +112,18 @@ abstract class EntifixApplication
             if (this.serviceConfiguration.devMode)
                 this.serviceSession.enableDevMode();
 
-            this.serviceSession.connect().then( ()=> { 
-                let asyncTask = this.onServiceSessionCreated();
-                if (asyncTask)
-                    asyncTask.then( ()=> resolve() ).catch( e => reject(e) );
-                else
-                    resolve();
-            }).catch( e => reject(e) );
+            this.serviceSession
+                .connect()
+                .then( ()=> { 
+                        let asyncTask = this.onServiceSessionCreated();
+                        if (asyncTask)
+                            asyncTask
+                                .then(resolve)
+                                .catch(rejectPromise);
+                        else
+                            resolve();
+                    })
+                .catch(rejectPromise);
         });
     }
 
@@ -126,16 +135,14 @@ abstract class EntifixApplication
             this._expressApp.use( bodyParser.json() );
 
             //File uploader 
-            //this._expressApp.use( multer({dest: '/tmp-core-files/'}).any() );
-
-
             this._expressApp.use( fileUpload({
                 useTempFiles : true,
                 tempFileDir : '/tmp-core-files/'
             })); 
             
-             
+
             //Enable cors if is required
+            // =====================================================================================================================
             if (this.serviceConfiguration.cors && this.serviceConfiguration.cors.enable )
             {
                 let defaultValues : cors.CorsOptions = this.serviceConfiguration.cors.options || {
@@ -147,19 +154,33 @@ abstract class EntifixApplication
 
                 this._expressApp.use(cors(defaultValues));
             }
+            // =====================================================================================================================
 
-            //Health checks
-            let healthCheck = ( request:express.Request, response: express.Response )=> {            
+
+            // Health checks
+            // =====================================================================================================================
+            let getBaseStatus = ( request:express.Request, response: express.Response )=> {            
                 response.json({
                     message: this.serviceConfiguration.serviceName + " is working correctly"
                 });        
             };
 
-            this._expressApp.get('/', healthCheck );
+            this._expressApp.get('/', getBaseStatus);
             if (this.serviceConfiguration.basePath) 
-                this._expressApp.get('/' + this.serviceConfiguration.basePath, healthCheck);
+                this._expressApp.get('/' + this.serviceConfiguration.basePath, getBaseStatus);
 
-            //Error handler
+            this._expressApp.get('/health', (request, response, next) => {
+                if (this.serviceSession.isDbConnected && this.serviceSession.isBrokerConnected && this.serviceSession.isCacheConnected)
+                    response.sendStatus(200);
+                else
+                    response.sendStatus(500);
+            });
+
+            // =====================================================================================================================
+
+
+            // Error handler
+            // =====================================================================================================================
             this._expressApp.use( (error : any, request : express.Request, response : express.Response, next : express.NextFunction) => {
                 let data : any;
 
@@ -178,14 +199,18 @@ abstract class EntifixApplication
                     
                 response.status(500).send(  Wrapper.wrapError( 'INTERNAL UNHANDLED EXCEPTION', data).serializeSimpleObject() );
             });
+            // =====================================================================================================================
 
-            //Protect routes
+
+            // Protect routes
+            // =====================================================================================================================
             let protectRoutes = this.serviceConfiguration.protectRoutes != null ? this.serviceConfiguration.protectRoutes.enable : true;
             let devMode = this.serviceConfiguration.devMode != null ? this.serviceConfiguration.devMode : false; 
             if (!protectRoutes && devMode)
                 this.serviceSession.throwInfo('Routes unprotected');
             else
                 this.protectRoutes();
+            // =====================================================================================================================
 
             resolve();
         });                 
@@ -347,33 +372,26 @@ abstract class EntifixApplication
 
     protected requestTokenValidationWithCache(token : string, request : express.Request) : Promise<TokenValidationResponse> 
     {
-        return new Promise<TokenValidationResponse> (
-            (resolve, reject) => 
-            {
-                this.getTokenValidationCache(token, request).then(
-                    result => {
-                        if (!result.exists)
-                        {
-                            this.requestTokenValidation(token, request).then(
-                                res => {
-                                    this.setTokenValidationCache(token, request, res).then(
-                                        () => resolve(res),
-                                        error => reject(error) 
-                                    );                
-                                },
-                                error => reject(error)                    
-                            );
-                        }
+        return new Promise<TokenValidationResponse> ( (resolve, reject) =>
+            this.getTokenValidationCache(token, request)
+                .then( result => {
+                        if (!result.exists) 
+                            this.requestTokenValidation(token, request)
+                                .then( res => {
+                                        if (res.success)
+                                            this.setTokenValidationCache(token, request, res)
+                                                .then(() => resolve(res))
+                                                .catch(reject);
+                                        else
+                                            resolve(res);                
+                                    })
+                                .catch(reject)
                         else
                             resolve(result.cacheResult);               
-                    },
-                    error => reject(error)
-                );
-            }
+                    })
+                .catch(reject)
         );
     }
-
-
 
     protected getTokenValidationCache( token: string, request: express.Request ) : Promise<{exists: boolean, cacheResult? : TokenValidationResponse }>
     { 
@@ -423,6 +441,14 @@ abstract class EntifixApplication
         // return crypto.createHash('sha256').update(keyCacheToProcess).digest().toString();
 
         return request.method + '-' + request.originalUrl + '-' + token;
+    }
+
+    protected validateToken(token : string, request?: express.Request) : Promise<TokenValidationResponse>
+    {
+        if (this.serviceConfiguration.useCacheForTokens)
+            return this.requestTokenValidationWithCache(token, request);
+        else
+            return this.requestTokenValidation(token, request);
     }
 
     //#endregion
