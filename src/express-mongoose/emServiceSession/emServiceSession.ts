@@ -55,7 +55,7 @@ class EMServiceSession
 
     private _unconstrainedModels : Array<{
         name: string,
-        modelActivator : any,
+        modelActivator : ModelActivator,
         schema: mongoose.Schema,
         models: Array<{ systemOwner: string, model: any}>
     }>;
@@ -333,8 +333,7 @@ class EMServiceSession
 
         let modelForSystemOwner = definition.models.find( e => e.systemOwner == systemOwner );
         if (!modelForSystemOwner) {
-            let completeModelName = systemOwner + '_' + name;
-            modelForSystemOwner = { systemOwner, model: definition.modelActivator.activate( this._mongooseConnection, completeModelName, definition.schema ) };
+            modelForSystemOwner = { systemOwner, model: definition.modelActivator.activate( this._mongooseConnection, systemOwner, name, definition.schema ) };
             definition.models.push(modelForSystemOwner);
         }
 
