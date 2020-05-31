@@ -121,7 +121,9 @@ class EMModifyResponseContent
 
     private static includeAccessor(accessor : AccessorInfo) : boolean
     {
-        return (accessor.exposition == ExpositionType.Normal || accessor.exposition == ExpositionType.ReadOnly) && accessor.display != null;
+        return (accessor.exposition == ExpositionType.Normal || accessor.exposition == ExpositionType.ReadOnly) 
+                && accessor.display != null
+                && accessor.activator == null;
     }
 
     private static instanceOfReportPreferences(object : any) : boolean
