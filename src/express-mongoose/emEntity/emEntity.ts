@@ -423,7 +423,7 @@ class EMEntity extends Entity
     get isNew()
     { return this._document.isNew; }
 
-    @DefinedAccessor({exposition: ExpositionType.ReadOnly, persistenceType: PersistenceType.Auto})
+    @DefinedAccessor({exposition: ExpositionType.System, persistenceType: PersistenceType.Defined})
     get key()
     { return { serviceName: this._session.serviceSession.serviceName, entityName: this.entityInfo.name, value: this._id.toString() }; }
 

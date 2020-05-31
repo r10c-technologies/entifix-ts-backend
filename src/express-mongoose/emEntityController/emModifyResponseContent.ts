@@ -84,9 +84,16 @@ class EMModifyResponseContent
         let columns = [], counter = 1;
 
         if (EMModifyResponseContent.instanceOfEntifixReport(headers)) {
-            (headers as EntifixReport).headers.forEach((accessor) => { columns.push({ description: accessor.display, columnName: "Field_" + counter }); counter++; });
+            (headers as EntifixReport).headers.forEach((accessor) => { 
+                columns.push({ description: accessor.display, columnName: "Field_" + counter }); 
+                counter++; 
+            });
         } else {
-            (headers as EntityInfo).getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) { columns.push({ description: accessor.display, columnName: "Field_" + counter }); counter++; } });
+            (headers as EntityInfo).getAccessors().forEach((accessor) => { 
+                if (EMModifyResponseContent.includeAccessor(accessor)) { 
+                    columns.push({ description: accessor.display, columnName: "Field_" + counter }); 
+                    counter++; 
+                }});
         }
 
         return columns;
@@ -99,7 +106,10 @@ class EMModifyResponseContent
         results.forEach((row) => {
             let dataRow = {}, counter = 1;
             if (EMModifyResponseContent.instanceOfEntifixReport(headers)) {
-                (headers as EntifixReport).headers.forEach((accessor) => { dataRow["Field_" +  counter] = row[accessor.name] || ""; counter++; });
+                (headers as EntifixReport).headers.forEach((accessor) => { 
+                    dataRow["Field_" +  counter] = row[accessor.name] || ""; 
+                    counter++; 
+                });
             } else {
                 (headers as EntityInfo).getAccessors().forEach((accessor) => { if (EMModifyResponseContent.includeAccessor(accessor)) { dataRow["Field_" +  counter] = row[accessor.name] || ""; counter++; } });
             }
@@ -111,7 +121,7 @@ class EMModifyResponseContent
 
     private static includeAccessor(accessor : AccessorInfo) : boolean
     {
-        return (accessor.exposition == ExpositionType.Normal || accessor.exposition == ExpositionType.ReadOnly);
+        return (accessor.exposition == ExpositionType.Normal || accessor.exposition == ExpositionType.ReadOnly) && accessor.display != null;
     }
 
     private static instanceOfReportPreferences(object : any) : boolean

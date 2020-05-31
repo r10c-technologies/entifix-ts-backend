@@ -48,7 +48,7 @@ function DefinedAccessor( params? : {   exposition? : ExpositionType,
                                         serializeAlias? : string,
                                         persistentAlias? : string,
                                         activator? : MemberActivator,
-                                        display? : string } ) 
+                                        display? : string | boolean } ) 
 {
 
     params = params || { };
@@ -75,8 +75,13 @@ function DefinedAccessor( params? : {   exposition? : ExpositionType,
             info.schema = params.schema;
 
         //Alias management
-        info.display = params.display || getDisplayByCleanedName(key);
-        
+        if (params.display != false) {
+            if (params.display == null || params == true)
+                info.display = getDisplayByCleanedName(key);
+            else 
+                info.display = <string>params.display;
+        }
+            
         if (params.alias)
             info.setAlias(params.alias);
         if (params.serializeAlias)
