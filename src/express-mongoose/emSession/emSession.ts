@@ -617,20 +617,20 @@ class EMSession extends HcSession
                 return new Promise<FiltersConversion>( (resolve, reject) => { 
                     let entityFilters = new Array<{entity: string, filters: any, property: string, filterType: FilterType}>();
                     info.getAccessors()
-                    .filter(a => a.activator instanceof MemberActivator)
-                    .forEach(a => {
-                        let eFilters = complexFilters
-                                    .filter(f => (f.complexFilter == true) && ( a.name == f.parentProperty));
-                                                                      
-                        if(eFilters.length > 0)
-                        {
-                            entityFilters.push({entity: a.type, filters: eFilters.map(mf => {
-                                mf.complexFilter = null;
-                                return mf
-                            }), property: a.persistentAlias ? a.persistentAlias : a.name,
-                                filterType: eFilters[0].filterType});
-                        }                            
-                    });
+                        .filter(a => a.activator instanceof MemberActivator)
+                        .forEach(a => {
+                            let eFilters = complexFilters.filter(f => (f.complexFilter == true) && ( a.name == f.parentProperty));
+                                                                        
+                            if(eFilters.length > 0)
+                                entityFilters
+                                    .push({
+                                        entity: a.type, 
+                                        filters: eFilters.map(mf => { mf.complexFilter = null; return mf }), 
+                                        property: a.persistentAlias ? a.persistentAlias : a.name,
+                                        filterType: eFilters[0].filterType
+                                    });
+                                                        
+                        });
 
                     let entityMongoFiltersPromises = entityFilters.map(ef => 
                          this.resolveToMongoFilters(ef.entity, ef.filters).then( filtersConversion => {
@@ -662,19 +662,19 @@ class EMSession extends HcSession
     
                         Promise.all(asynkTasks).then(results => {
                             let finalFilter = { $and : [] , $or : []}; 
-                            let values = results.map((v) => {
-                                finalFilter = { $and : [] , $or : []}; 
-                                if(v.filterType == FilterType.Fixed && v.values && v.values.length > 0)
-                                {
-                                    finalFilter.$and.push({[v.property]: {$in: v.values}});
-                                }
-                                else if(v.filterType == FilterType.Optional && v.values && v.values.length > 0)
-                                {
-                                    finalFilter.$or.push({[v.property]: {$in: v.values}});
-                                }
+                            let values = results.forEach (v => {
+                                let arrayValues = v.values;
+                                if (!arrayValues || arrayValues.length == 0)
+                                    arrayValues = ['always', 'false']; // Custom values to set always false for this filter
+
+                                if(v.filterType == FilterType.Fixed)
+                                    finalFilter.$and.push({[v.property]: {$in: arrayValues }});
+                                else if(v.filterType == FilterType.Optional)
+                                    finalFilter.$or.push({[v.property]: {$in: arrayValues}});
+                                
                                 return finalFilter
                             });
-                            resolve({filters: values})
+                            resolve({filters: finalFilter})
                         }).catch(e => this.createError(e, "Error on complex filters"));
                     }).catch(e => this.createError(e, "Error on complex filters"));
                 });               
@@ -777,28 +777,25 @@ class EMSession extends HcSession
             let mainResults = new Array<FiltersConversion>();
 
             if(filters.filter(f => (f.complexFilter == true)).length > 0)
-            {
                 complexFiltersAsync(filters.filter(f => (f.complexFilter == true)))
-                .then(complexResult => {
-                    mainResults.push(complexResult);
-                    simpleFiltersAsync(filters.filter(f => (f.complexFilter == false || f.complexFilter == null)))
-                    .then(simpleResult => {
-                        mainResults.push(simpleResult);
-                        filterConcatenation(mainResults);
-                    })
+                    .then(complexResult => {
+                            mainResults.push(complexResult);
+                            simpleFiltersAsync(filters.filter(f => (f.complexFilter == false || f.complexFilter == null)))
+                                .then(simpleResult => {
+                                    mainResults.push(simpleResult);
+                                    filterConcatenation(mainResults);
+                                })
+                                .catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
+                        })
                     .catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
-                })
-                .catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
-            }
             else
-            {
                 simpleFiltersAsync(filters.filter(f => (f.complexFilter == false || f.complexFilter == null)))
-                .then(simpleResults => { 
-                    mainResults.push(simpleResults);
-                    filterConcatenation(mainResults);
-                })
-                .catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
-            }
+                    .then(simpleResults => { 
+                            mainResults.push(simpleResults);
+                            filterConcatenation(mainResults);
+                        })
+                    .catch(e => reject(this.createError(e, "emSession: Error processing mongo filters conversion")));
+            
         });
     }
 
