@@ -74,11 +74,17 @@ class EMEntity extends Entity
                             /**
                              * Add more cases
                              */
-                            default:
-                                if (accessor.type == "Array") 
+                            default: 
+                                if (accessor.type == "Array") {
                                     simpleObject[nameSerialized] = ( this[accessor.name] as Array<EMEntity>).map( e =>  e._id); 
-                                else
+                                }
+                                else {
                                     simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
+
+                                    let defaultAccessor = accessor.activator.defaultAccessor;
+                                    if (defaultAccessor)
+                                        simpleObject['$'+accessor.name] = this[defaultAccessor];
+                                }
                         }
                     }
                 }
@@ -96,6 +102,9 @@ class EMEntity extends Entity
         let readOnly : any;
         let ownArrayController : any;
 
+        /**
+         * Main dynamic to select attributes to extract
+         */
         info.getAccessors().filter( accessor => accessor.exposition ).forEach( accessor => {
 
             let exposedName = accessor.serializeAlias || accessor.name;
@@ -141,6 +150,21 @@ class EMEntity extends Entity
             delete simpleObject[exposedName];
         });
 
+        /**
+         * Excluding attributes that are nonPersistent by convention (Start with '$')
+         */
+        if (Object.keys(simpleObject).length > 0)
+            for (let p in simpleObject) 
+                if (p && p.length > 0 && p[0] == '$') {
+                    if (!nonPersistent)
+                        nonPersistent = {};
+                    nonPersistent[p] = simpleObject[p];
+                    delete simpleObject[p];
+                }
+
+        /**
+         * Non valid attributes
+         */
         let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
         
         return { persistent, nonPersistent, readOnly, nonValid, ownArrayController };

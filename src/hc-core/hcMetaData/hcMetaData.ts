@@ -265,21 +265,23 @@ class EntityInfo
     private _fixedSystemOwner : string;
     private _allowRequestedType : boolean | RequestedType | Array<RequestedType>;
     private _inheritedMapping : boolean;
+    private _defaultAccessor : string;
 
     //#endregion
 
     //#region Methods
     constructor( entityConstructor : Function );
-    constructor( entityConstructor : Function, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType>, inheritedMapping? : boolean }, display : string );
-    constructor( entityConstructor : Function, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType>, inheritedMapping? : boolean }, display? : string );
-    constructor( entityConstructor : Function, options?: { fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType>, inheritedMapping? : boolean }, display?: string )
+    constructor( entityConstructor : Function, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType>, inheritedMapping? : boolean, display? : string, defaultAccessor? : string } );
+    constructor( entityConstructor : Function, options: { fixedSystemOwner : string, allowRequestedType : boolean | RequestedType | Array<RequestedType>, inheritedMapping? : boolean, display? : string, defaultAccessor? : string } );
+    constructor( entityConstructor : Function, options?: { fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType>, inheritedMapping? : boolean, display? : string, defaultAccessor? : string })
     {   
         this._entityConstructor = entityConstructor;
         this._name = entityConstructor.name;
         this._definedMembers = new Array<MemberInfo>();    
         this._isAbstract = true;
-        this._display = display ? display : Function.name;
         this._inheritedMapping = false;
+        this._display = options && options.display ? options.display : Function.name;
+        this._defaultAccessor = options && options.defaultAccessor ? options.defaultAccessor : null;
 
         if (options)
         {
@@ -446,6 +448,9 @@ class EntityInfo
     get inheritedMapping()
     { return this._inheritedMapping; }
 
+    get defaultAccessor()
+    { return this._defaultAccessor; }
+
     //#endregion
 }
 
@@ -489,6 +494,7 @@ abstract class MemberActivator
     abstract get defaultSchema () : any;
     abstract get includeDuringSerialization() : boolean | string;
     abstract get considerDuringDeserialization() : boolean | string;
+    abstract get defaultAccessor () : string;
 
     //#endregion
 

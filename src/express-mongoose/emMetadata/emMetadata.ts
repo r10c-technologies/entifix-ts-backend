@@ -84,6 +84,14 @@ class GfsMemberActivator extends MemberActivator
         return true;
     }
 
+    /**
+     * Temporary fixed value as null
+     */
+    get defaultAccessor() : string {
+        console.error('[X] Trying to extract default accessor from a GFS Member Activator');
+        return null;
+    }
+
     //#endregion
 
 }
@@ -165,10 +173,14 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
                     } 
                 ));
 
-            Promise.all( promises ).then(
-                ()=>{ resolve({ oldValue, newValue }) },
-                error => reject(error)
-            ).catch( error => reject(error) );
+
+            if (promises && promises.length > 0)
+                Promise
+                    .all( promises )
+                    .then( ()=> { resolve({ oldValue, newValue }) })
+                    .catch( reject );
+            else
+                resolve({oldValue, newValue});
 
         });        
     }
@@ -199,10 +211,13 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
                     } 
                 ));
 
-            Promise.all( promises ).then(
-                ()=>{ resolve({ oldValue, newValue }) },
-                error => reject(error)
-            ).catch( error => reject(error) );
+            if (promises && promises.length > 0)
+                Promise
+                    .all( promises )
+                    .then( ()=> { resolve({ oldValue, newValue }) })
+                    .catch( reject );
+            else
+                resolve({oldValue, newValue});
         });        
     }
 
@@ -217,35 +232,37 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
             let oldValue : any;
             let newValue : any;
 
-            if (docData)
-            {
+            if (docData) {
                 let model = session.getModel(this.entityInfo.name);
-                let document = new model(docData) as TDocument;
-
-                promises.push( session.activateEntityInstance<TEntity, TDocument>(this.entityInfo, document).then( 
-                    entity => { 
-                        baseEntity[accessorInfo.name] = entity; 
-                        newValue = entity; 
-                    }
-                ));
+                
+                promises.push( 
+                    session
+                        .activateEntityInstance<TEntity, TDocument>(this.entityInfo, new model(docData) as TDocument)
+                        .then( entity => { 
+                                baseEntity[accessorInfo.name] = entity; 
+                                newValue = entity; 
+                            })
+                );
             }
 
-            if (options && options.oldValue)
-            {
+            if (options && options.oldValue){
                 let model = session.getModel(this.entityInfo.name);
                 let document = new model(options.oldValue) as TDocument;
 
-                promises.push( session.activateEntityInstance<TEntity, TDocument>(this.entityInfo, document).then( 
-                    entity => { 
-                        oldValue = entity; 
-                    }
+                promises.push( 
+                    session
+                        .activateEntityInstance<TEntity, TDocument>(this.entityInfo, document)
+                        .then( entity => { oldValue = entity; }
                 ));
             }
             
-            Promise.all( promises ).then(
-                ()=>{ resolve({ oldValue, newValue }) },
-                error => reject(error)
-            ).catch( error => reject(error) );
+            if (promises && promises.length > 0)
+                Promise
+                    .all( promises )
+                    .then( ()=> { resolve({ oldValue, newValue }) })
+                    .catch( reject );
+            else
+                resolve({oldValue, newValue});
         });
     }
 
@@ -260,36 +277,40 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
             let oldValue : any;
             let newValue : any;
 
-            if (docsData && docsData.length > 0)
-            {
+            if (docsData && docsData.length > 0) {
                 let model = session.getModel(this.entityInfo.name);
                 newValue = new Array<TEntity>();
 
-                for ( let i = 0; i < docsData.length ; i++)
-                {
-                    let asModel = new model(docsData[i]) as TDocument;
-                    promises.push( session.activateEntityInstance<TEntity, TDocument>(this.entityInfo, asModel).then( entity => newValue.push(entity)) );
-                }
+                for ( let i = 0; i < docsData.length ; i++) 
+                    promises.push( 
+                        session
+                            .activateEntityInstance<TEntity, TDocument>(this.entityInfo, new model(docsData[i]) as TDocument)
+                            .then( entity => newValue.push(entity)) 
+                    );                
             }
 
-            if (options && options.oldValue && options.oldValue.length > 0)
-            {
+            if (options && options.oldValue && options.oldValue.length > 0) {
                 let model = session.getModel(this.entityInfo.name);
                 oldValue = new Array<TEntity>();
 
                 for ( let i = 0; i < docsData.length ; i++)
-                {
-                    let asModel = new model(docsData[i]) as TDocument;
-                    promises.push( session.activateEntityInstance<TEntity, TDocument>(this.entityInfo, asModel).then( entity => oldValue.push(entity) ) );
-                }
+                    promises.push( 
+                        session
+                            .activateEntityInstance<TEntity, TDocument>(this.entityInfo, new model(docsData[i]) as TDocument)
+                            .then( entity => oldValue.push(entity) ) 
+                        );
             }
 
-            Promise.all( promises ).then(
-                ()=>{ 
-                    entity[accessorInfo.name] = newValue;
-                    resolve({ oldValue, newValue }) 
-                }
-            ).catch( error => reject(error) );
+            if (promises && promises.length > 0)
+                Promise
+                    .all(promises)
+                    .then(() => {
+                        entity[accessorInfo.name] = newValue;
+                        resolve({ oldValue, newValue })
+                    })
+                    .catch(reject);
+            else
+                resolve({ oldValue, newValue });
         });
     }
 
@@ -313,6 +334,17 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
     get considerDuringDeserialization() : boolean | string 
     { return this._consideDuringDeserialization; }
 
+    get defaultAccessor() : string
+    {
+        if (this._entityInfo && this._entityInfo.defaultAccessor)
+            return this._entityInfo.defaultAccessor;
+
+        if (this._entityInfo && this._entityInfo.getAccessors().find( a => a.name == 'name'))
+            return 'name';
+
+        return null;
+    }
+
 
     //#endregion
 
@@ -325,6 +357,8 @@ class EMMemberTreeActivator extends MemberActivator
 
     private _consideDuringDeserialization : boolean;
     private _includeDuringSerialization: boolean;
+    private _entityInfo : EntityInfo;
+
 
     //#endregion
 
@@ -349,8 +383,10 @@ class EMMemberTreeActivator extends MemberActivator
 
     activateMember( entity : Entity, session : EMSession, accessorInfo : AccessorInfo, options?: { oldValue? : any } ) : Promise<{ oldValue? : any, newValue : any }>
     {
-        switch (this.bindingType) 
-        {
+        if (!this._entityInfo)
+            this._entityInfo = entity.entityInfo;
+
+        switch (this.bindingType) {
             case MemberBindingType.Reference:
                 if (accessorInfo.type == 'Array')
                     return this.loadArrayInstanceFromDB(entity as EMEntity, session, accessorInfo, options);
@@ -535,6 +571,17 @@ class EMMemberTreeActivator extends MemberActivator
     
     get considerDuringDeserialization() : boolean
     { return this._consideDuringDeserialization; }
+
+    get defaultAccessor() : string
+    {
+        if (this._entityInfo  && this._entityInfo.defaultAccessor)
+            return this._entityInfo.defaultAccessor;
+
+        if (this._entityInfo && this._entityInfo.getAccessors().find( a => a.name == 'name'))
+            return 'name';
+
+        return null;
+    }
 
     //#endregion
 
