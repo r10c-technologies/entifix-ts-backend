@@ -235,6 +235,11 @@ class EMMemberActivator<TEntity extends EMEntity, TDocument extends EntityDocume
             if (docData) {
                 let model = session.getModel(this.entityInfo.name);
                 
+                if(docData.id) { // Fix to avoid snapshot id change
+                    docData._id = docData.id;
+                    delete docData.id;
+                } 
+
                 promises.push( 
                     session
                         .activateEntityInstance<TEntity, TDocument>(this.entityInfo, new model(docData) as TDocument)

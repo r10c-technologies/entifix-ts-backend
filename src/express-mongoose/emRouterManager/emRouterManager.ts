@@ -229,7 +229,7 @@ class EMRouterManager {
                     else
                         baseEntity[pathTo] = result;
                 
-                    saveBaseEntity(baseEntity);
+                    saveBaseEntity(result);
                 }
                 else {
                     if(!result.error) {
