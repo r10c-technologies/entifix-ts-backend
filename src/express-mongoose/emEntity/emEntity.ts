@@ -113,21 +113,22 @@ class EMEntity extends Entity
             if (accessor.exposition == ExpositionType.Normal || accessor.exposition == ExpositionType.System)
             {
                 let isPersistent = accessor.schema != null || accessor.persistenceType == PersistenceType.Auto;
-                if (isPersistent)
-                {
-                    if (!persistent) 
-                        persistent = {};
+                if (isPersistent) {
+                    if ((simpleObject as Object).hasOwnProperty(exposedName)) {
+                        if (!persistent) 
+                            persistent = {};
 
-                    if (accessor.activator) {
-                        if (accessor.activator.considerDuringDeserialization) 
-                            persistent[persistentName] = simpleObject[exposedName];    
-                        else {
-                            if (!ownArrayController) ownArrayController = {};
-                            ownArrayController[persistentName] = simpleObject[exposedName];
-                        }                            
+                        if (accessor.activator) {
+                            if (accessor.activator.considerDuringDeserialization) 
+                                persistent[persistentName] = simpleObject[exposedName];    
+                            else {
+                                if (!ownArrayController) ownArrayController = {};
+                                ownArrayController[persistentName] = simpleObject[exposedName];
+                            }                            
+                        }
+                        else  
+                            persistent[persistentName] = simpleObject[exposedName];
                     }
-                    else if ((simpleObject as Object).hasOwnProperty(exposedName)) 
-                        persistent[persistentName] = simpleObject[exposedName];
                 }
                 else
                 {
