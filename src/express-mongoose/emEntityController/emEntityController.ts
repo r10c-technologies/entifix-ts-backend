@@ -316,13 +316,13 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                                                 if (finalResultData instanceof EMEntity)
                                                     this.responseWrapper.entity(response, finalResultData as TEntity );
                                                 else
-                                                    this.responseWrapper.logicAccept(response, methodResult.message || 'Operation executed', finalResultData );
+                                                    this.responseWrapper.logicAccept(response, methodResult && methodResult.message ? methodResult.message : 'Operation executed', finalResultData );
                                             }
                                             else
-                                                this.responseWrapper.logicAccept(response, methodResult.message || 'Operation executed');
+                                                this.responseWrapper.logicAccept(response, methodResult && methodResult.message ? methodResult.message : 'Operation executed');
                                         }
 
-                                        if (methodResult.continue != null) {
+                                        if (methodResult && methodResult.continue != null) {
                                             let result = methodResult as EntityMovementFlow;
                                             if (result.continue) 
                                                 resolveResult(result.details);
