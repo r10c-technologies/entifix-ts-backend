@@ -60,5 +60,8 @@ typings/
 # settings
 .vscode/settings.json
 
-#Dist files
+# Dist files
 dist
+
+# Docs folder
+docs
