@@ -1,6 +1,9 @@
 import EntifixLoggerLevel from './entifixLoggerLevels';
 import EntifixLoggerMessage from './entifixLoggerMessage';
 
+/**
+ * Contains the implementation of the entifix logger
+ */
 class EntifixLogger {
     /**
      * The current level of the logger.

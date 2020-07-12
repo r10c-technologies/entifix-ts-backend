@@ -7,27 +7,27 @@ enum EntifixLoggerLevel {
      */
     ALL = 'ALL',
     /**
-     * @description TRACE value prints only TRACE logs.
+     * @description TRACE value prints TRACE, DEBUG, INFO, WARN, ERROR and FATAL logs.
      */
     TRACE = 'TRACE',
     /**
-     * @description DEBUG value prints TRACE and DEBUG logs.
+     * @description DEBUG value prints DEBUG, INFO, WARN, ERROR and FATAL logs.
      */
     DEBUG = 'DEBUG',
     /**
-     * @description INFO value prints TRACE, DEBUG and INFO logs.
+     * @description INFO value prints INFO, WARN, ERROR and FATAL logs.
      */
     INFO = 'INFO',
     /**
-     * @description WARN value prints TRACE, DEBUG, INFO and WARN logs.
+     * @description WARN value prints WARN, ERROR and FATAL logs.
      */
     WARN = 'WARN',
     /**
-     * @description ERROR value prints TRACE, DEBUG, INFO, WARN and ERROR logs.
+     * @description ERROR value prints ERROR and FATAL logs.
      */
     ERROR = 'ERROR',
     /**
-     * @description FATAL value prints TRACE, DEBUG, INFO, WARN, ERROR and FATAL logs.
+     * @description FATAL value prints only FATAL logs.
      */
     FATAL = 'FATAL',
     /**
