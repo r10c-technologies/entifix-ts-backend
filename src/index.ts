@@ -18,6 +18,7 @@ export * from './express-mongoose/emEntityMultiKey/emEntityMultiKey';
 export * from './express-mongoose/emEntityMultikeyController/emEntityMultiKeyController';
 export * from './express-mongoose/emEntityHelpers/secuence-annotation';
 export * from './express-mongoose/emEntityHelpers/counter';
+export * from './express-mongoose/emEntityHelpers/entity-lifecycle';
 export * from './amqp-events/amqp-delegate/AMQPDelegate';
 export * from './amqp-events/amqp-event/AMQPEvent';
 export * from './amqp-events/amqp-event-args/AMQPEventArgs';

@@ -10,6 +10,7 @@ import { EMMemberActivator } from '../..';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EMEntityMultiKey } from '../emEntityMultiKey/emEntityMultiKey';
 import { EMModifyResponseContent } from './emModifyResponseContent';
+import { getLifecycleMetadata } from '../emEntityHelpers/entity-lifecycle/metadata-function';
 
 class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEntity>
 {
@@ -53,6 +54,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         
         //CRUD methods
         this._router.get('/' + this._resourceName, ( request, response, next )=> this.retrieve(request, response) );
+        this._router.get('/' + this._resourceName + '/:id/allowed-target-states', (request, response, next) => this.retrieveAlloweTargetStates(request, response))
         this._router.get('/' + this._resourceName + '/:path*', (request, response, next) => this.resolveComplexRetrieveMethod(request, response, next ));
         
         this._router.post('/' + this._resourceName, (request, response, next) => this.create(request, response) );
@@ -162,6 +164,35 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
             
             }}
         );
+    }
+
+    retrieveAlloweTargetStates ( request : express.Request, response : express.Response ) : void
+    retrieveAlloweTargetStates ( request : express.Request, response : express.Response, options : { paramName? : string } ) : void
+    retrieveAlloweTargetStates ( request : express.Request, response : express.Response, options? : { paramName? : string } ) : void
+    {
+        this.createSession(request, response)
+            .then( session => { if (session) {
+                let paramName = options && options.paramName ? options.paramName : 'id';
+
+                session
+                    .findEntity<TEntity, TDocument>(this.entityInfo, request.params[paramName])
+                    .then( entityResult => { 
+                            if (entityResult) {
+                                let lifeCycleMetadata = getLifecycleMetadata(entityResult);
+                                let allowedStates : Array<any>;
+                                if (lifeCycleMetadata) {
+                                    let state = entityResult[lifeCycleMetadata.statePropertyName];
+                                    allowedStates = lifeCycleMetadata.lifeCycleMap.get(state);
+                                    this._responseWrapper.collection(response, allowedStates);
+                                }
+                                else
+                                    this._responseWrapper.handledError(response, 'OPERATION NOT FOUND', HttpStatus.NOT_FOUND, { type: 'Entifix Handled Error', cause : 'Not lifecycle data defined for entity' })
+                            }
+                            else
+                                this._responseWrapper.handledError(response, 'NOT VALID ID', HttpStatus.BAD_REQUEST);
+                        })
+                    .catch( error => this._responseWrapper.exception( response, error) );            
+            }});
     }
 
     retriveMetadata( request : express.Request, response : express.Response, next : express.NextFunction)
@@ -296,7 +327,8 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                                 let returnedFromAction : any;
                                 try {
                                     succesfulExecution = true;
-                                    returnedFromAction = methodInstace.apply( entity, allParameters );
+                                    // returnedFromAction = methodInstace.apply( entity, allParameters );
+                                    returnedFromAction = entity[validation.methodName](allParameters);
                                 }
                                 catch(e) { this._responseWrapper.exception(response, e); }
 
