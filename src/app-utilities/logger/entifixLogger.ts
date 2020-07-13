@@ -149,7 +149,7 @@ class EntifixLogger {
             "System Owner": log.systemOwner,
             "User in request": log.user,
             "Message": log.message,
-            "Origin": log.origin,
+            "Origin":`${log.origin.file ? "File " + log.origin.file : ""}, ${log.origin.method ? "Method " + log.origin.method : ""}, ${log.origin.lineNumber ? "Line number " + log.origin.lineNumber : ""}`,
             "Developer": log.developer
         });
     }
