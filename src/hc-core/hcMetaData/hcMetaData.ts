@@ -721,6 +721,8 @@ export {
     DefinedEntity, 
     DefinedMethod,
     DefinedParam,
+    definedParamKey,
+    DefinedMetaParam,
     SessionParam,
     IMetaDataInfo, 
     PersistenceType,

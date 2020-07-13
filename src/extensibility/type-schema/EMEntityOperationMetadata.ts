@@ -1,6 +1,7 @@
 import { EMEntityMetaOperationType } from './enumeration'
 import { EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity'
 import { EMEntity } from '../../express-mongoose/emEntity/emEntity';
+import { getEntityOperationMetadata } from '../metadata/function';
 
 class EMEntityOperationMetadata 
 {
@@ -16,7 +17,7 @@ class EMEntityOperationMetadata
 
     constructor() { }
 
-    addOperationType(operationType : EMEntityMetaOperationType | Array<EMEntityMetaOperationType>) : void 
+    addOperationType(operationType : EMEntityMetaOperationType | Array<EMEntityMetaOperationType>) : EMEntityOperationMetadata 
     {
         if (operationType) {
             if (!this._operationTypes)
@@ -27,6 +28,8 @@ class EMEntityOperationMetadata
             else
                 this._operationTypes.push(operationType);
         }
+
+        return this;
     }
 
     applyForOperation(operationType : EMEntityMetaOperationType | Array<EMEntityMetaOperationType>) : boolean
@@ -53,7 +56,11 @@ class EMEntityOperationMetadata
          return this._operationMethod(entity, additionalData);
     }
 
-
+    //Fluid Setter method
+    setOperationMethod(opMethod : (entity : EMEntity, additionalData? : any) => void | Promise<void> | EntityMovementFlow | Promise<EntityMovementFlow>) {
+        this._operationMethod = opMethod;
+        return this;
+    }
 
     //#endregion
 
@@ -73,6 +80,57 @@ class EMEntityOperationMetadata
     { return this._data; }
     set data(value)
     { this._data = value; }
+
+    //#endregion
+
+    //#region Static
+
+    public static performExtensionOperators(entity : EMEntity, operationType : EMEntityMetaOperationType | Array<EMEntityMetaOperationType>, additionalData? : any ) : Promise<EntityMovementFlow>
+    {
+        return new Promise((resolve,reject)=> {
+            let entityOperators = getEntityOperationMetadata(entity);
+
+            if (entityOperators && entityOperators.length > 0) 
+                entityOperators = entityOperators.filter( eo => eo.applyForOperation(operationType) );
+                
+            if (entityOperators && entityOperators.length > 0) {
+                // Exectuion of operations
+                let allResults = entityOperators.map( eo => eo.perform(entity, additionalData) );
+            
+                let syncResults  = allResults.filter( eo => !(eo instanceof Promise)) as Array<void | EntityMovementFlow>;
+
+                if (syncResults && syncResults.length > 0)
+                    syncResults = syncResults.map(eo => {
+                        if ((eo as EntityMovementFlow).continue != null)
+                            return eo as EntityMovementFlow;
+                        else
+                            return null;
+                    });
+                else
+                    syncResults = [];
+
+                let asyncResults = allResults.filter( eo => eo instanceof Promise) as Array<Promise<void | EntityMovementFlow>>;
+                if (asyncResults && asyncResults.length > 0)
+                    Promise.all(asyncResults).then( r => resolvePromise(syncResults.concat(r)) ).catch( reject );
+                else
+                    resolvePromise(syncResults);
+
+                var resolvePromise = (results : Array<void | EntityMovementFlow>) => 
+                {    
+                    let affectResults = results.filter( r => r != null) as Array<EntityMovementFlow>;
+                    if (affectResults && affectResults.length > 0 ){
+                        let concatMessages = (prev : string, curr : string) =>  curr != null ? (prev || '') + ' - ' + curr : prev;
+                        let finalEMF = affectResults.reduce( (prev, curr) => { return {continue: prev.continue && curr.continue, message: concatMessages(prev.message, curr.message)}; }, { continue: true } );
+                        resolve( finalEMF );
+                    }
+                    else
+                        resolve({continue: true});
+                };
+            }
+            else
+                resolve({ continue: true })
+        });
+    }
 
     //#endregion
 }
