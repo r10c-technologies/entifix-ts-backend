@@ -18,8 +18,8 @@ import { AMQPEventManager, ExchangeType } from '../../amqp-events/amqp-event-man
 import { TokenValidationRequestRPC } from '../../amqp-events/amqp-base-events/TokenValidationRequestRPC';
 import { TokenValidationResponseRPC } from '../../amqp-events/amqp-base-events/TokenValidationResponseRPC';
 import { IEntityKeyModel, EntityKey } from '../emEntityMultiKey/emEntityMultiKey';
-import EntifixLoggerLevel from '../../app-utilities/logger/entifixLoggerLevels';
 import { EntifixLogger }from '../../app-utilities/logger/entifixLogger';
+import { EntifixLoggerLevel } from '../../app-utilities/logger/entifixLoggerLevels';
 
 interface EntifixAppConfig
 { 

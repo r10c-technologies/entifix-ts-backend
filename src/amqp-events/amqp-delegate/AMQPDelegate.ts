@@ -4,6 +4,7 @@ import amqp = require('amqplib/callback_api');
 import { AMQPSender } from '../amqp-sender/AMQPSender';
 import { AMQPEventArgs } from '../amqp-event-args/AMQPEventArgs';
 import { AMQPEventManager, QueueDescription, ExchangeDescription } from '../amqp-event-manager/AMQPEventManager';
+import { EntifixLogger } from '../../app-utilities/logger/entifixLogger';
 
 abstract class AMQPDelegate 
 {
@@ -26,6 +27,13 @@ abstract class AMQPDelegate
     onMessage( channel : amqp.Channel ) : ( message : amqp.Message) => any
     {
         return message => {
+
+            EntifixLogger.trace({
+                message: `Incoming message to delegate [${this.name}] consuming queue [${this.queueDescription.name}]`,
+                origin: { file: 'AMQPDelegate', method: 'onMessage' },
+                developer: 'herber230' 
+            });
+
             let messageContent = JSON.parse(message.content.toString());
             let sender = new AMQPSender(messageContent);
             

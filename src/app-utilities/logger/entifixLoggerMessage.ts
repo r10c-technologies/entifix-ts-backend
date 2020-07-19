@@ -31,4 +31,7 @@ interface EntifixLoggerMessageOrigin {
     lineNumber?: string
 }
 
-export default EntifixLoggerMessage;
+export { 
+    EntifixLoggerMessage,
+    EntifixLoggerMessageOrigin
+}

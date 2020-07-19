@@ -1,5 +1,5 @@
-import EntifixLoggerLevel from './entifixLoggerLevels';
-import EntifixLoggerMessage from './entifixLoggerMessage';
+import { EntifixLoggerLevel } from './entifixLoggerLevels';
+import { EntifixLoggerMessage } from './entifixLoggerMessage';
 
 /**
  * Contains the implementation of the entifix logger

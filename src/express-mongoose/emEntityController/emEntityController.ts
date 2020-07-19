@@ -337,9 +337,9 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
                                         let resolveResult = finalResultData => 
                                         {
                                             if (methodInfo.eventName) {
-                                                let messageData : any = { entity };
+                                                let messageData : any = { $entity: entity };
                                                 if (methodInfo.returnActionData)
-                                                    messageData.actionResult = finalResultData;
+                                                    messageData.$actionResult = finalResultData;
                                                 session.publishAMQPAction( methodInfo, entity._id.toString(), messageData );
                                             }
 

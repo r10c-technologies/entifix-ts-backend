@@ -36,4 +36,6 @@ enum EntifixLoggerLevel {
     OFF = 'OFF'
 }
 
-export default EntifixLoggerLevel;
+export  {
+    EntifixLoggerLevel
+}
