@@ -4,9 +4,8 @@ import { Entity, EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity';
 import { EMSession } from '../emSession/emSession';
 import { DefinedAccessor, DefinedEntity, PersistenceType, EntityInfo, ExpositionType, MemberBindingType } from '../../hc-core/hcMetaData/hcMetaData';
 import { EntityEventLogType } from '../../amqp-events/amqp-entity-logger/AMQPEntityLogger';
-import { AMQPEventManager } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
-
-import { getEntityOperationMetadata, EMEntityOperationMetadata, EMEntityMetaOperationType } from '../../extensibility/';
+import { getEntityOperationMetadata, EMEntityMetaOperationType } from '../../extensibility/';
+import { EntifixLogger } from '../../app-utilities/logger/entifixLogger';
 
 interface IBaseEntity
 {
@@ -95,82 +94,6 @@ class EMEntity extends Entity
         return simpleObject;
     }
 
-    static deserializeAccessors (info : EntityInfo, simpleObject : any) : { persistent? : any, nonPersistent? : any, readOnly? : any, nonValid? : any, ownArrayController? : any }
-    {
-        let persistent : any;
-        let nonPersistent : any;
-        let readOnly : any;
-        let ownArrayController : any;
-
-        /**
-         * Main dynamic to select attributes to extract
-         */
-        info.getAccessors().filter( accessor => accessor.exposition ).forEach( accessor => {
-
-            let exposedName = accessor.serializeAlias || accessor.name;
-            let persistentName = accessor.persistentAlias || accessor.name;
-
-            if (accessor.exposition == ExpositionType.Normal || accessor.exposition == ExpositionType.System)
-            {
-                let isPersistent = accessor.schema != null || accessor.persistenceType == PersistenceType.Auto;
-                if (isPersistent) {
-                    if ((simpleObject as Object).hasOwnProperty(exposedName)) {
-                        if (!persistent) 
-                            persistent = {};
-
-                        if (accessor.activator) {
-                            if (accessor.activator.considerDuringDeserialization) 
-                                persistent[persistentName] = simpleObject[exposedName];    
-                            else {
-                                if (!ownArrayController) ownArrayController = {};
-                                ownArrayController[persistentName] = simpleObject[exposedName];
-                            }                            
-                        }
-                        else  
-                            persistent[persistentName] = simpleObject[exposedName];
-                    }
-                }
-                else
-                {
-                    if ((simpleObject as Object).hasOwnProperty(exposedName))
-                    {
-                        if (!nonPersistent) nonPersistent = {};
-                        nonPersistent[exposedName] = simpleObject[exposedName];
-                    }
-                }
-            }
-            if (accessor.exposition == ExpositionType.ReadOnly)
-            {
-                if ((simpleObject as Object).hasOwnProperty(exposedName))
-                {
-                    if (!readOnly) readOnly = {};
-                    readOnly[exposedName] = simpleObject[exposedName];
-                }                
-            }
-
-            delete simpleObject[exposedName];
-        });
-
-        /**
-         * Excluding attributes that are nonPersistent by convention (Start with '$')
-         */
-        if (Object.keys(simpleObject).length > 0)
-            for (let p in simpleObject) 
-                if (p && p.length > 0 && p[0] == '$') {
-                    if (!nonPersistent)
-                        nonPersistent = {};
-                    nonPersistent[p] = simpleObject[p];
-                    delete simpleObject[p];
-                }
-
-        /**
-         * Non valid attributes
-         */
-        let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
-        
-        return { persistent, nonPersistent, readOnly, nonValid, ownArrayController };
-    }
-
     save(): Promise<EntityMovementFlow> 
     {
         return new Promise<EntityMovementFlow>((resolve, reject) =>
@@ -185,28 +108,32 @@ class EMEntity extends Entity
                                         this._session
                                             .createDocument(this.entityInfo.name, this._document)
                                             .then(documentCreated => {
-                                                this._document = documentCreated;
-                                                this.afterSaveEntity(true).then(result => resolve(result)).catch(reject);
-                                            })
-                                            .catch(exception =>
-                                                this.performExtensionOperators(EMEntityMetaOperationType.OnSaveException, { exception })
-                                                    .then(() => reject(exception))
-                                                    .catch(() => reject(exception))
-                                            );
+                                                    this._document = documentCreated;
+                                                    this.logTrace(`Created entity [${this.entityInfo.name}(${this._document._id.toString()})]`, 'save');
+                                                    this.afterSaveEntity(true).then(result => resolve(result)).catch(reject);
+                                                })
+                                            .catch(exception => {
+                                                    this.logWarn(`Caught exception on create entity [${this.entityInfo.name}]-${exception && exception.message ? exception.message : exception.toString()}`, 'save');
+                                                    this.performExtensionOperators(EMEntityMetaOperationType.OnSaveException, { exception })
+                                                        .then(() => reject(exception))
+                                                        .catch(() => reject(exception))
+                                                });
                                     else
                                         this._session
                                             .updateDocument(this.entityInfo.name, this._document)
                                             .then(documentUpdated => {
-                                                this._document = documentUpdated;
-                                                this.afterSaveEntity(false)
-                                                    .then(result => resolve(result))
-                                                    .catch(reject);
-                                            })
-                                            .catch(exception =>
-                                                this.performExtensionOperators(EMEntityMetaOperationType.OnSaveException, { exception })
-                                                    .then(() => reject(exception))
-                                                    .catch(() => reject(exception))
-                                            );
+                                                    this._document = documentUpdated;
+                                                    this.logTrace(`Updated entity [${this.entityInfo.name}(${this._document._id.toString()})]`, 'save');
+                                                    this.afterSaveEntity(false)
+                                                        .then(result => resolve(result))
+                                                        .catch(reject);
+                                                })
+                                            .catch(exception => {
+                                                    this.logWarn(`Caught exception on update entity [${this.entityInfo.name}]-${exception && exception.message ? exception.message : exception.toString()}`, 'save');
+                                                    this.performExtensionOperators(EMEntityMetaOperationType.OnSaveException, { exception })
+                                                        .then(() => reject(exception))
+                                                        .catch(() => reject(exception))
+                                                });
                                 }
                                 else
                                     resolve(extensionMovFlow);
@@ -303,12 +230,13 @@ class EMEntity extends Entity
             this.onDeleting().then(
                 movFlow => 
                 {
-                    if (movFlow.continue)
-                    {
+                    if (movFlow.continue) {
+                        let idToDelete = this._id.toString();
                         this.session.deleteDocument(this.entityInfo.name, this._document).then( 
                             ()=> { 
                                 this.onDeleted(); 
                                 this.triggerAMQP(EntityEventLogType.deleted);
+                                this.logTrace(`Deleted entity [${this.entityInfo.name}(${idToDelete})]`, 'delete');
                                 resolve({continue:true}); 
                             },
                             error => reject(error)
@@ -393,7 +321,38 @@ class EMEntity extends Entity
         }
     }
 
-    
+    private logTrace(message: string, method: string) : void
+    {
+        EntifixLogger.trace({
+            message,
+            user: this.session.privateUserData.userName,
+            systemOwner: this.session.privateUserData.systemOwnerSelected,
+            origin: { file: 'emEntity', class: 'EMEntity', method},
+            developer: 'herber230'
+        });
+    }
+
+    private logError(message: string, method: string) : void
+    {
+        EntifixLogger.error({
+            message,
+            user: this.session.privateUserData.userName,
+            systemOwner: this.session.privateUserData.systemOwnerSelected,
+            origin: { file: 'emEntity', class: 'EMEntity', method},
+            developer: 'herber230'
+        });
+    }
+
+    private logWarn(message: string, method: string) : void
+    {
+        EntifixLogger.warn({
+            message,
+            user: this.session.privateUserData.userName,
+            systemOwner: this.session.privateUserData.systemOwnerSelected,
+            origin: { file: 'emEntity', class: 'EMEntity', method},
+            developer: 'herber230'
+        });
+    }
 
 
     //#endregion
@@ -464,6 +423,132 @@ class EMEntity extends Entity
     get deletedBy () : string
     { return this._document.deletedBy; }
     
+    //#endregion
+
+
+    //#region Static
+
+    static deserializeAccessors (info : EntityInfo, simpleObject : any) : { persistent? : any, nonPersistent? : any, readOnly? : any, nonValid? : any, ownArrayController? : any }
+    {
+        let persistent : any;
+        let nonPersistent : any;
+        let readOnly : any;
+        let ownArrayController : any;
+
+        /**
+         * Main dynamic to select attributes to extract
+         */
+        info.getAccessors().filter( accessor => accessor.exposition ).forEach( accessor => {
+
+            let exposedName = accessor.serializeAlias || accessor.name;
+            let persistentName = accessor.persistentAlias || accessor.name;
+
+            if (accessor.exposition == ExpositionType.Normal || accessor.exposition == ExpositionType.System)
+            {
+                let isPersistent = accessor.schema != null || accessor.persistenceType == PersistenceType.Auto;
+                if (isPersistent) {
+                    if ((simpleObject as Object).hasOwnProperty(exposedName)) {
+                        if (!persistent) 
+                            persistent = {};
+
+                        if (accessor.activator) {
+                            if (accessor.activator.considerDuringDeserialization) 
+                                persistent[persistentName] = simpleObject[exposedName];    
+                            else {
+                                if (!ownArrayController) ownArrayController = {};
+                                ownArrayController[persistentName] = simpleObject[exposedName];
+                            }                            
+                        }
+                        else  
+                            persistent[persistentName] = simpleObject[exposedName];
+                    }
+                }
+                else
+                {
+                    if ((simpleObject as Object).hasOwnProperty(exposedName))
+                    {
+                        if (!nonPersistent) nonPersistent = {};
+                        nonPersistent[exposedName] = simpleObject[exposedName];
+                    }
+                }
+            }
+            if (accessor.exposition == ExpositionType.ReadOnly)
+            {
+                if ((simpleObject as Object).hasOwnProperty(exposedName))
+                {
+                    if (!readOnly) readOnly = {};
+                    readOnly[exposedName] = simpleObject[exposedName];
+                }                
+            }
+
+            delete simpleObject[exposedName];
+        });
+
+        /**
+         * Excluding attributes that are nonPersistent by convention (Start with '$')
+         */
+        if (Object.keys(simpleObject).length > 0)
+            for (let p in simpleObject) 
+                if (p && p.length > 0 && p[0] == '$') {
+                    if (!nonPersistent)
+                        nonPersistent = {};
+                    nonPersistent[p] = simpleObject[p];
+                    delete simpleObject[p];
+                }
+
+        /**
+         * Non valid attributes
+         */
+        let nonValid = Object.keys(simpleObject).length > 0 ? simpleObject : null;
+        
+        return { persistent, nonPersistent, readOnly, nonValid, ownArrayController };
+    }
+
+    static serializeComplexObject(complexObject : any ) : any
+    {
+        if (!complexObject)
+            return null;
+
+        if (complexObject instanceof EMEntity)
+            return complexObject.serializeExposedAccessors();
+
+        let serializeObject = object => {
+            let serializedResult : any;
+            let setPropertyValue = (pName: string, pValue : any) =>  {
+                if (!serializedResult)
+                    serializedResult = {};
+                serializedResult[pName] = pValue;
+            };
+
+            for (let propertyName in object) 
+                if (object[propertyName]) {
+                    let propertyValue = object[propertyName];
+
+                    if (propertyValue instanceof EMEntity) 
+                        setPropertyValue(propertyName, propertyValue.serializeExposedAccessors());
+                    else
+                        switch(typeof propertyValue) {
+                            /*
+                            * Add more cases to manage serialization type
+                            *
+                            */
+
+                            case 'object':
+                                setPropertyValue(propertyName, serializeObject(propertyValue)); //Recursive iteration
+                                break;
+
+                            default:
+                                setPropertyValue(propertyName, propertyValue);
+                        }
+                }
+
+            return serializedResult;
+        }
+
+        return serializeObject(complexObject);
+    }
+
+
     //#endregion
 }
 

@@ -2,6 +2,7 @@ import { EMEntityMetaOperationType } from './enumeration'
 import { EntityMovementFlow } from '../../hc-core/hcEntity/hcEntity'
 import { EMEntity } from '../../express-mongoose/emEntity/emEntity';
 import { getEntityOperationMetadata } from '../metadata/function';
+import { EntifixLogger } from '../../app-utilities/logger/entifixLogger';
 
 class EMEntityOperationMetadata 
 {
@@ -10,12 +11,15 @@ class EMEntityOperationMetadata
     private _operationTypes: Array<EMEntityMetaOperationType>;
     private _operationMethod: (entity : EMEntity, additionalData? : any) => void | Promise<void> | EntityMovementFlow | Promise<EntityMovementFlow>;
     private _data: any;
+    private _name: string;
 
     //#endregion
 
     //#region Methods
 
-    constructor() { }
+    constructor(name : string) {
+        this._name = name;
+    }
 
     addOperationType(operationType : EMEntityMetaOperationType | Array<EMEntityMetaOperationType>) : EMEntityOperationMetadata 
     {
@@ -47,6 +51,12 @@ class EMEntityOperationMetadata
 
     perform( entity : EMEntity, additionalData : any) 
     {
+        EntifixLogger.trace({
+            message: `Perform single extesion operator [${this.name}] for entity [${entity.entityInfo.name}(${entity._id.toString()})]`, 
+            developer:'herber230', systemOwner: entity?.session?.privateUserData?.systemOwnerSelected, 
+            origin: { file: 'EMEntityOperationMetadata', method: 'public: perform' } 
+        });
+
         if (!entity)
             throw new Error('The entity for operation is null');
 
@@ -81,12 +91,22 @@ class EMEntityOperationMetadata
     set data(value)
     { this._data = value; }
 
+    get name()
+    { return this._name; }
+
+
     //#endregion
 
     //#region Static
 
     public static performExtensionOperators(entity : EMEntity, operationType : EMEntityMetaOperationType | Array<EMEntityMetaOperationType>, additionalData? : any ) : Promise<EntityMovementFlow>
     {
+        EntifixLogger.trace({
+            message: `Perform extension operators for entity [${entity.entityInfo.name}(${entity._id.toString()})]`, 
+            developer:'herber230', systemOwner: entity?.session?.privateUserData?.systemOwnerSelected, 
+            origin: { file: 'EMEntityOperationMetadata', method: 'public-static: performExtensionOperators' } 
+        });
+
         return new Promise((resolve,reject)=> {
             let entityOperators = getEntityOperationMetadata(entity);
 
@@ -101,7 +121,7 @@ class EMEntityOperationMetadata
 
                 if (syncResults && syncResults.length > 0)
                     syncResults = syncResults.map(eo => {
-                        if ((eo as EntityMovementFlow).continue != null)
+                        if (eo && (eo as EntityMovementFlow).continue != null)
                             return eo as EntityMovementFlow;
                         else
                             return null;
@@ -109,13 +129,7 @@ class EMEntityOperationMetadata
                 else
                     syncResults = [];
 
-                let asyncResults = allResults.filter( eo => eo instanceof Promise) as Array<Promise<void | EntityMovementFlow>>;
-                if (asyncResults && asyncResults.length > 0)
-                    Promise.all(asyncResults).then( r => resolvePromise(syncResults.concat(r)) ).catch( reject );
-                else
-                    resolvePromise(syncResults);
-
-                var resolvePromise = (results : Array<void | EntityMovementFlow>) => 
+                let resolvePromise = (results : Array<void | EntityMovementFlow>) => 
                 {    
                     let affectResults = results.filter( r => r != null) as Array<EntityMovementFlow>;
                     if (affectResults && affectResults.length > 0 ){
@@ -126,6 +140,13 @@ class EMEntityOperationMetadata
                     else
                         resolve({continue: true});
                 };
+
+                let asyncResults = allResults.filter( eo => eo instanceof Promise) as Array<Promise<void | EntityMovementFlow>>;
+                if (asyncResults && asyncResults.length > 0)
+                    Promise.all(asyncResults).then( r => resolvePromise(syncResults.concat(r)) ).catch( reject );
+                else
+                    resolvePromise(syncResults);
+
             }
             else
                 resolve({ continue: true })

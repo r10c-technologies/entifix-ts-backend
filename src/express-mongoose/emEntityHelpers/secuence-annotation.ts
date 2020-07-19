@@ -15,12 +15,12 @@ function Secuence(options? : SecuenceOptions)
 {
     return function( target: any, key: string, descriptor: PropertyDescriptor) 
     {
-        let setSecuenceOperation = new EMEntityOperationMetadata();
+        let setSecuenceOperation = new EMEntityOperationMetadata('SecuenceOperation');
         setSecuenceOperation.addOperationType( EMEntityMetaOperationType.BeforeSave );
         setSecuenceOperation.operationMethod = entity => _setSecuence(entity, key, options);
         addEntityMetadataOperation(target, setSecuenceOperation);
 
-        let rollbackSecuenceOperation = new EMEntityOperationMetadata();
+        let rollbackSecuenceOperation = new EMEntityOperationMetadata('RollbackSecuenceOperation');
         rollbackSecuenceOperation.addOperationType( EMEntityMetaOperationType.OnSaveException );
         rollbackSecuenceOperation.operationMethod = (entity, additionalData) => _rollbackSecuence(additionalData, entity, key, options);
         addEntityMetadataOperation(target, rollbackSecuenceOperation);

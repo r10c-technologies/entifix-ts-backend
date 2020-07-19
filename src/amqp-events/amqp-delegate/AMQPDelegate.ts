@@ -69,6 +69,9 @@ abstract class AMQPDelegate
     get eventManager ()
     { return this._eventManager; }
 
+    get name() : string
+    { return this.constructor.name; }
+
 
     //#endregion
 

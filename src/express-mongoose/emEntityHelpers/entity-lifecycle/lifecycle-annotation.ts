@@ -5,13 +5,14 @@ import {
     DefinedMetaParam
 } from "../../../hc-core/hcMetaData/hcMetaData";
 
-import { HcSession } from "../../../hc-core/hcSession/hcSession";
-import { setLifecycleValidationMetadata, getLifecycleValidationMetadata, getLifecycleMetadata, setLifecycleMetadata } from "./metadata-function";
 import { LifeCycleValidationData, LifeCycleValidationParams, LifeCycleMetaData } from "./metadata-model";
-import { getEntityOperationMetadata, addEntityMetadataOperation, EMEntityOperationMetadata, EMEntityMetaOperationType } from "../../../extensibility";
+import { addEntityMetadataOperation, EMEntityOperationMetadata, EMEntityMetaOperationType } from "../../../extensibility";
 import { EMEntity } from "../../emEntity/emEntity";
 import { EntityMovementFlow } from "../../../hc-core/hcEntity/hcEntity";
-import { resolve } from "url";
+import { EMServiceSession } from "../../emServiceSession/emServiceSession";
+import { AMQPEventManager, ExchangeDescription, ExchangeType } from "../../../amqp-events/amqp-event-manager/AMQPEventManager";
+import { AMQPCustomEvent } from "../../../amqp-events/amqp-custom-event/AMQPCustomEvent";
+import { setLifecycleMetadata, getLifecycleValidationMetadata } from "./metadata-function";
 
 
 
@@ -27,7 +28,7 @@ function StateParam( )
 
 
 function LifeCycleSetter<TState>( params: { mapping : Map<TState, Array<TState>> } );
-function LifeCycleSetter<TState>( params: { mapping : Map<TState, Array<TState>>, eventName?: string, returnActionData? : boolean, statePropertyName?: string } )
+function LifeCycleSetter<TState>( params: { mapping : Map<TState, Array<TState>>, eventName?: string, returnActionData? : boolean, statePropertyName?: string } );
 function LifeCycleSetter<TState>( params: { mapping : Map<TState, Array<TState>>, eventName?: string, returnActionData? : boolean, statePropertyName?: string } )
 {
     return function(target: any, memberName: string, descriptor: TypedPropertyDescriptor<Function>)
@@ -41,20 +42,29 @@ function LifeCycleSetter<TState>( params: { mapping : Map<TState, Array<TState>>
         methodInfo.name = memberName;
         methodInfo.className = target.constructor.name;
         methodInfo.parameters = Reflect.getOwnMetadata( definedParamKey, target, memberName );
-        methodInfo.eventName = params.eventName;
         methodInfo.returnActionData = params.returnActionData;
         entityInfo.addMethodInfo(methodInfo);
         let statePropertyName = params.statePropertyName || 'state';
-        
+      
         //Set metadata
         let lifecycleMetadata : LifeCycleMetaData<TState> = {
             statePropertyName,
             lifeCycleMap: params.mapping
         };
         setLifecycleMetadata(target, lifecycleMetadata );
-
+        
         //Override method behavior
-        descriptor.value = _overrideLifeCycleSet(methodInfo, descriptor.value, params.statePropertyName);        
+        descriptor.value = _overrideLifeCycleSet(methodInfo, descriptor.value, statePropertyName );
+        
+        //Event handling
+        if (!params.eventName) {
+            // For more cusomizable event parameters, the best option is to create an individual AMQP event
+            methodInfo.eventName = methodInfo.className + (memberName.charAt(0).toUpperCase() + memberName.slice(1)) + 'CustomEvent'; 
+            let rountingKey = `action.${methodInfo.className}.${memberName}`;
+            _assertActionDefinition(methodInfo.eventName, rountingKey);
+        }
+        else
+            methodInfo.eventName = params.eventName;
     }
 }
 
@@ -79,7 +89,7 @@ function LifeCycleValidation<T>( params?: LifeCycleValidationParams<T> )
         if (invokeOnSave)
             operationTypes.push(EMEntityMetaOperationType.BeforeSave);
 
-        addEntityMetadataOperation(target, new EMEntityOperationMetadata()
+        addEntityMetadataOperation(target, new EMEntityOperationMetadata(`LifeCycleValidationOperation->${memberName}`)
             .addOperationType(operationTypes)
             .setOperationMethod((entity, aditionalData) => _runLifeCycleValidation(entity, descriptor, params, aditionalData )) 
         );
@@ -137,13 +147,13 @@ function _overrideLifeCycleSet(methodInfo : MethodInfo, originalMethod : Functio
     return function() {
         let params = new Array<any>();
         let userParamArray = new Array<{key,value}>();
-        let specialParamArray = new Array<{key,value}>()
 
-        for (let a in arguments) {
-            let argument = arguments[a];
-            if ( (argument as Object).hasOwnProperty('key') && (argument as Object).hasOwnProperty('value') )
-                userParamArray.push( { key: argument.key, value: argument.value } );
-        }
+        if (arguments && arguments[0])
+            for (let a in arguments[0]) {
+                let argument = arguments[0][a];
+                if ( (argument as Object).hasOwnProperty('key') && (argument as Object).hasOwnProperty('value') )
+                    userParamArray.push( { key: argument.key, value: argument.value } );
+            }
             
         if (methodInfo.parameters && methodInfo.parameters.length > 0) {
             let limit = Math.max( ...methodInfo.parameters.map( dp => dp.index ) );
@@ -152,9 +162,6 @@ function _overrideLifeCycleSet(methodInfo : MethodInfo, originalMethod : Functio
                 let defParam = methodInfo.parameters.find( dp => dp.index == i );
                 if (defParam) {
                     let arg : {key,value};
-                    if (defParam.special == true)
-                        arg = specialParamArray.find( a => a.key == defParam.name );
-                    else
                         arg = userParamArray.find( a => a.key == defParam.name );
                         
                     params.push(arg ? arg.value : null);
@@ -171,8 +178,10 @@ function _overrideLifeCycleSet(methodInfo : MethodInfo, originalMethod : Functio
             if (entity.instancedChanges && entity.instancedChanges.length > 0) {
                 let change = entity.instancedChanges.find( ic => ic.property == statePropertyName);
                 if (change)
-                    aditionalData = { [statePropertyName]: change.oldValue };
+                    aditionalData = { [statePropertyName]: change.oldValue };    
             }
+            if (!aditionalData || !aditionalData[statePropertyName])
+                aditionalData = { [statePropertyName]: entity[statePropertyName] };
 
             EMEntityOperationMetadata
                 .performExtensionOperators(this, EMEntityMetaOperationType.OnLifeCycleActionCall, aditionalData)
@@ -186,6 +195,23 @@ function _overrideLifeCycleSet(methodInfo : MethodInfo, originalMethod : Functio
         });
     };
 }
+
+function _assertActionDefinition(eventName: string, eventRoutingKey: string)
+{
+    EMServiceSession.on('eventManagerStarted', (eventManager : AMQPEventManager) => {
+        let customEventExchangeDescription : ExchangeDescription = {
+            name: 'entity_events', 
+            type: ExchangeType.topic, 
+            options: { durable: true } 
+        };
+
+        let customEvent = new AMQPCustomEvent(eventManager, eventName, eventRoutingKey, customEventExchangeDescription);
+        eventManager.registerEvent(customEvent);
+    });
+}
+
+// ===================================================================================================================================================================
+// Annotations Logic
 
 
 export {

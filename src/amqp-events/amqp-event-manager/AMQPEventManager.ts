@@ -3,14 +3,11 @@ import amqp = require('amqplib/callback_api');
 import { EMServiceSession } from '../../express-mongoose/emServiceSession/emServiceSession';
 import { AMQPDelegate } from '../amqp-delegate/AMQPDelegate';
 import { AMQPEvent } from '../amqp-event/AMQPEvent';
-import { AMQPEventMessage } from '../amqp-models/amqp-models';
-import { AMQPSender } from '../amqp-sender/AMQPSender';
-import { AMQPEventArgs } from '../amqp-event-args/AMQPEventArgs';
 import { EMSession } from '../../express-mongoose/emSession/emSession';
-import { Options } from 'body-parser';
 import { EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { AMQPEntityLogger, EntityEventLogType } from '../amqp-entity-logger/AMQPEntityLogger';
 import { EMEntity } from '../../express-mongoose/emEntity/emEntity';
+import { EntifixLogger } from '../../app-utilities/logger/entifixLogger';
 
 class AMQPEventManager
 {
@@ -36,7 +33,7 @@ class AMQPEventManager
         this._exchangesDescription = new Array<ExchangeDescription>();
     }
 
-    registerEvent<TEvent extends AMQPEvent>( event: { new( session: AMQPEventManager) : TEvent } | TEvent ) : TEvent
+    registerEvent<TEvent extends AMQPEvent>( event: { new( eventManager: AMQPEventManager) : TEvent } | TEvent ) : TEvent
     {
         this._serviceSession.checkAMQPConnection();
         let instance : TEvent;
@@ -51,15 +48,26 @@ class AMQPEventManager
 
         this._events.push({ name: event.name, instance });
 
+        EntifixLogger.trace({
+            message: `Event regitered: ${event.name}`,
+            origin: { file: 'AMQPEventManager', method: 'public: registerEvent' },
+            developer: 'herber230' 
+        });
+
         return instance;
     }
 
 
-    registerDelegate<TDelegate extends AMQPDelegate>( type: { new( session: AMQPEventManager) : TDelegate } ) : TDelegate
+    registerDelegate<TDelegate extends AMQPDelegate>( type: { new( eventManager: AMQPEventManager) : TDelegate } | TDelegate ) : TDelegate
     {
         this._serviceSession.checkAMQPConnection();
+        let instance : TDelegate;
 
-        let instance = new type(this);
+        if(type instanceof AMQPDelegate)
+            instance = type;
+        else
+            instance = new type(this);
+
         this._delegates.push( { name: type.name, instance } );
 
         this.assertDelegateChannel(instance).then( 
@@ -72,6 +80,12 @@ class AMQPEventManager
                         this._serviceSession.throwException('It is necessary to define a routing key pattern if the delegate set a Exchange Description');
                     ch.bindQueue(instance.queueDescription.name, instance.exchangeDescription.name, instance.routingKeyPattern);
                 }
+
+                EntifixLogger.trace({
+                    message: `Delegate regitered and consuming messages: ${instance.name}`,
+                    origin: { file: 'AMQPEventManager', method: 'public: registerEvent' },
+                    developer: 'herber230' 
+                });
 
                 ch.consume(instance.queueDescription.name, instance.onMessage(ch) ); 
             }
@@ -109,10 +123,26 @@ class AMQPEventManager
                 this.assertEventChannel(pub.instance).then( c => {
                     let content = new Buffer(JSON.stringify(message));
 
-                    if (!pub.instance.specificQueue)
+                    if (!pub.instance.specificQueue) {
+
+                        EntifixLogger.trace({
+                            message: `Publishing message to exchange [${pub.instance.exchangeDescription.name}] with routing key [${pub.instance.routingKey}]`,
+                            origin: { file: 'AMQPEventManager', method: 'public: publish' },
+                            developer: 'herber230' 
+                        });
+                        
                         c.publish( pub.instance.exchangeDescription.name, pub.instance.routingKey, content, publishOptions );
-                    else
+                    }
+                    else {
+
+                        EntifixLogger.trace({
+                            message: `Publishing message direct to queue [${pub.instance.specificQueue}]`,
+                            origin: { file: 'AMQPEventManager', method: 'public: publish' },
+                            developer: 'herber230' 
+                        });
+
                         c.sendToQueue( pub.instance.specificQueue, content, publishOptions );
+                    }
                     
                     resolve();
                 }).catch(reject);

@@ -18,6 +18,8 @@ import { AMQPEventManager, ExchangeType } from '../../amqp-events/amqp-event-man
 import { TokenValidationRequestRPC } from '../../amqp-events/amqp-base-events/TokenValidationRequestRPC';
 import { TokenValidationResponseRPC } from '../../amqp-events/amqp-base-events/TokenValidationResponseRPC';
 import { IEntityKeyModel, EntityKey } from '../emEntityMultiKey/emEntityMultiKey';
+import EntifixLoggerLevel from '../../app-utilities/logger/entifixLoggerLevels';
+import { EntifixLogger }from '../../app-utilities/logger/entifixLogger';
 
 interface EntifixAppConfig
 { 
@@ -33,7 +35,8 @@ interface EntifixAppConfig
     authCacheService?: { host : string, port : number },
     reportsService?: { host : string, port : string, path : string, methodToRequest : string },
     basePath?: string,
-    useCacheForTokens?: boolean
+    useCacheForTokens?: boolean,
+    loggerLevel? : EntifixLoggerLevel
 }
 
 interface MongoServiceConfig {
@@ -63,6 +66,9 @@ abstract class EntifixApplication
         //Default internals
         let asyncTask = new Array<Promise<void>>();
         this._eventEmitter = new EventEmitter();
+
+        //Configure Entifix Logger
+        this.configureLogger();
 
         //Create express instance app that is going to be used in the Http Server
         this.createExpressApp(port);
@@ -98,7 +104,6 @@ abstract class EntifixApplication
         return new Promise<void>((resolve,reject)=> {
 
             let rejectPromise = e => {
-                let a = 2;
                 reject(e);
             };
 
@@ -135,12 +140,30 @@ abstract class EntifixApplication
             this._expressApp.use( bodyParser.json() );
 
             //File uploader 
+            // =====================================================================================================================
             this._expressApp.use( fileUpload({
                 useTempFiles : true,
                 tempFileDir : '/tmp-core-files/'
             })); 
+            // =====================================================================================================================
             
+            
+            // Trace logger 
+            // =====================================================================================================================
+        
+            this._expressApp.all('/*', (request, response, next) => {              
+                EntifixLogger.trace({
+                    message: `Incoming request to path: [${request.path}]`,
+                    origin: { file: 'entifix-application', class: 'EntifixApplication', method: 'createMiddlewareFunctions' },
+                    developer: 'herber230' 
+                });
 
+                next();
+            });            
+            
+            // =====================================================================================================================
+            
+        
             //Enable cors if is required
             // =====================================================================================================================
             if (this.serviceConfiguration.cors && this.serviceConfiguration.cors.enable )
@@ -279,6 +302,7 @@ abstract class EntifixApplication
                 this._eventManager = this.serviceSession.createAndBindEventManager(); 
                 this.createRPCAuthorizationDynamic();     
                 this.registerEventsAndDelegates();
+                EMServiceSession.emit("eventManagerStarted", this.eventManager);
             }
 
             resolve();
@@ -449,6 +473,13 @@ abstract class EntifixApplication
             return this.requestTokenValidationWithCache(token, request);
         else
             return this.requestTokenValidation(token, request);
+    }
+
+    protected configureLogger() : void
+    {
+        let loggerLevel = this.serviceConfiguration.loggerLevel;
+        console.log(`[>] Initial logger level: ${loggerLevel}`);
+        EntifixLogger.setLevel(loggerLevel);
     }
 
     //#endregion

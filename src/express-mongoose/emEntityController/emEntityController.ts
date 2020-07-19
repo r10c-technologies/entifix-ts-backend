@@ -6,7 +6,7 @@ import { EMResponseEntityWrapper, EMResponseWrapper } from '../emWrapper/emWrapp
 import HttpStatus = require('http-status-codes');
 import express = require('express');
 import { EntityInfo, AccessorInfo, MemberBindingType, DefinedParam } from '../../hc-core/hcMetaData/hcMetaData';
-import { EMMemberActivator } from '../..';
+import { EMMemberActivator, EntifixLogger } from '../..';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
 import { EMEntityMultiKey } from '../emEntityMultiKey/emEntityMultiKey';
 import { EMModifyResponseContent } from './emModifyResponseContent';
@@ -50,8 +50,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     protected createRoutes( ) : void
     {
-        // It is important to consider the order of the class methods setted for the HTTP Methods
-        
+        // It is important to consider the order of the class methods setted for the HTTP Methods        
         //CRUD methods
         this._router.get('/' + this._resourceName, ( request, response, next )=> this.retrieve(request, response) );
         this._router.get('/' + this._resourceName + '/:id/allowed-target-states', (request, response, next) => this.retrieveAlloweTargetStates(request, response))
@@ -396,11 +395,18 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
         return new Promise<EMSession>( (resolve, reject ) => {
             let newSession = new EMSession( this._routerManager.serviceSession, { request, response } );
 
-            //Execute another async tasks before using the new session
-            //...
-            //...
-            //...
+            EntifixLogger.trace({
+                message: 'Session created',
+                user: newSession.privateUserData.userName,
+                systemOwner: newSession.privateUserData.systemOwnerSelected,
+                origin: { file: 'emEntityController', class: 'EMEntityController', method: 'createSession' },
+                developer: 'herber230'
+            });
 
+            //Execute another sync/async task before using the new session
+            //...
+            //...
+            //...
             resolve( newSession );
         })
         .then( session => session )        

@@ -5,6 +5,7 @@ import { AMQPEventManager, ExchangeDescription, ExchangeType } from '../amqp-eve
 import { AMQPSender } from '../amqp-sender/AMQPSender';
 import { AMQPEventArgs } from '../amqp-event-args/AMQPEventArgs';
 import { EMSession } from '../../express-mongoose/emSession/emSession';
+import { EMEntity } from '../../express-mongoose/emEntity/emEntity';
 
 
 interface EventMovementFlow
@@ -52,7 +53,7 @@ abstract class AMQPEvent
                     }, { publishOptions: options });
                     
                     let eventArgs = new AMQPEventArgs({
-                        eventArgs: { data }
+                        eventArgs: { data: EMEntity.serializeComplexObject(data) }
                     });
 
                     resolve({ sender, eventArgs});

@@ -80,7 +80,7 @@ class EntifixLogger {
      */
     static trace(log: EntifixLoggerMessage): void {
         if (this.canPrintLog(EntifixLoggerLevel.TRACE)) {
-            console.log(this.printLogMessage(log));
+            console.log(this.printLogMessage(EntifixLoggerLevel.TRACE, log));
         }
     }
 
@@ -91,7 +91,7 @@ class EntifixLogger {
      */
     static debug(log: EntifixLoggerMessage): void {
         if (this.canPrintLog(EntifixLoggerLevel.DEBUG)) {
-            console.info(this.printLogMessage(log));
+            console.info(this.printLogMessage(EntifixLoggerLevel.DEBUG, log));
         }
     }
 
@@ -102,7 +102,7 @@ class EntifixLogger {
      */
     static info(log: EntifixLoggerMessage): void {
         if (this.canPrintLog(EntifixLoggerLevel.INFO)) {
-            console.info(this.printLogMessage(log));
+            console.info(this.printLogMessage(EntifixLoggerLevel.INFO, log));
         }
     }
 
@@ -113,7 +113,7 @@ class EntifixLogger {
      */
     static warn(log: EntifixLoggerMessage): void {
         if (this.canPrintLog(EntifixLoggerLevel.WARN)) {
-            console.warn(this.printLogMessage(log));
+            console.warn(this.printLogMessage(EntifixLoggerLevel.WARN, log));
         }
     }
 
@@ -124,7 +124,7 @@ class EntifixLogger {
      */
     static error(log: EntifixLoggerMessage): void {
         if (this.canPrintLog(EntifixLoggerLevel.ERROR)) {
-            console.error(this.printLogMessage(log));
+            console.error(this.printLogMessage(EntifixLoggerLevel.ERROR, log));
         }
     }
 
@@ -135,7 +135,7 @@ class EntifixLogger {
      */
     static fatal(log: EntifixLoggerMessage): void {
         if (this.canPrintLog(EntifixLoggerLevel.FATAL)) {
-            console.error(this.printLogMessage(log));
+            console.error(this.printLogMessage(EntifixLoggerLevel.FATAL, log));
         }
     }
 
@@ -144,15 +144,20 @@ class EntifixLogger {
      * @typeParam EntifixLoggerMessage.
      * @returns A formmatted string value to print.
      */
-    private static printLogMessage(log: EntifixLoggerMessage): string {
+    private static printLogMessage(type : EntifixLoggerLevel, log: EntifixLoggerMessage): string {
         return JSON.stringify({
+            "type": type,
             "System Owner": log.systemOwner,
             "User in request": log.user,
             "Message": log.message,
             "Origin": log.origin,
-            "Developer": log.developer
+            "Developer": log.developer,
+            "Aditional Data": log.aditionalData
         });
     }
 }
 
-export default EntifixLogger;
+
+export { 
+    EntifixLogger
+}

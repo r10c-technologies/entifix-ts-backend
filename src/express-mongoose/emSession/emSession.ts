@@ -14,6 +14,8 @@ import { EMEntityMultiKey, EntityKey, IEntityKey, IEntityKeyModel } from '../emE
 import moment = require('moment');
 import { stringify } from 'querystring';
 import { filter } from 'bluebird';
+import { EntifixApplicationModule } from '../base-entities/entifix-application-module';
+import { EntifixLogger } from '../../app-utilities/logger/entifixLogger';
 
 class EMSession extends HcSession
 {

@@ -39,7 +39,7 @@ function VerifyLocking(params?: { lockingType? : LockingType | Array<LockingType
                     operationType.push(EMEntityMetaOperationType.BeforeDelete);            
         }
 
-        let entitityOperationMetadata = new EMEntityOperationMetadata();
+        let entitityOperationMetadata = new EMEntityOperationMetadata('VerifyLockingOperation');
         entitityOperationMetadata.addOperationType(operationType);  
         entitityOperationMetadata.operationMethod = entity => _checkForEntityLockWithConditions(entity, incluceCreate, includeUpdate);
         addEntityMetadataOperation(target, entitityOperationMetadata);
@@ -84,12 +84,12 @@ function Locking( params?: { lockingType? : LockingType | Array<LockingType> })
             }
         }
 
-        let entityLockOperation = new EMEntityOperationMetadata();
+        let entityLockOperation = new EMEntityOperationMetadata('LockOperation');
         entityLockOperation.addOperationType( lockOperationType );  
         entityLockOperation.operationMethod = entity => _lockEntityWithConditions(entity, incluceCreate, includeUpdate);
         addEntityMetadataOperation(target, entityLockOperation);
     
-        let entityUnlockOperation = new EMEntityOperationMetadata();
+        let entityUnlockOperation = new EMEntityOperationMetadata('UnlockOperation');
         entityUnlockOperation.addOperationType(unlockOperationType);  
         entityUnlockOperation.operationMethod = entity => _unlockEntity(entity);
         addEntityMetadataOperation(target, entityUnlockOperation);
