@@ -147,12 +147,12 @@ class EntifixLogger {
     private static printLogMessage(type : EntifixLoggerLevel, log: EntifixLoggerMessage): string {
         return JSON.stringify({
             "type": type,
-            "System Owner": log.systemOwner,
-            "User in request": log.user,
-            "Message": log.message,
-            "Origin": log.origin,
-            "Developer": log.developer,
-            "Aditional Data": log.aditionalData
+            "systemOwner": log.systemOwner,
+            "user": log.user,
+            "message": log.message,
+            "origin": log.origin,
+            "developer": log.developer,
+            "aditionalData": log.aditionalData
         });
     }
 }
