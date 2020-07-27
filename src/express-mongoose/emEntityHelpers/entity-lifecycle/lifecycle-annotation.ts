@@ -149,8 +149,7 @@ function _overrideLifeCycleSet(methodInfo : MethodInfo, originalMethod : Functio
         let userParamArray = new Array<{key,value}>();
 
         if (arguments && arguments[0])
-            for (let a in arguments[0]) {
-                let argument = arguments[0][a];
+            for (let argument of arguments[0]) {
                 if ( (argument as Object).hasOwnProperty('key') && (argument as Object).hasOwnProperty('value') )
                     userParamArray.push( { key: argument.key, value: argument.value } );
             }

@@ -173,21 +173,18 @@ function DefinedMethod( params? : { eventName?: string, returnActionData? : bool
             let userParamArray = new Array<{key,value}>();
             let specialParamArray = new Array<{key,value}>()
 
-            for (let a in arguments)
-            {
-                let argument = arguments[a];
-                
-                if ( (argument as Object).hasOwnProperty('key') && (argument as Object).hasOwnProperty('value') )
-                {
-                    let key = argument.key;
-                    let value = argument.value;
-                    userParamArray.push( { key, value } );
+
+            if (arguments && arguments[0])
+                for (let argument of arguments[0]) {
+                    if ( (argument as Object).hasOwnProperty('key') && (argument as Object).hasOwnProperty('value') ) {
+                        let key = argument.key;
+                        let value = argument.value;
+                        userParamArray.push( { key, value } );
+                    }
+                    else if ( argument instanceof HcSession ) {
+                        specialParamArray.push( { key: 'session', value: argument } );
+                    }
                 }
-                else if ( argument instanceof HcSession )
-                {
-                    specialParamArray.push( { key: 'session', value: argument } );
-                }
-            }
                 
             if (methodInfo.parameters && methodInfo.parameters.length > 0) {
                 let limit = Math.max( ...methodInfo.parameters.map( dp => dp.index ) );
