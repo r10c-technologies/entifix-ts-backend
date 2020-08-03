@@ -36,3 +36,4 @@ export * from './app-utilities/configuration/appConfigurationController';
 export * from './app-utilities/logger/entifixLogger';
 export * from './app-utilities/logger/entifixLoggerMessage';
 export * from './app-utilities/logger/entifixLoggerLevels';
+export * from './express-mongoose/emEntityManager/emEntityManager';
