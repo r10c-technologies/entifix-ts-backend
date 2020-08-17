@@ -2,10 +2,12 @@
 import { SearchOperator, AssertOperation } from "../schemas/CrossEnums";
 import { IEntityKey } from "../../../express-mongoose/emEntityMultiKey/emEntityMultiKey";
 
-function indentifySearchOperator ( undefinedOperator : any ) : { searchOperator : SearchOperator, identifier: IEntityKey | string }
+function  indentifySearchOperator ( undefinedOperator : any ) : { searchOperator : SearchOperator, identifier: IEntityKey | string | Array<IEntityKey> }
 {
     if ( undefinedOperator )
     {
+        if (undefinedOperator.$byKeys)
+            return { searchOperator:  SearchOperator.byKeys,  identifier: undefinedOperator.$byKeys as Array<IEntityKey> };
         if (undefinedOperator.$byKey)
             return { searchOperator:  SearchOperator.byKey,  identifier: undefinedOperator.$byKey as IEntityKey };
         else if (undefinedOperator.$byId)
@@ -15,7 +17,7 @@ function indentifySearchOperator ( undefinedOperator : any ) : { searchOperator 
     return null;
 }
 
-function identifyAssertOperation( undefinedOperator : any ) : { assertOperator : AssertOperation, searchOperator? : SearchOperator, identifier?: string | IEntityKey, entityData: any }
+function identifyAssertOperation( undefinedOperator : any ) : { assertOperator : AssertOperation, searchOperator? : SearchOperator, identifier?: string | IEntityKey | Array<IEntityKey>, entityData: any }
 {
     if (undefinedOperator)
     {

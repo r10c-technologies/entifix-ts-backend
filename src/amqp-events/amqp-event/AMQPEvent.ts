@@ -53,7 +53,7 @@ abstract class AMQPEvent
                     }, { publishOptions: options });
                     
                     let eventArgs = new AMQPEventArgs({
-                        eventArgs: { data: EMEntity.serializeComplexObject(data) }
+                        eventArgs: { data: this.useEntityComplexSerialization ? EMEntity.serializeComplexObject(data) : data }
                     });
 
                     resolve({ sender, eventArgs});
@@ -89,6 +89,9 @@ abstract class AMQPEvent
 
     get name() 
     { return this.constructor.name; }
+
+    protected get useEntityComplexSerialization()
+    { return false; }
 
     //#endregion
 

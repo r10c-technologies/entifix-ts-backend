@@ -1,6 +1,7 @@
 
 enum SearchOperator 
 {
+    byKeys = '$byKeys',
     byKey = '$byKey',
     byId = '$byId'
 }

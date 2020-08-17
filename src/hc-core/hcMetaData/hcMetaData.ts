@@ -4,8 +4,8 @@ import { Entity } from '../hcEntity/hcEntity';
 import { HcSession } from '../hcSession/hcSession';
 
 function DefinedEntity( );
-function DefinedEntity( params : { packageName? : string, abstract? : boolean, fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType>, inheritedMapping?: boolean } )
-function DefinedEntity( params? : { packageName : string, abstract? : boolean, fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType>, inheritedMapping?: boolean } )
+function DefinedEntity( params : { packageName? : string, abstract? : boolean, fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType>, inheritedMapping?: boolean, defaultAccessor?: string } )
+function DefinedEntity( params? : { packageName : string, abstract? : boolean, fixedSystemOwner? : string, allowRequestedType? : boolean | RequestedType | Array<RequestedType>, inheritedMapping?: boolean, defaultAccessor?: string } )
 {    
     return function(target : Function)
     {
@@ -22,7 +22,8 @@ function DefinedEntity( params? : { packageName : string, abstract? : boolean, f
             let options = {
                 fixedSystemOwner: params ? params.fixedSystemOwner : null,
                 allowRequestedType: params ? params.allowRequestedType : true,
-                inheritedMapping: params ? params.inheritedMapping : false
+                inheritedMapping: params ? params.inheritedMapping : false,
+                defaultAccessor: params ? params.defaultAccessor : null
             };
 
             let newInfo = new EntityInfo(target, options);

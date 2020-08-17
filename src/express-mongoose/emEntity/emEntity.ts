@@ -79,10 +79,9 @@ class EMEntity extends Entity
                                 }
                                 else {
                                     simpleObject[nameSerialized] = ( this[accessor.name] as EMEntity )._id;
-
                                     let defaultAccessor = accessor.activator.defaultAccessor;
                                     if (defaultAccessor)
-                                        simpleObject['$'+accessor.name] = this[defaultAccessor];
+                                        simpleObject['$'+accessor.name] = this[accessor.name][defaultAccessor];
                                 }
                         }
                     }
@@ -526,20 +525,12 @@ class EMEntity extends Entity
 
                     if (propertyValue instanceof EMEntity) 
                         setPropertyValue(propertyName, propertyValue.serializeExposedAccessors());
+                    else if (propertyValue instanceof Array)
+                        setPropertyValue(propertyName, propertyValue.map(element => serializeObject(element)));
+                    else if (typeof propertyValue == 'object')
+                        setPropertyValue(propertyName, serializeObject(propertyValue))
                     else
-                        switch(typeof propertyValue) {
-                            /*
-                            * Add more cases to manage serialization type
-                            *
-                            */
-
-                            case 'object':
-                                setPropertyValue(propertyName, serializeObject(propertyValue)); //Recursive iteration
-                                break;
-
-                            default:
-                                setPropertyValue(propertyName, propertyValue);
-                        }
+                        setPropertyValue(propertyName, propertyValue); 
                 }
 
             return serializedResult;
