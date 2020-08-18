@@ -257,32 +257,46 @@ abstract class EntifixApplication
             let deniedAccess = (message, errorCode?, error?) => response.status(errorCode || 401).send( Wrapper.wrapError(message, error).serializeSimpleObject() );
             
             //TOKEN VALIDATION
-            var token = request.get(header);
-            if (!token)
-            {
-                deniedAccess('Authorization required');
-                return;
-            }
-            
-            this.validateToken(token, request).then(
-                result => {
-                    if (!result.error)
-                    {
-                        if (result.success)
-                        {
-                            (request as any).privateUserData = result.privateUserData;
-                            next();
-                        }
-                        else if (result)
-                            deniedAccess( result.message )
-                    }
-                    else
-                        deniedAccess('Remote error on token validation', 500, this.serviceConfiguration.devMode ? result.error : null );
-                }                   
-            ).catch( error => deniedAccess('Error on token validation', 500, this.serviceConfiguration.devMode ? error : null ));
-            
+            let proceedWithTokenValidation = () => {
+                let token = request.get(header);
+                if (token) {
+                    this.validateToken(token, request).then(
+                        result => {
+                            if (!result.error)
+                            {
+                                if (result.success)
+                                {
+                                    (request as any).privateUserData = result.privateUserData;
+                                    next();
+                                }
+                                else if (result)
+                                    deniedAccess( result.message )
+                            }
+                            else
+                                deniedAccess('Remote error on token validation', 500, this.serviceConfiguration.devMode ? result.error : null );
+                        }                   
+                    ).catch( error => deniedAccess('Error on token validation', 500, this.serviceConfiguration.devMode ? error : null ));
+                }
+                else
+                    deniedAccess('Authorization required'); 
+            };
+
+            let whitelistResult = this.checkForWhitelistRoute(request);
+            if (whitelistResult instanceof Promise) 
+                whitelistResult
+                    .then( asyncResult => asyncResult ? next() : proceedWithTokenValidation())
+                    .catch( error => deniedAccess('Error on token validation', 500, this.serviceConfiguration.devMode ? error : null ));
+            else if (whitelistResult)
+                next();
+            else
+                proceedWithTokenValidation();            
         });
     } 
+
+    protected checkForWhitelistRoute(request : express.Request) : boolean | Promise<boolean>
+    {
+        return false;
+    }
 
     protected onServiceSessionCreated() : Promise<void>
     {
