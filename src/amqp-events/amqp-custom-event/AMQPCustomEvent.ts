@@ -57,6 +57,10 @@ class AMQPCustomEvent extends AMQPEvent
         return this._name;
     }
 
+    get useEntityComplexSerialization() {
+        return true;
+    }
+
     //#endregion
 }
 

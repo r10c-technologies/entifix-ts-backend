@@ -2,7 +2,7 @@
 import { SearchOperator, AssertOperation } from "../schemas/CrossEnums";
 import { IEntityKey } from "../../../express-mongoose/emEntityMultiKey/emEntityMultiKey";
 
-function  indentifySearchOperator ( undefinedOperator : any ) : { searchOperator : SearchOperator, identifier: IEntityKey | string | Array<IEntityKey> }
+function identifySearchOperator ( undefinedOperator : any ) : { searchOperator : SearchOperator, identifier: IEntityKey | string | Array<IEntityKey> }
 {
     if ( undefinedOperator )
     {
@@ -17,30 +17,32 @@ function  indentifySearchOperator ( undefinedOperator : any ) : { searchOperator
     return null;
 }
 
-function identifyAssertOperation( undefinedOperator : any ) : { assertOperator : AssertOperation, searchOperator? : SearchOperator, identifier?: string | IEntityKey | Array<IEntityKey>, entityData: any }
+function identifyAssertOperation( undefinedOperator : any ) : { assertOperator : AssertOperation, entityData: any }
 {
     if (undefinedOperator)
     {
-        let identifier: string | IEntityKey;
-        
-        if (undefinedOperator.$new && undefinedOperator.$new.$data) 
-            return { assertOperator: AssertOperation.NewInstance, entityData: undefinedOperator.$new.$data };
+        let assertOperator : AssertOperation;
+        let entityData : any;
 
-        if (undefinedOperator.$assert && undefinedOperator.$assert.$data) {
-            let entityData = undefinedOperator.$assert.$data;
-            delete undefinedOperator.$assert.$data;
-            let searchOperation = indentifySearchOperator(undefinedOperator.$assert);
-            if (!searchOperation) {
-                if (entityData && entityData.id)
-                    identifier = entityData.id.toString();
-                else if (entityData && entityData._id)
-                    identifier = entityData._id.toString();
+        if(undefinedOperator.$assert) {
+            assertOperator = AssertOperation.Assert;
+            entityData = undefinedOperator.$assert;
+        }
+        else if (undefinedOperator.$assertOverride) {
+            assertOperator = AssertOperation.AssertOverride;
+            entityData = undefinedOperator.$assertOverride;
+        }
+        else if (undefinedOperator.$new) {
+            assertOperator = AssertOperation.NewInstance;
+            entityData = undefinedOperator.$assertOverride;
+        }
 
-                return { assertOperator: AssertOperation.Assert, searchOperator: SearchOperator.byId, identifier, entityData };
-            }
-            else 
-                return { assertOperator: AssertOperation.Assert, searchOperator: searchOperation.searchOperator, identifier: searchOperation.identifier, entityData };   
-        }             
+        let identifiedSearchOperation = identifySearchOperator(undefinedOperator);
+
+        return { 
+            assertOperator, 
+            entityData
+        };        
     }
 
     return null;
@@ -48,6 +50,6 @@ function identifyAssertOperation( undefinedOperator : any ) : { assertOperator :
 
 
 export {
-    indentifySearchOperator,
+    identifySearchOperator,
     identifyAssertOperation
 }

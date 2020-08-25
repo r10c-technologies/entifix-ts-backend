@@ -9,7 +9,8 @@ enum SearchOperator
 enum AssertOperation 
 {
     Assert = '$assert',
-    NewInstance = '$new',   
+    NewInstance = '$new',
+    AssertOverride = '$assertOverride'   
 }
 
 enum CrossOperationErrorType 

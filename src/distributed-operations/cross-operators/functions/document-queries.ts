@@ -4,12 +4,12 @@ import { EMSession } from '../../../express-mongoose/emSession/emSession';
 import { EntityInfo } from '../../../hc-core/hcMetaData/hcMetaData';
 import { EMEntity, EntityDocument } from '../../../express-mongoose/emEntity/emEntity';
 import { SearchOperator } from '../schemas/CrossEnums';
-import { indentifySearchOperator } from './utilities';
+import { identifySearchOperator } from './utilities';
 
 
 async function findDocumentMultiKey<TDocument extends EntityDocument>(session : EMSession, info : EntityInfo, undefinedOperator : any ) : Promise<TDocument> 
 {
-    let searchOperator = indentifySearchOperator(undefinedOperator);
+    let searchOperator = identifySearchOperator(undefinedOperator);
 
     if (searchOperator)
     {
@@ -30,7 +30,7 @@ async function findDocumentMultiKey<TDocument extends EntityDocument>(session : 
 
 async function findDocument<TDocument extends EntityDocument>(session : EMSession, info : EntityInfo, undefinedOperator : any ) : Promise<TDocument> 
 {
-    let searchOperator = indentifySearchOperator(undefinedOperator);
+    let searchOperator = identifySearchOperator(undefinedOperator);
 
     if (searchOperator)
     {

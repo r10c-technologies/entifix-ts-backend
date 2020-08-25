@@ -5,7 +5,10 @@ import { EntifixLoggerMessage } from './entifixLoggerMessage';
  * Contains the implementation of the entifix logger
  */
 class EntifixLogger {
-    /**
+
+    //#region Static
+
+        /**
      * The current level of the logger.
      */
     private static _level: EntifixLoggerLevel = EntifixLoggerLevel.INFO;
@@ -147,14 +150,16 @@ class EntifixLogger {
     private static printLogMessage(type : EntifixLoggerLevel, log: EntifixLoggerMessage): string {
         return JSON.stringify({
             "type": type,
-            "systemOwner": log.systemOwner,
-            "user": log.user,
             "message": log.message,
-            "origin": log.origin,
+            "user": log.user,
+            "systemOwner": log.systemOwner,
             "developer": log.developer,
+            "origin": log.origin,
             "aditionalData": log.aditionalData
         });
     }
+
+    //#endregion 
 }
 
 
