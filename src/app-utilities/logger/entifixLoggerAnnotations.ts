@@ -43,9 +43,6 @@ function LogContextMethod()
                 let session = objectInstance instanceof EMEntity ? objectInstance.session : null;
                 _logDebug(`Call [${key}] in object type [${target.constructor.name}]`, '@LogContextMethod', 'herber230', session);
                 
-                // if (arguments && arguments[0])
-                //     args = arguments[0];
-
                 let contextMetadata = _getContextMetadata(objectInstance);
                 let subContext : EntifixLoggerContext;
                 
