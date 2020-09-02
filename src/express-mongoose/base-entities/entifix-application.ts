@@ -260,8 +260,10 @@ abstract class EntifixApplication
             let proceedWithTokenValidation = () => {
                 let token = request.get(header);
                 if (token) {
+                    this.localTrace('Performing token validation', 'herber230', 'protectRoutes->proceedWithTokenValidation');
                     this.validateToken(token, request).then(
                         result => {
+                            this.localTrace(`Incoming token validation result: [${JSON.stringify(result)}]`, 'herber230', 'protectRoutes->proceedWithTokenValidation');
                             if (!result.error)
                             {
                                 if (result.success)
@@ -275,7 +277,10 @@ abstract class EntifixApplication
                             else
                                 deniedAccess('Remote error on token validation', 500, this.serviceConfiguration.devMode ? result.error : null );
                         }                   
-                    ).catch( error => deniedAccess('Error on token validation', 500, this.serviceConfiguration.devMode ? error : null ));
+                    ).catch( error => {
+                        this.localError(`Local error on token validation: [${error}]`, 'herber230', 'protectRoutes->proceedWithTokenValidation');
+                        deniedAccess('Error on token validation', 500, this.serviceConfiguration.devMode ? error : null )
+                    });
                 }
                 else
                     deniedAccess('Authorization required'); 
@@ -285,7 +290,10 @@ abstract class EntifixApplication
             if (whitelistResult instanceof Promise) 
                 whitelistResult
                     .then( asyncResult => asyncResult ? next() : proceedWithTokenValidation())
-                    .catch( error => deniedAccess('Error on token validation', 500, this.serviceConfiguration.devMode ? error : null ));
+                    .catch( error => { 
+                            this.localError(`Local error on token validation including whitelistResult: [${error}]`, 'herber230', 'protectRoutes->proceedWithTokenValidation');
+                            deniedAccess('Error on token validation', 500, this.serviceConfiguration.devMode ? error : null )
+                        });
             else if (whitelistResult)
                 next();
             else
@@ -495,6 +503,29 @@ abstract class EntifixApplication
         console.log(`[>] Initial logger level: ${loggerLevel}`);
         EntifixLogger.setLevel(loggerLevel);
     }
+
+
+    private localTrace(message: string, developer: string, method: string) : void
+    {
+        EntifixLogger.trace({
+            message, developer, origin: { class: 'EntifixApplication', file: 'entifix-aplication', method}
+        });
+    }
+
+    private localDebug(message: string, developer: string, method: string) : void
+    {
+        EntifixLogger.debug({
+            message, developer, origin: { class: 'EntifixApplication', file: 'entifix-aplication', method}
+        });
+    }
+
+    private localError(message: string, developer: string, method: string) : void
+    {
+        EntifixLogger.error({
+            message, developer, origin: { class: 'EntifixApplication', file: 'entifix-aplication', method}
+        });
+    }
+
 
     //#endregion
 
