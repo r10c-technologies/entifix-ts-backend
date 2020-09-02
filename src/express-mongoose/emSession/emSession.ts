@@ -255,8 +255,9 @@ class EMSession extends HcSession
         let changes : Array<{property:string, oldValue:any, newValue:any}>;
         options = options || {};
 
+        let model = this.getModel(info.name);
+
         if (persistentData) {
-            let model = this.getModel(info.name);
             if (options.existingDocument)
                 document = options.existingDocument;
             else
@@ -277,6 +278,8 @@ class EMSession extends HcSession
             
             document.set(persistentData);
         }
+        else
+            document = new model() as TDocument;
         
         return { document, changes };
     }

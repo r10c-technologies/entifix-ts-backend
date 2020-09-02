@@ -53,7 +53,7 @@ function LogContextMethod()
                 
                 args[contextParamIndex] = subContext.setMethodName(key);
                 
-                originalMethod.apply(this, args);
+                return originalMethod.apply(this, args);
             }
         }
     }
