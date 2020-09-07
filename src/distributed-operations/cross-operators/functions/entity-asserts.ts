@@ -23,7 +23,7 @@ async function assertEntity<TEntity extends EMEntity, TDocument extends EntityDo
         foundEntity
     );
 
-    if (assertedEntity.isNew)
+    if (assertedEntity.isNew || ( assertedEntity.instancedChanges && assertedEntity.instancedChanges.length > 0))
         movFlowResult = await assertedEntity.save();
 
     return { assertedEntity, movFlowResult };
@@ -63,7 +63,7 @@ async function assertEntityMultiKey<TEntity extends EMEntityMultiKey, TDocument 
     else
         checkAdditionKey(findOperationDetails.identifier as IEntityKey);
 
-    if (newKeyAdded || assertedEntity.isNew)
+    if (newKeyAdded || assertedEntity.isNew || (assertedEntity.instancedChanges && assertedEntity.instancedChanges.length > 0))
         movFlowResult = await assertedEntity.save();
     
     return { movFlowResult, assertedEntity };
@@ -82,24 +82,27 @@ async function _processEntityAssertion<TEntity extends EMEntity, TDocument exten
     switch(assertOperation) {
         case AssertOperation.Assert:
             if (!foundEntity) {
-                let ingestion = await entityManager.ingestAsEntity<TEntity, TDocument>(info, entityData);
-                return ingestion.entity;
-            }
+                let entityIngest = await entityManager.ingestAsEntity<TEntity, TDocument>(info, entityData);
+                return entityIngest.entity;
+            }                
             else    
                 return foundEntity;
 
+        case AssertOperation.NewInstance:
+            let entityIngest = await entityManager.ingestAsEntity<TEntity, TDocument>(info, entityData);
+            return entityIngest.entity;
+
         case AssertOperation.AssertOverride:
             if (!foundEntity) {
-                let ingestion = await entityManager.ingestAsEntity<TEntity, TDocument>(info, entityData);
-                return ingestion.entity;
+                let entityIngest = await entityManager.ingestAsEntity<TEntity, TDocument>(info, entityData);
+                return entityIngest.entity;
+            }                
+            else {    
+                let deserialization = EMEntity.deserializeAccessors(info, entityData);
+                let overridenDocument = session.instanceDocument<TDocument>(info, deserialization.persistent, { existingDocument: foundEntity.getDocument() as TDocument })
+                let overridenEntity = await session.activateEntityInstance<TEntity, TDocument>(info, overridenDocument.document, { changes: overridenDocument.changes });
+                return overridenEntity
             }
-            else {
-                throw new exception("Not implemented yet");
-            }
-
-        case AssertOperation.NewInstance:
-            let ingestion = await entityManager.ingestAsEntity<TEntity, TDocument>(info, entityData);
-            return ingestion.entity;
     }
 }
 

@@ -257,30 +257,27 @@ class EMSession extends HcSession
 
         let model = this.getModel(info.name);
 
-        if (persistentData) {
-            if (options.existingDocument)
-                document = options.existingDocument;
-            else
-                document = new model(persistentData) as TDocument;          
-            
-            if (options.existingDocument) {
-                for ( let p in persistentData) {
-                    let oldValue = document[p];
-                    let newValue = persistentData[p];
-                    
-                    if (oldValue != newValue) {
-                        if (!changes)
-                            changes = [];
-                        changes.push( { property: p, oldValue, newValue } );
-                    }                                
-                }
-            }
-            
-            document.set(persistentData);
-        }
+        if (options.existingDocument)
+            document = options.existingDocument;
         else
-            document = new model() as TDocument;
+            document = new model(persistentData) as TDocument;          
         
+        if (options.existingDocument && persistentData) {
+            for ( let p in persistentData) {
+                let oldValue = document[p];
+                let newValue = persistentData[p];
+                
+                if (oldValue != newValue) {
+                    if (!changes)
+                        changes = [];
+                    changes.push( { property: p, oldValue, newValue } );
+                }                                
+            }
+        }
+
+        if (persistentData)        
+            document.set(persistentData);
+    
         return { document, changes };
     }
 

@@ -149,6 +149,7 @@ class EntifixLogger {
      */
     private static printLogMessage(type : EntifixLoggerLevel, log: EntifixLoggerMessage): string {
         return JSON.stringify({
+            "time": new Date(), 
             "type": type,
             "message": log.message,
             "user": log.user,
