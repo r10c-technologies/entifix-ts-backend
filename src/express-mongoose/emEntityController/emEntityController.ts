@@ -16,11 +16,11 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 {
     //#region Properties (Fields)
 
-    private _entityName : string;
-    private _responseWrapper : EMResponseEntityWrapper<TDocument, TEntity>;
-    private _useEntities : boolean;
-    private _resourceName : string;
-    private _routerManager : EMRouterManager;
+    protected _entityName : string;
+    protected _responseWrapper : EMResponseEntityWrapper<TDocument, TEntity>;
+    protected _useEntities : boolean;
+    protected _resourceName : string;
+    protected _routerManager : EMRouterManager;
     protected _router : express.Router;
     
     protected _definedRouteMethods : Array<{pathName: string, httpMethod : string, method: (req, res, next) => void}>
@@ -834,7 +834,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
     //#region Accessors (Properties)
 
     
-    get  entityInfo()
+    get entityInfo()
     {
         return this._routerManager.serviceSession.getInfo(this._entityName);
     }
@@ -858,6 +858,9 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
     get resourceName ()
     { return this._resourceName; }
+
+    get routerManager()
+    { return this._routerManager; }
 
     //#endregion
 }

@@ -12,10 +12,6 @@ import { EMServiceSession, EMSessionError } from '../emServiceSession/emServiceS
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import { EMEntityMultiKey, EntityKey, IEntityKey, IEntityKeyModel } from '../emEntityMultiKey/emEntityMultiKey';
 import moment = require('moment');
-import { stringify } from 'querystring';
-import { filter } from 'bluebird';
-import { EntifixApplicationModule } from '../base-entities/entifix-application-module';
-import { EntifixLogger } from '../../app-utilities/logger/entifixLogger';
 
 class EMSession extends HcSession
 {
