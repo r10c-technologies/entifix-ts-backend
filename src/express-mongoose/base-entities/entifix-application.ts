@@ -274,8 +274,11 @@ abstract class EntifixApplication
                                 else if (result)
                                     deniedAccess( result.message )
                             }
-                            else
-                                deniedAccess('Remote error on token validation', 500, this.serviceConfiguration.devMode ? result.error : null );
+                            else {
+                                let errorCode = result.errorCode || 500;
+                                let errorMessage = result.message || 'Remote error on token validation'; 
+                                deniedAccess(errorMessage, errorCode, this.serviceConfiguration.devMode ? result.error : null );
+                            }
                         }                   
                     ).catch( error => {
                         this.localError(`Local error on token validation: [${error}]`, 'herber230', 'protectRoutes->proceedWithTokenValidation');

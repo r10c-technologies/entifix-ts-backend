@@ -1,6 +1,7 @@
 
 interface TokenValidationResponse
 {
+    errorCode?: number
     error? : any,
     success: boolean,
     message?: string,
