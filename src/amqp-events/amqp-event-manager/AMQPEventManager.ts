@@ -74,13 +74,8 @@ class AMQPEventManager
             ch => {
                 ch.assertQueue(instance.queueDescription.name, instance.queueDescription.options);            
                 if (instance.exchangeDescription)
-                {
-                    let rkPathern = instance.routingKeyPattern;
-                    if (!rkPathern)
-                        this._serviceSession.throwException('It is necessary to define a routing key pattern if the delegate set a Exchange Description');
                     ch.bindQueue(instance.queueDescription.name, instance.exchangeDescription.name, instance.routingKeyPattern);
-                }
-
+                
                 EntifixLogger.trace({
                     message: `Delegate regitered and consuming messages: ${instance.name}`,
                     origin: { file: 'AMQPEventManager', method: 'public: registerEvent' },
