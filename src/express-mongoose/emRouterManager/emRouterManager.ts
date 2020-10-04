@@ -447,30 +447,54 @@ class EMRouterManager {
                     break;
                 }
                 case 'delete': 
-                {
-                    gfs.exist({_id:  id, root: fileCollection}, function (err, file) {
-                        if (!err || file) {
-                            gfs.remove({ _id: id, root: fileCollection }, function (err) {
-                                if (!err) 
-                                {                                        
-                                    if (expositionAccessorInfo.type == 'Array')
-                                    {                                                          
-                                        let index = (baseEntity[member]).findIndex( e => e._id == id);
-                                        (baseEntity[member]).splice(index, 1);
-                                    }
-                                    else
-                                    {
-                                        baseEntity[member] = null;
-                                    }    
-                                    resolve(fileEntity);
-                                }                                    
-                            });
-                        } 
-                        else 
-                        {
-                            constructionController.responseWrapper.logicError(session.response, "The file does not exists")
-                        }
-                    });
+                {                    
+                    let fileCollection = session.privateUserData.systemOwnerSelected + '.files';
+                    let chunkCollection = session.privateUserData.systemOwnerSelected + '.chunks';
+                    let unstrictSchema = new mongoose.Schema({}, { strict: false });
+                    let fileObjectId = mongoose.Types.ObjectId(id);
+                    let tempFilesModel = this.serviceSession.mongooseConnection.model(fileCollection, unstrictSchema);
+                    let tempChunksModel = this.serviceSession.mongooseConnection.model(chunkCollection, unstrictSchema);
+
+                    let deleteFileTask = tempFilesModel.findOneAndRemove({_id: fileObjectId}).then( result => result);
+
+                    let deleteChunksTask = new Promise<void>((resolve, reject) => 
+                        tempChunksModel.find({ files_id: fileObjectId }).select('_id').exec((err, res) => {
+                            if (!err) {
+                                if (res && res.length > 0)
+                                    Promise
+                                        .all(res.map(chunk => new Promise<void>((resolve, reject) =>
+                                            tempChunksModel.findOneAndRemove({ _id: chunk._id }, (err, res) => {
+                                                if (!err)
+                                                    resolve();
+                                                else
+                                                    reject(err);
+                                            })
+                                        )))
+                                        .then(() => resolve())
+                                        .catch(reject);
+                                else
+                                    resolve();
+                            }
+                            else
+                                reject(err);
+                        })
+                    );
+
+                    
+                    Promise
+                        .all([deleteChunksTask, deleteFileTask])
+                        .then( () => {          
+                                if (expositionAccessorInfo.type == 'Array') {                                                          
+                                    let index = (baseEntity[member]).findIndex( e => e._id == id);
+                                    (baseEntity[member]).splice(index, 1);
+                                }
+                                else
+                                    baseEntity[member] = null;
+                                 
+                                resolve(fileEntity);
+                            })
+                        .catch( reject );
+
                     break;
                 }
             }        
