@@ -12,6 +12,8 @@ import { EMServiceSession, EMSessionError } from '../emServiceSession/emServiceS
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import { EMEntityMultiKey, EntityKey, IEntityKey, IEntityKeyModel } from '../emEntityMultiKey/emEntityMultiKey';
 import moment = require('moment');
+import { CollectionUtilities } from '../../app-utilities/utility-functions/collection-utilities';
+import { EntifixLogger } from '../../app-utilities/logger/entifixLogger';
 
 class EMSession extends HcSession
 {
@@ -146,12 +148,15 @@ class EMSession extends HcSession
                         inconsistencies.sorting = mongoSorting.inconsistencies;
                 }                
                 
-                //CREATE QUERY =====>>>>>
+                //CREATE QUERY =====>>>>
+                this.emSessionLogTrace(`Using mongo filters: [${JSON.stringify(mongoFilters.filters)}]`, 'listDocuments', 'herber230');
                 let query = this.getModel<T>(entityName).find( mongoFilters.filters );
                 let countQuery = this.getModel<T>(entityName).find( mongoFilters.filters );
 
-                if (mongoSorting != null && mongoSorting.sorting != null)
+                if (mongoSorting != null && mongoSorting.sorting != null) {
+                    this.emSessionLogTrace(`Using mongo sorting params: [${JSON.stringify(mongoSorting.sorting)}]`, 'listDocuments', 'herber230');
                     query = query.sort( mongoSorting.sorting );
+                }
                 
                 if (skip > 0)
                     query = query.skip(skip);
@@ -390,25 +395,20 @@ class EMSession extends HcSession
     listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string, options : ListOptions ) : Promise<ListEntitiesResultDetails<TEntity>>;
     listEntities<TEntity extends EMEntity, TDocument extends EntityDocument>(entityName: string, options? : ListOptions ) : Promise<ListEntitiesResultDetails<TEntity>>
     {        
-        return new Promise<ListEntitiesResultDetails<TEntity>>((resolve, reject)=>{
-            this.listDocuments<TDocument>(entityName, options).then(
-                results => 
-                { 
-                    let entities = new Array<TEntity>();
-                    let promises = new Array<Promise<void>>();
-
-                    results.docs.forEach( docResult => {
-                        promises.push( this.activateEntityInstance<TEntity, TDocument>(this.getInfo(entityName), docResult).then( entity => { entities.push(entity) }));
-                    });
-
-                    Promise.all(promises).then(
-                        () => resolve({ entities, details: results.details }),
-                        error => reject(error) 
-                    );
-                },
-                error => reject(error)
-            );
-        }); 
+        return new Promise<ListEntitiesResultDetails<TEntity>>((resolve, reject)=>
+            this.listDocuments<TDocument>(entityName, options)
+                .then( results => 
+                    Promise
+                        .all(results.docs.map(docResult => this.activateEntityInstance<TEntity, TDocument>(this.getInfo(entityName), docResult)))
+                        .then( entities => {
+                                if (entities && entities.length > 0 && options && options.sorting)
+                                    CollectionUtilities.processSorting<TEntity>(entities, options.sorting);
+                                resolve({entities, details: results.details});
+                            })
+                        .catch(reject)
+                    )
+                .catch(reject)
+        ); 
     }
 
     listDocumentsByQuery<TDocument extends EntityDocument>(entityName : string, mongoFilters : any) : Promise<Array<TDocument>>
@@ -1039,6 +1039,49 @@ class EMSession extends HcSession
         warnDevMode = warnDevMode != null ? warnDevMode : true;
         this._serviceSession.throwInfo( message, warnDevMode );
     }
+
+
+    //Logs Section
+    private emSessionLogTrace(message: string, method: string, developer: string) :  void
+    {
+        EntifixLogger.trace({
+            message, developer,
+            origin: { file: 'emSession', class: 'EMSession', method},
+            systemOwner: this._privateUserData ? this._privateUserData.systemOwnerSelected : null,
+            user: this._privateUserData ? this._privateUserData.userName : null
+        })
+    }
+
+    private emSessionLogDebug(message: string, method: string, developer: string) :  void
+    {
+        EntifixLogger.debug({
+            message, developer,
+            origin: { file: 'emSession', class: 'EMSession', method},
+            systemOwner: this._privateUserData ? this._privateUserData.systemOwnerSelected : null,
+            user: this._privateUserData ? this._privateUserData.userName : null
+        })
+    }
+
+    private emSessionLogError(message: string, method: string, developer: string) :  void
+    {
+        EntifixLogger.error({
+            message, developer,
+            origin: { file: 'emSession', class: 'EMSession', method},
+            systemOwner: this._privateUserData ? this._privateUserData.systemOwnerSelected : null,
+            user: this._privateUserData ? this._privateUserData.userName : null
+        })
+    }
+
+    private emSessionLogFatal(message: string, method: string, developer: string) :  void
+    {
+        EntifixLogger.fatal({
+            message, developer,
+            origin: { file: 'emSession', class: 'EMSession', method},
+            systemOwner: this._privateUserData ? this._privateUserData.systemOwnerSelected : null,
+            user: this._privateUserData ? this._privateUserData.userName : null
+        })
+    }
+
 
     //#endregion
 
