@@ -1,4 +1,3 @@
-import { error } from "util";
 
 class Wrapper
 {

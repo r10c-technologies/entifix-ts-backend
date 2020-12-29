@@ -457,7 +457,7 @@ class EMEntityController<TDocument extends EntityDocument, TEntity extends EMEnt
 
                     case 'skip':
                     case 'take':
-                        queryParams.push( new QueryParam(qp, request.query[qp] ) );
+                        queryParams.push( new QueryParam(qp, request.query[qp] as string ) );
                         break;
 
                     //To implmente more query params

@@ -14,6 +14,7 @@ import { EMEntityMultiKey, EntityKey, IEntityKey, IEntityKeyModel } from '../emE
 import moment = require('moment');
 import { CollectionUtilities } from '../../app-utilities/utility-functions/collection-utilities';
 import { EntifixLogger } from '../../app-utilities/logger/entifixLogger';
+import { error } from 'console';
 
 class EMSession extends HcSession
 {
@@ -92,24 +93,14 @@ class EMSession extends HcSession
 
     updateDocument<T extends EntityDocument>(entityName: string, document: T ) : Promise<T>
     {   
-        return new Promise<T>((resolve, reject)=>{        
+        return new Promise<T>( (resolve, reject)=> {        
             let model = this.getModel<T>(entityName);
             this.manageDocumentUpdate(document);
 
             document
-                .update( document, (error, result) => {
-                    if (!error) {
-                        model.findById(document._id,(err, doc) =>{
-                            if (err)
-                                reject( this.createError(err, 'Document updated. It could not be reloaded') );
-                            else
-                                resolve(doc);   
-                        });
-                    }
-                    else 
-                        reject( this.handleMongoError(error, 'Error on document update') );
-                }
-            );
+                .save()
+                .then( document => resolve(document) )
+                .catch( error => reject(this.handleMongoError(error, 'Error on document update')) );
         });
     }
 
@@ -235,16 +226,13 @@ class EMSession extends HcSession
     deleteDocument<T extends EntityDocument>(entityName: string, document: T) : Promise<void>
     {        
         return new Promise<void>((resolve, reject)=>{        
-            let model = this.getModel<T>(entityName);
-            
+            let model = this.getModel<T>(entityName);            
             this.manageDocumentDeletion(document);
 
-            model.findByIdAndUpdate( document._id, document, (error, result) => {
-                if (!error)
-                    resolve();
-                else
-                    reject ( this.createError(error, 'Error in delete document') );
-            } );
+            document
+                .save()
+                .then( () => resolve() )
+                .catch( error => reject(this.handleMongoError(error, 'Error on delete document')) );
         });
     }
 

@@ -62,7 +62,7 @@ class AppConfigurationManager
                         if (results && results.length > 0)
                             this._session
                                 .getModel<IAppConfigurationModel>('AppConfiguration')
-                                .findByIdAndUpdate(results[0]._id, { value }, (err, result) => {
+                                .findByIdAndUpdate(results[0]._id, { value }, null, (err, result) => {
                                     if (!err) 
                                         resolve();
                                     else

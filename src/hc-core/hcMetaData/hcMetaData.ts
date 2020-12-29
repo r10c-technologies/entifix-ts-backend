@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import { error } from 'util';
 import { Entity } from '../hcEntity/hcEntity';
 import { HcSession } from '../hcSession/hcSession';
 
@@ -234,7 +233,7 @@ function defineMetaData( objectWithMetadata : any, creationType : CreationType )
     }
 
     if (!info)
-        throw new error('It was not possible to construct the metadata for the Object');
+        throw new Error('It was not possible to construct the metadata for the Object');
 
     return info;
 }

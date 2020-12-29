@@ -463,7 +463,7 @@ class EMRouterManager {
                                 if (res && res.length > 0)
                                     Promise
                                         .all(res.map(chunk => new Promise<void>((resolve, reject) =>
-                                            tempChunksModel.findOneAndRemove({ _id: chunk._id }, (err, res) => {
+                                            tempChunksModel.findOneAndRemove({ _id: chunk._id }, null,(err, res) => {
                                                 if (!err)
                                                     resolve();
                                                 else

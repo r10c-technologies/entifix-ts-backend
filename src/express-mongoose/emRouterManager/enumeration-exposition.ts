@@ -59,7 +59,7 @@ function createEnumController( name: string, enumerator : any, options? : Expose
                         };
 
                         if (queryValue instanceof Array) { 
-                            queryValue.map(extractFilter).filter( f => f != null ).forEach( f => equalFilters.set(f.key, f.value) );
+                            (queryValue as Array<any>).map(extractFilter).filter( f => f != null ).forEach( f => equalFilters.set(f.key, f.value) );
                         }
                         else {
                             let f = extractFilter(queryValue);
