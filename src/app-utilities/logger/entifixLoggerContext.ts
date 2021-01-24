@@ -100,7 +100,7 @@ class EntifixLoggerContext
     { return this._fileName; }
     set fileName(value)
     { this._fileName = value; }
-    setFileName(value)
+    setFileName(value : string)
     { this._fileName = value; return this; }
 
 
@@ -108,7 +108,7 @@ class EntifixLoggerContext
     { return this._className; }
     set className(value)
     { this._className = value; }
-    setClassName(value)
+    setClassName(value : string)
     { this._className = value; return this; }
 
 
@@ -116,7 +116,7 @@ class EntifixLoggerContext
     { return this._methodName; }
     set methodName(value)
     { this._methodName = value; }
-    setMethodName(value)
+    setMethodName(value : string)
     { this._methodName = value; return this; }
 
 
@@ -124,7 +124,7 @@ class EntifixLoggerContext
     { return this._session; }
     set session(value)
     { this._session = value; }
-    setSession(value)
+    setSession(value : EMSession)
     { this._session = value; return this; }
 
 

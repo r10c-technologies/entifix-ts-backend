@@ -2,17 +2,14 @@
 import express = require('express');
 import fileUpload = require('express-fileupload');
 import bodyParser = require('body-parser');
-import multer = require('multer');
 import cors = require('cors');
 import amqp = require('amqplib/callback_api');
-import redis = require('redis');
 import { EventEmitter } from 'events';
 
 //Core Framework
 import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
 import { TokenValidationRequest, TokenValidationResponse, PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
 import { EMRouterManager } from '../emRouterManager/emRouterManager';
-import { EntifixApplicationModule, IEntifixApplicationModuleModel } from './entifix-application-module';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
 import { AMQPEventManager, ExchangeType } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 import { TokenValidationRequestRPC } from '../../amqp-events/amqp-base-events/TokenValidationRequestRPC';
@@ -20,6 +17,7 @@ import { TokenValidationResponseRPC } from '../../amqp-events/amqp-base-events/T
 import { IEntityKeyModel, EntityKey } from '../emEntityMultiKey/emEntityMultiKey';
 import { EntifixLogger }from '../../app-utilities/logger/entifixLogger';
 import { EntifixLoggerLevel } from '../../app-utilities/logger/entifixLoggerLevels';
+import { EntifixLoggerFormat } from '../../app-utilities/logger/entifixLoggerFormat';
 
 interface EntifixAppConfig
 { 
@@ -36,7 +34,8 @@ interface EntifixAppConfig
     reportsService?: { host : string, port : string, path : string, methodToRequest : string },
     basePath?: string,
     useCacheForTokens?: boolean,
-    loggerLevel? : EntifixLoggerLevel
+    logger?: { level? : EntifixLoggerLevel, format?: EntifixLoggerFormat } 
+    fileUpLoadConfiguration? : any // To install correct types
 }
 
 interface MongoServiceConfig {
@@ -141,10 +140,9 @@ abstract class EntifixApplication
 
             //File uploader 
             // =====================================================================================================================
-            this._expressApp.use( fileUpload({
-                useTempFiles : true,
-                tempFileDir : '/tmp-core-files/'
-            })); 
+            if (this.serviceConfiguration.fileUpLoadConfiguration)
+                this._expressApp.use( fileUpload(this.serviceConfiguration.fileUpLoadConfiguration) ); 
+
             // =====================================================================================================================
             
             
@@ -502,9 +500,10 @@ abstract class EntifixApplication
 
     protected configureLogger() : void
     {
-        let loggerLevel = this.serviceConfiguration.loggerLevel;
-        console.log(`[>] Initial logger level: ${loggerLevel}`);
-        EntifixLogger.setLevel(loggerLevel);
+        if (this.serviceConfiguration.logger) {
+            EntifixLogger.setLevel(this.serviceConfiguration.logger.level);
+            EntifixLogger.setFormat(this.serviceConfiguration.logger.format);
+        }        
     }
 
 

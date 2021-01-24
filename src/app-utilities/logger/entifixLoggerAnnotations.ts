@@ -46,11 +46,18 @@ function LogContextMethod()
                 let contextMetadata = _getContextMetadata(objectInstance);
                 let subContext : EntifixLoggerContext;
                 
-                if (contextMetadata && objectInstance[contextMetadata.baseContextProperty])
+                if (contextMetadata && objectInstance[contextMetadata.baseContextProperty]) {
                     subContext = (objectInstance[contextMetadata.baseContextProperty] as EntifixLoggerContext).clone();
-                else
+                }
+                else {
                     subContext = new EntifixLoggerContext();
-                
+                    if (args && args.length > 0) {
+                        let paramsPairSession = args.find( a => a instanceof EMSession);
+                        if (paramsPairSession)
+                            subContext.setSession(paramsPairSession);
+                    }
+                }
+
                 args[contextParamIndex] = subContext.setMethodName(key);
                 
                 return originalMethod.apply(this, args);

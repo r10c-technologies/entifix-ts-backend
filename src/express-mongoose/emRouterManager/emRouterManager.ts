@@ -588,7 +588,7 @@ class EMRouterManager {
             } 
 
             if (options && options.method == 'delete') {
-                resolve();
+                resolve(null);
             }
 
             //Implement more types of validations

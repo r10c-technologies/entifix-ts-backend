@@ -1,3 +1,4 @@
+import { EntifixLoggerFormat } from './entifixLoggerFormat';
 import { EntifixLoggerLevel } from './entifixLoggerLevels';
 import { EntifixLoggerMessage } from './entifixLoggerMessage';
 
@@ -8,7 +9,7 @@ class EntifixLogger {
 
     //#region Static
 
-        /**
+    /**
      * The current level of the logger.
      */
     private static _level: EntifixLoggerLevel = EntifixLoggerLevel.INFO;
@@ -142,22 +143,62 @@ class EntifixLogger {
         }
     }
 
+
+    /**
+     * The current level of the logger.
+     */
+    private static _format: EntifixLoggerFormat = EntifixLoggerFormat.JSON;
+
+    static setFormat(format: EntifixLoggerFormat): void {
+        this._format = format;
+    }
+
+
     /**
      * @param log Logger message to print.
      * @typeParam EntifixLoggerMessage.
      * @returns A formmatted string value to print.
      */
     private static printLogMessage(type : EntifixLoggerLevel, log: EntifixLoggerMessage): string {
-        return JSON.stringify({
-            "time": new Date(), 
-            "type": type,
-            "message": log.message,
-            "user": log.user,
-            "systemOwner": log.systemOwner,
-            "developer": log.developer,
-            "origin": log.origin,
-            "aditionalData": log.aditionalData
-        });
+        if (this._format == EntifixLoggerFormat.JSON) {
+            return JSON.stringify({
+                "time": new Date(), 
+                "type": type,
+                "message": log.message,
+                "user": log.user,
+                "systemOwner": log.systemOwner,
+                "developer": log.developer,
+                "origin": log.origin,
+                "aditionalData": log.aditionalData
+            });
+        }
+        else if (this._format == EntifixLoggerFormat.PLAIN_LONG || this._format == EntifixLoggerFormat.PLAIN_SHORT) {
+            let isShort = this._format == EntifixLoggerFormat.PLAIN_SHORT;
+            let date = new Date();
+
+            let logMessageLine = `[${type}][${isShort?date.toLocaleTimeString():date.toLocaleString()}]: ${log.message}`;
+
+            if (!isShort) {
+                if (log.origin) {
+                    let originMessage = [log.origin.file, log.origin.class, log.origin.method].filter(Boolean).join('.');
+                    if (originMessage)
+                        logMessageLine += ` --origin=${originMessage}`;
+                }
+
+                let contextMessage = [log.systemOwner, log.user].filter(Boolean).join('.');
+                if (contextMessage)
+                    logMessageLine +=  ` --context=${contextMessage}`;
+                    
+                logMessageLine += ` --developer=${log.developer}`;
+            }
+            else if (log.origin) {
+                let originMessage = [log.origin.class, log.origin.method].filter(Boolean).join('.');
+                if (originMessage)
+                    logMessageLine += ` --origin=${originMessage}`;
+            }
+
+            return logMessageLine
+        }
     }
 
     //#endregion 
