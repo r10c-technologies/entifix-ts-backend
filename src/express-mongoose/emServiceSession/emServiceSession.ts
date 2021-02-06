@@ -573,7 +573,7 @@ class ModelActivator
         if (options && options.discriminator)
             return mongooseConnection.model(completeModelName).discriminator<T>(systemOwner + '.' + options.discriminator, schema);
         else
-            return mongooseConnection.model<T>(completeModelName, schema);
+            return mongooseConnection.model<T>(completeModelName, schema as any); // Temp forced type
     }
 }
  
