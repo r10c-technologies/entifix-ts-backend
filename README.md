@@ -23,7 +23,7 @@ Entifx use the following technologies to work:
 
 # Single Entity
 
-For example, if you would like to build an entity call **Brand** with  **name** and **contry** properties and accessors:
+For example, if you would like to build an entity call **Brand** with  **name** and **country** properties and accessors:
 
 ```
 class Brand
