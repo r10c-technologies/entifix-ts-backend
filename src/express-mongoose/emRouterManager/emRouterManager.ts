@@ -619,7 +619,8 @@ class EMRouterManager {
         if (!tuple) {
             let unstrictSchema = new mongoose.Schema({}, { strict: false });
             let model = this.serviceSession.mongooseConnection.model(modelName, unstrictSchema);
-            this._tempModels.push({ modelName, model });
+            tuple = { modelName, model };
+            this._tempModels.push(tuple);
         }
 
         return tuple.model;
