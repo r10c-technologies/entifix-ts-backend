@@ -11,11 +11,11 @@ import { EMResponseWrapper } from '../emWrapper/emWrapper';
 import { Wrapper } from '../../hc-core/hcWrapper/hcWrapper';
 import { AccessorInfo, MemberBindingType, EntityInfo } from '../../hc-core/hcMetaData/hcMetaData';
 import { EMServiceSession } from '../emServiceSession/emServiceSession';
-import { resolve, reject } from 'bluebird';
 import { EMMemberActivator, EMMemberTreeActivator } from '../emMetadata/emMetadata';
 import { EMEntityMultiKey } from '../emEntityMultiKey/emEntityMultiKey';
 import { EMEntityMutltiKeyController } from '../emEntityMultikeyController/emEntityMultiKeyController';
 import { createEnumController, ExposeEnumerationOptions } from './enumeration-exposition';
+
 
 class IExpositionDetail
 {
@@ -37,6 +37,7 @@ class EMRouterManager {
     private _expressAppInstance : express.Application;
     private _routers : Array<IExpositionDetail>;
     private _basePath: string;
+    private _tempModels: Array<{modelName: string, model: mongoose.Model<any>}>;
 
     //#endregion
 
@@ -448,12 +449,9 @@ class EMRouterManager {
                 }
                 case 'delete': 
                 {                    
-                    let fileCollection = session.privateUserData.systemOwnerSelected + '.files';
-                    let chunkCollection = session.privateUserData.systemOwnerSelected + '.chunks';
-                    let unstrictSchema = new mongoose.Schema({}, { strict: false });
                     let fileObjectId = mongoose.Types.ObjectId(id);
-                    let tempFilesModel = this.serviceSession.mongooseConnection.model(fileCollection, unstrictSchema);
-                    let tempChunksModel = this.serviceSession.mongooseConnection.model(chunkCollection, unstrictSchema);
+                    let tempFilesModel = this.getTemporalUnstrictModel(session.privateUserData.systemOwnerSelected + '.files');
+                    let tempChunksModel = this.getTemporalUnstrictModel(session.privateUserData.systemOwnerSelected + '.chunks');
 
                     let deleteFileTask = tempFilesModel.findOneAndRemove({_id: fileObjectId}).then( result => result);
 
@@ -610,6 +608,23 @@ class EMRouterManager {
 
         return completeBasePath;
     }
+
+    private getTemporalUnstrictModel(modelName: string)
+    {
+        if (!this._tempModels)
+            this._tempModels = Array<{modelName: string, model: mongoose.Model<any>}>();
+
+        let tuple = this._tempModels.find(tm => tm.modelName === modelName);
+
+        if (!tuple) {
+            let unstrictSchema = new mongoose.Schema({}, { strict: false });
+            let model = this.serviceSession.mongooseConnection.model(modelName, unstrictSchema);
+            tuple = { modelName, model };
+            this._tempModels.push(tuple);
+        }
+
+        return tuple.model;
+    } 
 
     //#endregion
 
