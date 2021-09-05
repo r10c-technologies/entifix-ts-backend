@@ -10,8 +10,6 @@ import { EMEntity, EntityDocument } from '../emEntity/emEntity';
 import { IMetaDataInfo, EntityInfo, PersistenceType, AccessorInfo, ExpositionType, MemberBindingType, MethodInfo} from '../../hc-core/hcMetaData/hcMetaData';
 import { EMSession } from '../emSession/emSession';
 import { PrivateUserData } from '../../hc-core/hcUtilities/interactionDataModels';
-import { AMQPEvent } from '../../amqp-events/amqp-event/AMQPEvent';
-import { AMQPDelegate } from '../../amqp-events/amqp-delegate/AMQPDelegate';
 import { AMQPEventManager, ExchangeDescription } from '../../amqp-events/amqp-event-manager/AMQPEventManager';
 import { MongoServiceConfig } from '../base-entities/entifix-application';
 
@@ -43,7 +41,8 @@ class EMServiceSession
 
     //Main artifact instances
     private _amqpEventManager : AMQPEventManager;
-    
+    private _utilInstances : Map<string, any>;
+
     private _entitiesInfo : Array<{ 
         name: string, 
         info: EntityInfo, 
@@ -451,6 +450,22 @@ class EMServiceSession
             this.throwException('It is not possible to use the Developer User Data without activate DevMode');
             return null;
         }
+    }
+
+    setUtilInstance<T>(key: string, utilInstance: T): void 
+    {
+        if (!this._utilInstances) {
+            this._utilInstances = new Map<string, any>();
+        }
+
+        const oldValue = this._utilInstances.has(key) ? this._utilInstances.get(key) : undefined;
+        this._utilInstances.set(key, utilInstance);
+        EMServiceSession.emit(`set.${key}`, {oldValue, newValue: utilInstance});
+    }
+
+    getUtilInstance<T>(key: string): T | undefined 
+    {
+        return this._utilInstances && this._utilInstances.has(key) ? this._utilInstances.get(key) : undefined;
     }
 
     //#endregion
