@@ -1,124 +1,106 @@
-import { EntifixLoggerContext } from "./entifixLoggerContext";
-import { EMEntity } from "../../express-mongoose/emEntity/emEntity";
-import { EntifixLogger } from "./entifixLogger";
-import { EMSession } from "../../express-mongoose/emSession/emSession";
-
+import { EntifixLoggerContext } from './entifixLoggerContext';
+import { EMEntity } from '../../express-mongoose/emEntity/emEntity';
+import { EntifixLogger } from './entifixLogger';
+import { EMSession } from '../../express-mongoose/emSession/emSession';
 
 function LogContextBaseInstance();
 function LogContextBaseInstance(params: { fileName?: string });
-function LogContextBaseInstance(params?: { fileName?: string }) 
-{
-    return function(target: any, key: string) {
-        _setContextMetadata(target, { baseContextProperty: key });
+function LogContextBaseInstance(params?: { fileName?: string }) {
+  return function (target: any, key: string) {
+    _setContextMetadata(target, { baseContextProperty: key });
 
-        Object.defineProperty(target, key, {
-            get: function () {
-                let objectInstance = this;
-                let internalKey = `__${key}`;
-                
-                if (!objectInstance[internalKey]) 
-                    objectInstance[internalKey] = new EntifixLoggerContext()
-                        .setClassName(target.constructor.name)    
-                        .setFileName(params?.fileName)
-                        .setSession(objectInstance instanceof EMEntity ? objectInstance.session : null);
+    Object.defineProperty(target, key, {
+      get: function () {
+        let objectInstance = this;
+        let internalKey = `__${key}`;
 
-                return objectInstance[internalKey];   
-            },
-            configurable: true,
-            enumerable: true
-        })
-    }
+        if (!objectInstance[internalKey])
+          objectInstance[internalKey] = new EntifixLoggerContext()
+            .setClassName(target.constructor.name)
+            .setFileName(params?.fileName)
+            .setSession(objectInstance instanceof EMEntity ? objectInstance.session : null);
+
+        return objectInstance[internalKey];
+      },
+      configurable: true,
+      enumerable: true,
+    });
+  };
 }
 
+function LogContextMethod() {
+  return function (target: Object, key: string, descriptor: TypedPropertyDescriptor<Function>) {
+    let contextParamIndex = _getParamContextMetadata(target, key);
 
-function LogContextMethod() 
-{
-    return function(target: Object, key: string, descriptor: TypedPropertyDescriptor<Function>) {
-        let contextParamIndex = _getParamContextMetadata(target, key);
-        
-        if (contextParamIndex != null) {
-            let originalMethod = descriptor.value;
-            descriptor.value = function (...args : any[]) {
-                let objectInstance = this;
-                let session = objectInstance instanceof EMEntity ? objectInstance.session : null;
-                _logDebug(`Call [${key}] in object type [${target.constructor.name}]`, '@LogContextMethod', 'herber230', session);
-                
-                let contextMetadata = _getContextMetadata(objectInstance);
-                let subContext : EntifixLoggerContext;
-                
-                if (contextMetadata && objectInstance[contextMetadata.baseContextProperty]) {
-                    subContext = (objectInstance[contextMetadata.baseContextProperty] as EntifixLoggerContext).clone();
-                }
-                else {
-                    subContext = new EntifixLoggerContext();
-                    if (args && args.length > 0) {
-                        let paramsPairSession = args.find( a => a instanceof EMSession);
-                        if (paramsPairSession)
-                            subContext.setSession(paramsPairSession);
-                    }
-                }
+    let originalMethod = descriptor.value;
+    descriptor.value = function (...args: any[]) {
+      let objectInstance = this;
+      let session = objectInstance instanceof EMEntity ? objectInstance.session : null;
+      _logDebug(`Call [${key}] in object type [${target.constructor.name}]`, '@LogContextMethod', 'herber230', session);
 
-                args[contextParamIndex] = subContext.setMethodName(key);
-                
-                return originalMethod.apply(this, args);
-            }
+      if (contextParamIndex != null) {
+        let contextMetadata = _getContextMetadata(objectInstance);
+        let subContext: EntifixLoggerContext;
+
+        if (contextMetadata && objectInstance[contextMetadata.baseContextProperty]) {
+          subContext = (objectInstance[contextMetadata.baseContextProperty] as EntifixLoggerContext).clone();
+        } else {
+          subContext = new EntifixLoggerContext();
+          if (args && args.length > 0) {
+            let paramsPairSession = args.find(a => a instanceof EMSession);
+            if (paramsPairSession) subContext.setSession(paramsPairSession);
+          }
         }
-    }
+
+        args[contextParamIndex] = subContext.setMethodName(key);
+      }
+
+      return originalMethod.apply(this, args);
+    };
+  };
 }
 
 function LogContextParam() {
-    return function(target: Object, key: string, index: number) {
-        _setParamContextMetadata(target, key, index);
-    }
+  return function (target: Object, key: string, index: number) {
+    _setParamContextMetadata(target, key, index);
+  };
 }
 
-
-
-
-
-//ANNOTATION LOGIC 
+//ANNOTATION LOGIC
 //==============================================================================================================================================
 
-const LoggerContextMetadaKey = Symbol("LoggerContextMetadaKey");
-const LoggerParamMetaKey = Symbol("LoggerParamMetaKey");
+const LoggerContextMetadaKey = Symbol('LoggerContextMetadaKey');
+const LoggerParamMetaKey = Symbol('LoggerParamMetaKey');
 
-interface LoggerContextMetadata
-{
-    baseContextProperty : string
+interface LoggerContextMetadata {
+  baseContextProperty: string;
 }
 
-function _setContextMetadata(target: any, metadata : LoggerContextMetadata) {
-    Reflect.defineMetadata(LoggerContextMetadaKey, metadata, target);
+function _setContextMetadata(target: any, metadata: LoggerContextMetadata) {
+  Reflect.defineMetadata(LoggerContextMetadaKey, metadata, target);
 }
 
-function _getContextMetadata(target: any) : LoggerContextMetadata {
-    return Reflect.getMetadata(LoggerContextMetadaKey, target);
+function _getContextMetadata(target: any): LoggerContextMetadata {
+  return Reflect.getMetadata(LoggerContextMetadaKey, target);
 }
 
 function _setParamContextMetadata(target: any, key: string, paramIndex) {
-    Reflect.defineMetadata(LoggerParamMetaKey, { paramIndex }, target, key);
+  Reflect.defineMetadata(LoggerParamMetaKey, { paramIndex }, target, key);
 }
 
-function _getParamContextMetadata(target: any, key: string) : number {
-    let data = Reflect.getMetadata(LoggerParamMetaKey, target, key);
-    return data ? data.paramIndex : null;
+function _getParamContextMetadata(target: any, key: string): number {
+  let data = Reflect.getMetadata(LoggerParamMetaKey, target, key);
+  return data ? data.paramIndex : null;
 }
 
-function _logDebug(message: string, method: string, developer: string, session: EMSession) 
-{
-    EntifixLogger.debug({
-        message, developer,
-        origin: { file: 'entifixLoggerAnnotation', method},
-        systemOwner: session?.privateUserData?.systemOwnerSelected,
-        user: session?.privateUserData?.userName
-    });
+function _logDebug(message: string, method: string, developer: string, session: EMSession) {
+  EntifixLogger.debug({
+    message,
+    developer,
+    origin: { file: 'entifixLoggerAnnotation', method },
+    systemOwner: session?.privateUserData?.systemOwnerSelected,
+    user: session?.privateUserData?.userName,
+  });
 }
 
-
-
-
-export {
-    LogContextBaseInstance,
-    LogContextParam,
-    LogContextMethod
-}
+export { LogContextBaseInstance, LogContextParam, LogContextMethod };

@@ -4,28 +4,33 @@ var replace = require('gulp-string-replace');
 var exec = require('child_process').exec;
 
 task('clean-dist', () => {
-    return del(['dist/**/*']);
+  return del(['dist/**/*']);
 });
 
-task('compile', series('clean-dist', (done) => {
-    exec('npm run compile', (err, stdout, stderr) => done(err))
-}));
+task(
+  'transpile',
+  series('clean-dist', done => {
+    exec('npm run transpile', (err, stdout, stderr) => done(err));
+  })
+);
 
-task('package', series('compile', (done) => {
+task(
+  'package',
+  series('transpile', done => {
     src('package.json')
-        .pipe(replace('dist/index.js','index.js'))
-        .pipe(replace('dist/index.d.ts','index.d.ts'))
-        .pipe(dest('dist/'));
+      .pipe(replace('dist/index.js', 'index.js'))
+      .pipe(replace('dist/index.d.ts', 'index.d.ts'))
+      .pipe(dest('dist/'));
 
     done();
-}));
+  })
+);
 
-
-task('package-src', series('package', (done) => {
-    src('src/**/*.ts')
-        .pipe(dest('dist/'));
+task(
+  'package-src',
+  series('package', done => {
+    src('src/**/*.ts').pipe(dest('dist/'));
 
     done();
-}));
-
-
+  })
+);
