@@ -35,7 +35,7 @@
     "reflect-metadata": "^0.1.10"
   },
   "devDependencies": {
-    "@commitlint/cli": "14.1",
+    "@commitlint/cli": "15.0",
     "@commitlint/config-conventional": "15.0",
     "@types/amqplib": "^0.8.2",
     "@types/body-parser": "^1.16.7",
