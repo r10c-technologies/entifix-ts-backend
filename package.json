@@ -28,7 +28,7 @@
     "express-fileupload": "^1.1.4",
     "gridfs-stream": "^1.1.1",
     "http-status-codes": "^2.1.4",
-    "moment": "^2.24.0",
+    "moment": "^2.29.4",
     "mongoose": "^6.0.12",
     "multer": "^1.4.1",
     "redis": "^3.0.2",
