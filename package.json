@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "@commitlint/cli": "15.0",
-    "@commitlint/config-conventional": "15.0",
+    "@commitlint/config-conventional": "17.1",
     "@types/amqplib": "^0.8.2",
     "@types/body-parser": "^1.16.7",
     "@types/cors": "^2.8.3",
